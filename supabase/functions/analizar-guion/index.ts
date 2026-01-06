@@ -18,7 +18,7 @@ serve(async (req) => {
       throw new Error('No se proporcionó texto del guión');
     }
 
-    console.log('Analizando guión con Lovable AI...');
+    console.log('Analizando guión...');
     console.log('Longitud del texto:', texto.length);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -26,237 +26,173 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY no está configurada');
     }
 
-    const analysisSchema = {
-      type: "function",
-      function: {
-        name: "analizar_guion_cinematografico",
-        description: "Analiza un guión cinematográfico y extrae información estructurada completa para desglose de producción",
-        parameters: {
-          type: "object",
-          properties: {
-            informacion_general: {
-              type: "object",
-              properties: {
-                titulo: { type: "string" },
-                genero: { type: "string" },
-                duracion_estimada_minutos: { type: "number" },
-                paginas_totales: { type: "number" },
-                paginas_dialogo: { type: "number" },
-                paginas_accion: { type: "number" }
-              },
-              required: ["titulo", "genero", "duracion_estimada_minutos", "paginas_totales", "paginas_dialogo", "paginas_accion"]
-            },
-            personajes: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  nombre: { type: "string" },
-                  categoria: { type: "string", enum: ["PROTAGONISTA", "PRINCIPAL", "SECUNDARIO", "FIGURACION"] },
-                  descripcion: { type: "string" },
-                  genero: { type: "string", enum: ["Masculino", "Femenino", "No especificado"] },
-                  edad_aproximada: { type: "string" },
-                  primera_aparicion: { type: "string" },
-                  escenas_aparicion: { type: "array", items: { type: "number" } },
-                  dias_rodaje_estimados: { type: "number" },
-                  dialogos_principales: { type: "boolean" },
-                  importancia_trama: { type: "string", enum: ["Alta", "Media", "Baja"] }
-                },
-                required: ["nombre", "categoria", "descripcion", "genero", "edad_aproximada", "primera_aparicion", "escenas_aparicion", "dias_rodaje_estimados", "dialogos_principales", "importancia_trama"]
-              }
-            },
-            localizaciones: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  nombre: { type: "string" },
-                  tipo: { type: "string", enum: ["INT", "EXT"] },
-                  momento_dia: { type: "string", enum: ["DÍA", "NOCHE", "ATARDECER", "AMANECER"] },
-                  descripcion: { type: "string" },
-                  escenas: { type: "array", items: { type: "number" } },
-                  paginas_totales: { type: "number" },
-                  dias_rodaje_estimados: { type: "number" },
-                  complejidad: { type: "string", enum: ["Baja", "Media", "Alta"] },
-                  necesidades_especiales: { type: "array", items: { type: "string" } }
-                },
-                required: ["nombre", "tipo", "momento_dia", "descripcion", "escenas", "paginas_totales", "dias_rodaje_estimados", "complejidad", "necesidades_especiales"]
-              }
-            },
-            desglose_secuencias: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  numero_secuencia: { type: "number" },
-                  numero_escena: { type: "string" },
-                  encabezado: { type: "string" },
-                  localizacion: { type: "string" },
-                  momento_dia: { type: "string" },
-                  paginas_octavos: { type: "number" },
-                  personajes: { type: "array", items: { type: "string" } },
-                  attrezzo: { type: "array", items: { type: "string" } },
-                  vestuario: { type: "array", items: { type: "string" } },
-                  vehiculos: { type: "array", items: { type: "string" } },
-                  efectos_especiales: { type: "array", items: { type: "string" } },
-                  complejidad_rodaje: { type: "string", enum: ["Baja", "Media", "Alta"] }
-                },
-                required: ["numero_secuencia", "numero_escena", "encabezado", "localizacion", "momento_dia", "paginas_octavos", "personajes", "attrezzo", "vestuario", "vehiculos", "efectos_especiales", "complejidad_rodaje"]
-              }
-            },
-            resumen_produccion: {
-              type: "object",
-              properties: {
-                total_personajes: {
-                  type: "object",
-                  properties: {
-                    protagonistas: { type: "number" },
-                    principales: { type: "number" },
-                    secundarios: { type: "number" },
-                    figuracion: { type: "number" }
-                  },
-                  required: ["protagonistas", "principales", "secundarios", "figuracion"]
-                },
-                total_localizaciones: {
-                  type: "object",
-                  properties: {
-                    interiores: { type: "number" },
-                    exteriores: { type: "number" }
-                  },
-                  required: ["interiores", "exteriores"]
-                },
-                dias_rodaje: {
-                  type: "object",
-                  properties: {
-                    estimacion_minima: { type: "number" },
-                    estimacion_maxima: { type: "number" },
-                    estimacion_recomendada: { type: "number" }
-                  },
-                  required: ["estimacion_minima", "estimacion_maxima", "estimacion_recomendada"]
-                },
-                complejidad_general: { type: "string", enum: ["Baja", "Media", "Alta"] }
-              },
-              required: ["total_personajes", "total_localizaciones", "dias_rodaje", "complejidad_general"]
-            }
-          },
-          required: ["informacion_general", "personajes", "localizaciones", "desglose_secuencias", "resumen_produccion"],
-          additionalProperties: false
-        }
-      }
-    };
+    // Truncar texto si es muy largo para evitar timeouts
+    const maxLength = 50000;
+    const textoTruncado = texto.length > maxLength 
+      ? texto.substring(0, maxLength) + '\n\n[TEXTO TRUNCADO POR LONGITUD]' 
+      : texto;
 
-    const systemPrompt = `Eres un experto en análisis de guiones cinematográficos profesional.
+    const systemPrompt = `Eres un experto en análisis de guiones cinematográficos.
+Analiza el guión y devuelve SOLO un JSON válido con esta estructura exacta:
 
-Tu tarea es analizar el guión proporcionado y extraer información estructurada para producción.
+{
+  "informacion_general": {
+    "titulo": "string",
+    "genero": "string", 
+    "duracion_estimada_minutos": number,
+    "paginas_totales": number,
+    "paginas_dialogo": number,
+    "paginas_accion": number
+  },
+  "personajes": [
+    {
+      "nombre": "string (EN MAYÚSCULAS)",
+      "categoria": "PROTAGONISTA|PRINCIPAL|SECUNDARIO|FIGURACION",
+      "descripcion": "string",
+      "genero": "Masculino|Femenino|No especificado",
+      "edad_aproximada": "string",
+      "primera_aparicion": "string",
+      "escenas_aparicion": [numbers],
+      "dias_rodaje_estimados": number,
+      "dialogos_principales": boolean,
+      "importancia_trama": "Alta|Media|Baja"
+    }
+  ],
+  "localizaciones": [
+    {
+      "nombre": "string",
+      "tipo": "INT|EXT",
+      "momento_dia": "DÍA|NOCHE|ATARDECER|AMANECER",
+      "descripcion": "string",
+      "escenas": [numbers],
+      "paginas_totales": number,
+      "dias_rodaje_estimados": number,
+      "complejidad": "Baja|Media|Alta",
+      "necesidades_especiales": ["strings"]
+    }
+  ],
+  "desglose_secuencias": [
+    {
+      "numero_secuencia": number,
+      "numero_escena": "string",
+      "encabezado": "string",
+      "localizacion": "string",
+      "momento_dia": "string",
+      "paginas_octavos": number,
+      "personajes": ["strings"],
+      "attrezzo": ["strings"],
+      "vestuario": ["strings"],
+      "vehiculos": ["strings"],
+      "efectos_especiales": ["strings"],
+      "complejidad_rodaje": "Baja|Media|Alta"
+    }
+  ],
+  "resumen_produccion": {
+    "total_personajes": {"protagonistas": 0, "principales": 0, "secundarios": 0, "figuracion": 0},
+    "total_localizaciones": {"interiores": 0, "exteriores": 0},
+    "dias_rodaje": {"estimacion_minima": 0, "estimacion_maxima": 0, "estimacion_recomendada": 0},
+    "complejidad_general": "Baja|Media|Alta"
+  }
+}
 
-REGLAS:
-- Usa los nombres de personajes EXACTAMENTE como aparecen en el guión (en mayúsculas)
-- Identifica TODOS los personajes, incluso figurantes
-- 1 página = 8/8 octavos, media página = 4/8
-- Categoriza personajes por importancia en la trama
-- NO inventes información
-- Si algo no está claro, marca "No especificado"
-- Extrae TODO: attrezzo, vestuario, vehículos, efectos`;
+IMPORTANTE: Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
 
-    // Try with different models as fallback
-    const models = ['openai/gpt-5-mini', 'google/gemini-2.5-flash'];
-    let lastError: Error | null = null;
+    console.log('Llamando a Lovable AI con GPT-5-mini...');
+    
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-5-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Analiza este guión:\n\n${textoTruncado}` }
+        ],
+        max_completion_tokens: 16000,
+      }),
+    });
+    
+    console.log('Respuesta recibida, status:', response.status);
 
-    for (const model of models) {
-      try {
-        console.log(`Intentando con modelo: ${model}`);
-        
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Analiza este guión cinematográfico:\n\n${texto}` }
-            ],
-            tools: [analysisSchema],
-            tool_choice: { type: "function", function: { name: "analizar_guion_cinematografico" } }
-          }),
-        });
-        
-        console.log(`Respuesta de ${model}, status:`, response.status);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error de ${model}:`, response.status, errorText);
-          
-          if (response.status === 429) {
-            return new Response(
-              JSON.stringify({ success: false, error: 'Límite de solicitudes excedido. Intenta de nuevo en unos momentos.' }),
-              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          if (response.status === 402) {
-            return new Response(
-              JSON.stringify({ success: false, error: 'Créditos insuficientes. Añade créditos a tu workspace.' }),
-              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          lastError = new Error(`Error de ${model}: ${response.status}`);
-          continue; // Try next model
-        }
-
-        const aiResponse = await response.json();
-        
-        // Check for content moderation errors in the response body
-        if (aiResponse.error) {
-          console.error(`Error en respuesta de ${model}:`, JSON.stringify(aiResponse.error));
-          if (aiResponse.error.message?.includes('PROHIBITED_CONTENT')) {
-            console.log('Contenido bloqueado por filtro de seguridad, probando siguiente modelo...');
-            lastError = new Error('Contenido bloqueado por el filtro de seguridad del modelo');
-            continue; // Try next model
-          }
-          lastError = new Error(aiResponse.error.message || 'Error desconocido');
-          continue;
-        }
-
-        const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
-        if (!toolCall || !toolCall.function?.arguments) {
-          console.error(`No se recibió tool call de ${model}:`, JSON.stringify(aiResponse));
-          lastError = new Error('No se recibió análisis estructurado');
-          continue; // Try next model
-        }
-
-        const analisis = JSON.parse(toolCall.function.arguments);
-        
-        console.log('Análisis completado con:', model);
-        console.log('Personajes:', analisis.personajes?.length || 0);
-        console.log('Localizaciones:', analisis.localizaciones?.length || 0);
-        console.log('Secuencias:', analisis.desglose_secuencias?.length || 0);
-
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error de API:', response.status, errorText);
+      
+      if (response.status === 429) {
         return new Response(
-          JSON.stringify({
-            success: true,
-            analisis,
-            metadata: {
-              modelo: model,
-              proveedor: 'lovable-ai',
-              timestamp: new Date().toISOString(),
-            }
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          JSON.stringify({ success: false, error: 'Límite de solicitudes excedido. Intenta de nuevo en unos momentos.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-
-      } catch (modelError) {
-        console.error(`Error con modelo ${model}:`, modelError);
-        lastError = modelError instanceof Error ? modelError : new Error('Error desconocido');
-        continue; // Try next model
       }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Créditos insuficientes. Añade créditos a tu workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error(`Error de API: ${response.status}`);
     }
 
-    // All models failed
-    throw lastError || new Error('No se pudo analizar el guión con ningún modelo disponible');
+    const aiResponse = await response.json();
+    console.log('Respuesta de IA recibida');
+    
+    // Check for errors in response
+    if (aiResponse.error) {
+      console.error('Error en respuesta:', JSON.stringify(aiResponse.error));
+      throw new Error(aiResponse.error.message || 'Error del modelo de IA');
+    }
+
+    const content = aiResponse.choices?.[0]?.message?.content;
+    if (!content) {
+      console.error('No se recibió contenido:', JSON.stringify(aiResponse));
+      throw new Error('No se recibió respuesta del modelo');
+    }
+
+    console.log('Contenido recibido, longitud:', content.length);
+
+    // Parse JSON from response
+    let analisis;
+    try {
+      // Remove markdown code blocks if present
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.slice(7);
+      } else if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.slice(3);
+      }
+      if (jsonStr.endsWith('```')) {
+        jsonStr = jsonStr.slice(0, -3);
+      }
+      jsonStr = jsonStr.trim();
+      
+      analisis = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Error parseando JSON:', parseError);
+      console.error('Contenido recibido:', content.substring(0, 500));
+      throw new Error('Error al parsear la respuesta del modelo');
+    }
+    
+    console.log('Análisis completado');
+    console.log('Personajes:', analisis.personajes?.length || 0);
+    console.log('Localizaciones:', analisis.localizaciones?.length || 0);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        analisis,
+        metadata: {
+          modelo: 'openai/gpt-5-mini',
+          proveedor: 'lovable-ai',
+          timestamp: new Date().toISOString(),
+        }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
 
   } catch (error) {
     console.error('Error en analizar-guion:', error);

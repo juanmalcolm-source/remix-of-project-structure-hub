@@ -26,6 +26,8 @@ import DesgloseLocalizacionesPage from "./pages/produccion/DesgloseLocalizacione
 import PlanRodajePage from "./pages/produccion/PlanRodajePage";
 import PresupuestoICAA from "./pages/produccion/PresupuestoICAA";
 import ExportExcelPage from "./pages/produccion/ExportExcelPage";
+import MemoriaProduccionPage from "./pages/produccion/MemoriaProduccionPage";
+import ExportDossierPage from "./pages/produccion/ExportDossierPage";
 
 // Financiacion Pages
 import ConfiguracionPage from "./pages/financiacion/ConfiguracionPage";
@@ -67,6 +69,8 @@ const App = () => (
             <Route path="/produccion/rodaje" element={<ProtectedRoute><PlanRodajePage /></ProtectedRoute>} />
             <Route path="/produccion/presupuesto" element={<ProtectedRoute><PresupuestoICAA /></ProtectedRoute>} />
             <Route path="/produccion/export" element={<ProtectedRoute><ExportExcelPage /></ProtectedRoute>} />
+            <Route path="/produccion/memoria" element={<ProtectedRoute><MemoriaProduccionPage /></ProtectedRoute>} />
+            <Route path="/produccion/dossier" element={<ProtectedRoute><ExportDossierPage /></ProtectedRoute>} />
             
             {/* Financiacion */}
             <Route path="/financiacion/configuracion" element={<ProtectedRoute><ConfiguracionPage /></ProtectedRoute>} />

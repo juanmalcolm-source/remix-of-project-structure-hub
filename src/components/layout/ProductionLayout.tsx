@@ -28,7 +28,9 @@ const productionTabs = [
   { id: 'localizaciones', label: 'Desglose Localizaciones', icon: MapPin, path: '/produccion/localizaciones' },
   { id: 'rodaje', label: 'Plan de Rodaje', icon: Calendar, path: '/produccion/rodaje' },
   { id: 'presupuesto', label: 'Presupuesto ICAA', icon: Calculator, path: '/produccion/presupuesto' },
+  { id: 'memoria', label: 'Memoria', icon: FileSpreadsheet, path: '/produccion/memoria' },
   { id: 'export', label: 'Export Excel', icon: FileSpreadsheet, path: '/produccion/export' },
+  { id: 'dossier', label: 'Export Dossier', icon: FileSpreadsheet, path: '/produccion/dossier' },
 ];
 
 export default function ProductionLayout({ 

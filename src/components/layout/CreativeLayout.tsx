@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -10,7 +10,9 @@ import {
   LogOut,
   Settings,
   ChevronRight,
-  Save
+  Save,
+  Clapperboard,
+  Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,15 +26,6 @@ interface CreativeLayoutProps {
   isSaving?: boolean;
 }
 
-const creativeTabs = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/proyecto/overview' },
-  { id: 'narrativo', label: 'Análisis Narrativo', icon: BookOpen, path: '/proyecto/narrativo' },
-  { id: 'personajes', label: 'Personajes', icon: Users, path: '/proyecto/personajes' },
-  { id: 'ventajas', label: 'Ventajas/Desventajas', icon: Scale, path: '/proyecto/ventajas' },
-  { id: 'viabilidad', label: 'Viabilidad', icon: Gauge, path: '/proyecto/viabilidad' },
-  { id: 'moodboard', label: 'Mood Board', icon: Palette, path: '/proyecto/moodboard' },
-];
-
 export default function CreativeLayout({ 
   children, 
   projectTitle = 'Mi Proyecto',
@@ -41,9 +34,17 @@ export default function CreativeLayout({
 }: CreativeLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { projectId } = useParams();
   const { user, profile, signOut } = useAuth();
 
-  const currentTab = creativeTabs.find(tab => location.pathname.includes(tab.id)) || creativeTabs[0];
+  const creativeTabs = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: `/proyecto/${projectId}/overview` },
+    { id: 'narrativo', label: 'Análisis Narrativo', icon: BookOpen, path: `/proyecto/${projectId}/narrativo` },
+    { id: 'personajes', label: 'Personajes', icon: Users, path: `/proyecto/${projectId}/personajes` },
+    { id: 'ventajas', label: 'Ventajas/Desventajas', icon: Scale, path: `/proyecto/${projectId}/ventajas` },
+    { id: 'viabilidad', label: 'Viabilidad', icon: Gauge, path: `/proyecto/${projectId}/viabilidad` },
+    { id: 'moodboard', label: 'Mood Board', icon: Palette, path: `/proyecto/${projectId}/moodboard` },
+  ];
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,7 +59,7 @@ export default function CreativeLayout({
           {/* Top bar */}
           <div className="flex items-center justify-between py-3 border-b border-border/50">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/upload')}>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/proyectos')}>
                 ← Proyectos
               </Button>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -67,6 +68,26 @@ export default function CreativeLayout({
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Section Navigation */}
+              <div className="hidden md:flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/produccion/${projectId}/personajes`)}
+                >
+                  <Clapperboard className="w-4 h-4 mr-1" />
+                  Producción
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/financiacion/${projectId}/configuracion`)}
+                >
+                  <Wallet className="w-4 h-4 mr-1" />
+                  Financiación
+                </Button>
+              </div>
+
               {/* Save status */}
               {isSaving && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -82,7 +103,7 @@ export default function CreativeLayout({
 
               {/* User menu */}
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground hidden md:inline">
                   {profile?.company_name || user?.email}
                 </span>
                 <Button variant="ghost" size="icon" onClick={() => navigate('/perfil')}>
@@ -106,7 +127,7 @@ export default function CreativeLayout({
                   key={tab.id}
                   variant={isActive ? 'secondary' : 'ghost'}
                   size="sm"
-                  onClick={() => navigate(tab.path, { state: location.state })}
+                  onClick={() => navigate(tab.path)}
                   className={cn(
                     'flex items-center gap-2 whitespace-nowrap',
                     isActive && 'bg-primary/10 text-primary'

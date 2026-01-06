@@ -27,6 +27,14 @@ import PlanRodajePage from "./pages/produccion/PlanRodajePage";
 import PresupuestoICAA from "./pages/produccion/PresupuestoICAA";
 import ExportExcelPage from "./pages/produccion/ExportExcelPage";
 
+// Financiacion Pages
+import ConfiguracionPage from "./pages/financiacion/ConfiguracionPage";
+import IntensidadPage from "./pages/financiacion/IntensidadPage";
+import TerritoriosPage from "./pages/financiacion/TerritoriosPage";
+import FuentesPage from "./pages/financiacion/FuentesPage";
+import SimuladorPage from "./pages/financiacion/SimuladorPage";
+import TimelinePage from "./pages/financiacion/TimelinePage";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +67,14 @@ const App = () => (
             <Route path="/produccion/rodaje" element={<ProtectedRoute><PlanRodajePage /></ProtectedRoute>} />
             <Route path="/produccion/presupuesto" element={<ProtectedRoute><PresupuestoICAA /></ProtectedRoute>} />
             <Route path="/produccion/export" element={<ProtectedRoute><ExportExcelPage /></ProtectedRoute>} />
+            
+            {/* Financiacion */}
+            <Route path="/financiacion/configuracion" element={<ProtectedRoute><ConfiguracionPage /></ProtectedRoute>} />
+            <Route path="/financiacion/intensidad" element={<ProtectedRoute><IntensidadPage /></ProtectedRoute>} />
+            <Route path="/financiacion/territorios" element={<ProtectedRoute><TerritoriosPage /></ProtectedRoute>} />
+            <Route path="/financiacion/fuentes" element={<ProtectedRoute><FuentesPage /></ProtectedRoute>} />
+            <Route path="/financiacion/simulador" element={<ProtectedRoute><SimuladorPage /></ProtectedRoute>} />
+            <Route path="/financiacion/timeline" element={<ProtectedRoute><TimelinePage /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

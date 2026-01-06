@@ -20,6 +20,13 @@ import VentajasPage from "./pages/proyecto/VentajasPage";
 import ViabilidadPage from "./pages/proyecto/ViabilidadPage";
 import MoodBoardPage from "./pages/proyecto/MoodBoardPage";
 
+// Produccion Pages
+import DesglosePersonajesPage from "./pages/produccion/DesglosePersonajesPage";
+import DesgloseLocalizacionesPage from "./pages/produccion/DesgloseLocalizacionesPage";
+import PlanRodajePage from "./pages/produccion/PlanRodajePage";
+import PresupuestoICAA from "./pages/produccion/PresupuestoICAA";
+import ExportExcelPage from "./pages/produccion/ExportExcelPage";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,16 +39,13 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
-            
-            {/* Protected routes */}
             <Route path="/" element={<Navigate to="/upload" replace />} />
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
             <Route path="/analisis" element={<ProtectedRoute><Analisis /></ProtectedRoute>} />
             
-            {/* Proyecto (Creative) routes */}
+            {/* Proyecto (Creative) */}
             <Route path="/proyecto/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
             <Route path="/proyecto/narrativo" element={<ProtectedRoute><NarrativoPage /></ProtectedRoute>} />
             <Route path="/proyecto/personajes" element={<ProtectedRoute><PersonajesPage /></ProtectedRoute>} />
@@ -49,7 +53,13 @@ const App = () => (
             <Route path="/proyecto/viabilidad" element={<ProtectedRoute><ViabilidadPage /></ProtectedRoute>} />
             <Route path="/proyecto/moodboard" element={<ProtectedRoute><MoodBoardPage /></ProtectedRoute>} />
             
-            {/* Catch-all */}
+            {/* Produccion */}
+            <Route path="/produccion/personajes" element={<ProtectedRoute><DesglosePersonajesPage /></ProtectedRoute>} />
+            <Route path="/produccion/localizaciones" element={<ProtectedRoute><DesgloseLocalizacionesPage /></ProtectedRoute>} />
+            <Route path="/produccion/rodaje" element={<ProtectedRoute><PlanRodajePage /></ProtectedRoute>} />
+            <Route path="/produccion/presupuesto" element={<ProtectedRoute><PresupuestoICAA /></ProtectedRoute>} />
+            <Route path="/produccion/export" element={<ProtectedRoute><ExportExcelPage /></ProtectedRoute>} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

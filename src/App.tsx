@@ -9,6 +9,7 @@ import ProtectedRoute from "@/components/layout/ProtectedRoute";
 // Pages
 import Auth from "./pages/Auth";
 import Upload from "./pages/Upload";
+import Proyectos from "./pages/Proyectos";
 import Perfil from "./pages/Perfil";
 import Analisis from "./pages/Analisis";
 
@@ -50,35 +51,36 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<Navigate to="/upload" replace />} />
+            <Route path="/" element={<Navigate to="/proyectos" replace />} />
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+            <Route path="/proyectos" element={<ProtectedRoute><Proyectos /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
             <Route path="/analisis" element={<ProtectedRoute><Analisis /></ProtectedRoute>} />
             
-            {/* Proyecto (Creative) */}
-            <Route path="/proyecto/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
-            <Route path="/proyecto/narrativo" element={<ProtectedRoute><NarrativoPage /></ProtectedRoute>} />
-            <Route path="/proyecto/personajes" element={<ProtectedRoute><PersonajesPage /></ProtectedRoute>} />
-            <Route path="/proyecto/ventajas" element={<ProtectedRoute><VentajasPage /></ProtectedRoute>} />
-            <Route path="/proyecto/viabilidad" element={<ProtectedRoute><ViabilidadPage /></ProtectedRoute>} />
-            <Route path="/proyecto/moodboard" element={<ProtectedRoute><MoodBoardPage /></ProtectedRoute>} />
+            {/* Proyecto (Creative) - with projectId */}
+            <Route path="/proyecto/:projectId/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
+            <Route path="/proyecto/:projectId/narrativo" element={<ProtectedRoute><NarrativoPage /></ProtectedRoute>} />
+            <Route path="/proyecto/:projectId/personajes" element={<ProtectedRoute><PersonajesPage /></ProtectedRoute>} />
+            <Route path="/proyecto/:projectId/ventajas" element={<ProtectedRoute><VentajasPage /></ProtectedRoute>} />
+            <Route path="/proyecto/:projectId/viabilidad" element={<ProtectedRoute><ViabilidadPage /></ProtectedRoute>} />
+            <Route path="/proyecto/:projectId/moodboard" element={<ProtectedRoute><MoodBoardPage /></ProtectedRoute>} />
             
-            {/* Produccion */}
-            <Route path="/produccion/personajes" element={<ProtectedRoute><DesglosePersonajesPage /></ProtectedRoute>} />
-            <Route path="/produccion/localizaciones" element={<ProtectedRoute><DesgloseLocalizacionesPage /></ProtectedRoute>} />
-            <Route path="/produccion/rodaje" element={<ProtectedRoute><PlanRodajePage /></ProtectedRoute>} />
-            <Route path="/produccion/presupuesto" element={<ProtectedRoute><PresupuestoICAA /></ProtectedRoute>} />
-            <Route path="/produccion/export" element={<ProtectedRoute><ExportExcelPage /></ProtectedRoute>} />
-            <Route path="/produccion/memoria" element={<ProtectedRoute><MemoriaProduccionPage /></ProtectedRoute>} />
-            <Route path="/produccion/dossier" element={<ProtectedRoute><ExportDossierPage /></ProtectedRoute>} />
+            {/* Produccion - with projectId */}
+            <Route path="/produccion/:projectId/personajes" element={<ProtectedRoute><DesglosePersonajesPage /></ProtectedRoute>} />
+            <Route path="/produccion/:projectId/localizaciones" element={<ProtectedRoute><DesgloseLocalizacionesPage /></ProtectedRoute>} />
+            <Route path="/produccion/:projectId/rodaje" element={<ProtectedRoute><PlanRodajePage /></ProtectedRoute>} />
+            <Route path="/produccion/:projectId/presupuesto" element={<ProtectedRoute><PresupuestoICAA /></ProtectedRoute>} />
+            <Route path="/produccion/:projectId/export" element={<ProtectedRoute><ExportExcelPage /></ProtectedRoute>} />
+            <Route path="/produccion/:projectId/memoria" element={<ProtectedRoute><MemoriaProduccionPage /></ProtectedRoute>} />
+            <Route path="/produccion/:projectId/dossier" element={<ProtectedRoute><ExportDossierPage /></ProtectedRoute>} />
             
-            {/* Financiacion */}
-            <Route path="/financiacion/configuracion" element={<ProtectedRoute><ConfiguracionPage /></ProtectedRoute>} />
-            <Route path="/financiacion/intensidad" element={<ProtectedRoute><IntensidadPage /></ProtectedRoute>} />
-            <Route path="/financiacion/territorios" element={<ProtectedRoute><TerritoriosPage /></ProtectedRoute>} />
-            <Route path="/financiacion/fuentes" element={<ProtectedRoute><FuentesPage /></ProtectedRoute>} />
-            <Route path="/financiacion/simulador" element={<ProtectedRoute><SimuladorPage /></ProtectedRoute>} />
-            <Route path="/financiacion/timeline" element={<ProtectedRoute><TimelinePage /></ProtectedRoute>} />
+            {/* Financiacion - with projectId */}
+            <Route path="/financiacion/:projectId/configuracion" element={<ProtectedRoute><ConfiguracionPage /></ProtectedRoute>} />
+            <Route path="/financiacion/:projectId/intensidad" element={<ProtectedRoute><IntensidadPage /></ProtectedRoute>} />
+            <Route path="/financiacion/:projectId/territorios" element={<ProtectedRoute><TerritoriosPage /></ProtectedRoute>} />
+            <Route path="/financiacion/:projectId/fuentes" element={<ProtectedRoute><FuentesPage /></ProtectedRoute>} />
+            <Route path="/financiacion/:projectId/simulador" element={<ProtectedRoute><SimuladorPage /></ProtectedRoute>} />
+            <Route path="/financiacion/:projectId/timeline" element={<ProtectedRoute><TimelinePage /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,15 +1,18 @@
 import { ReactNode } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { 
   Users, 
   MapPin, 
   Calendar, 
   Calculator,
   FileSpreadsheet,
+  FileText,
   LogOut,
   Settings,
   ChevronRight,
-  Save
+  Save,
+  Palette,
+  Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,16 +26,6 @@ interface ProductionLayoutProps {
   isSaving?: boolean;
 }
 
-const productionTabs = [
-  { id: 'personajes', label: 'Desglose Personajes', icon: Users, path: '/produccion/personajes' },
-  { id: 'localizaciones', label: 'Desglose Localizaciones', icon: MapPin, path: '/produccion/localizaciones' },
-  { id: 'rodaje', label: 'Plan de Rodaje', icon: Calendar, path: '/produccion/rodaje' },
-  { id: 'presupuesto', label: 'Presupuesto ICAA', icon: Calculator, path: '/produccion/presupuesto' },
-  { id: 'memoria', label: 'Memoria', icon: FileSpreadsheet, path: '/produccion/memoria' },
-  { id: 'export', label: 'Export Excel', icon: FileSpreadsheet, path: '/produccion/export' },
-  { id: 'dossier', label: 'Export Dossier', icon: FileSpreadsheet, path: '/produccion/dossier' },
-];
-
 export default function ProductionLayout({ 
   children, 
   projectTitle = 'Mi Proyecto',
@@ -41,7 +34,18 @@ export default function ProductionLayout({
 }: ProductionLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { projectId } = useParams();
   const { user, profile, signOut } = useAuth();
+
+  const productionTabs = [
+    { id: 'personajes', label: 'Desglose Personajes', icon: Users, path: `/produccion/${projectId}/personajes` },
+    { id: 'localizaciones', label: 'Desglose Localizaciones', icon: MapPin, path: `/produccion/${projectId}/localizaciones` },
+    { id: 'rodaje', label: 'Plan de Rodaje', icon: Calendar, path: `/produccion/${projectId}/rodaje` },
+    { id: 'presupuesto', label: 'Presupuesto ICAA', icon: Calculator, path: `/produccion/${projectId}/presupuesto` },
+    { id: 'memoria', label: 'Memoria', icon: FileText, path: `/produccion/${projectId}/memoria` },
+    { id: 'export', label: 'Export Excel', icon: FileSpreadsheet, path: `/produccion/${projectId}/export` },
+    { id: 'dossier', label: 'Export Dossier', icon: FileSpreadsheet, path: `/produccion/${projectId}/dossier` },
+  ];
 
   const handleSignOut = async () => {
     await signOut();
@@ -56,7 +60,7 @@ export default function ProductionLayout({
           {/* Top bar */}
           <div className="flex items-center justify-between py-3 border-b border-border/50">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/upload')}>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/proyectos')}>
                 ← Proyectos
               </Button>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -67,14 +71,25 @@ export default function ProductionLayout({
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Navigation to Creative */}
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/proyecto/overview', { state: location.state })}
-              >
-                Ir a Parte Creativa
-              </Button>
+              {/* Section Navigation */}
+              <div className="hidden md:flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/proyecto/${projectId}/overview`)}
+                >
+                  <Palette className="w-4 h-4 mr-1" />
+                  Creativa
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/financiacion/${projectId}/configuracion`)}
+                >
+                  <Wallet className="w-4 h-4 mr-1" />
+                  Financiación
+                </Button>
+              </div>
 
               {/* Save status */}
               {isSaving && (
@@ -91,7 +106,7 @@ export default function ProductionLayout({
 
               {/* User menu */}
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground hidden md:inline">
                   {profile?.company_name || user?.email}
                 </span>
                 <Button variant="ghost" size="icon" onClick={() => navigate('/perfil')}>
@@ -115,7 +130,7 @@ export default function ProductionLayout({
                   key={tab.id}
                   variant={isActive ? 'secondary' : 'ghost'}
                   size="sm"
-                  onClick={() => navigate(tab.path, { state: location.state })}
+                  onClick={() => navigate(tab.path)}
                   className={cn(
                     'flex items-center gap-2 whitespace-nowrap',
                     isActive && 'bg-orange-500/10 text-orange-700'

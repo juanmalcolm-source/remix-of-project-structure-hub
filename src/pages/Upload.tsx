@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,10 +8,13 @@ import FilePreview from '@/components/features/FilePreview';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { analizarGuion, obtenerMensajeError } from '@/services/analisisService';
+import { createProjectFromAnalysis } from '@/services/projectService';
+import { useAuth } from '@/hooks/useAuth';
 import type { AnalisisGuion } from '@/types/analisisGuion';
 
 export default function Upload() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
   const { toast } = useToast();
@@ -56,7 +59,7 @@ export default function Upload() {
   };
 
   const handleAnalyze = async () => {
-    if (!textoExtraido) return;
+    if (!textoExtraido || !user) return;
     
     setIsAnalyzing(true);
     setProgressMessage('Iniciando análisis...');
@@ -71,14 +74,18 @@ export default function Upload() {
       );
 
       console.log('Análisis completado:', analisis);
+      setProgressMessage('Guardando proyecto...');
+      
+      // Save to database
+      const projectId = await createProjectFromAnalysis(user.id, textoExtraido, analisis);
       
       toast({
         title: 'Análisis completado',
         description: `Se encontraron ${analisis.personajes.length} personajes y ${analisis.localizaciones.length} localizaciones`,
       });
 
-      // Navegar a página de análisis con el resultado
-      navigate('/analisis', { state: { analisis } });
+      // Navigate to project overview
+      navigate(`/proyecto/${projectId}/overview`);
       
     } catch (error) {
       console.error('Error al analizar:', error);
@@ -110,6 +117,18 @@ export default function Upload() {
           <p className="text-muted-foreground">
             Análisis inteligente de guiones con IA
           </p>
+        </div>
+
+        {/* View Projects Button */}
+        <div className="mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/proyectos')}
+            className="w-full"
+          >
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Ver mis proyectos
+          </Button>
         </div>
 
         {/* Área de upload / preview / loading */}

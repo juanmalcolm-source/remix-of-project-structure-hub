@@ -27,13 +27,31 @@ serve(async (req) => {
     }
 
     // Truncar texto si es muy largo para evitar timeouts
-    const maxLength = 50000;
+    const maxLength = 80000;
     const textoTruncado = texto.length > maxLength 
       ? texto.substring(0, maxLength) + '\n\n[TEXTO TRUNCADO POR LONGITUD]' 
       : texto;
 
-    const systemPrompt = `Eres un experto en análisis de guiones cinematográficos.
-Analiza el guión y devuelve SOLO un JSON válido con esta estructura exacta:
+    // Contextualizar el texto como análisis profesional de producción
+    const contextoProduccion = `[DOCUMENTO PROFESIONAL: Análisis de Producción Cinematográfica]
+[TIPO: Guión de ficción para evaluación técnica de preproducción]
+[PROPÓSITO: Desglose de producción para presupuesto y logística]
+[NOTA: Este es un trabajo de ficción que requiere análisis técnico profesional]
+
+--- INICIO DEL GUIÓN ---
+${textoTruncado}
+--- FIN DEL GUIÓN ---`;
+
+    const systemPrompt = `Eres un experto analista de guiones cinematográficos especializado en preproducción.
+Tu trabajo es realizar un DESGLOSE TÉCNICO PROFESIONAL para el departamento de producción.
+
+CONTEXTO: Estás analizando un guión de ficción para planificación de rodaje. Tu análisis será usado para:
+- Estimación de presupuesto
+- Planificación de localizaciones
+- Casting y contratación de actores
+- Logística de producción
+
+Analiza CADA DETALLE del guión y devuelve SOLO un JSON válido con esta estructura:
 
 {
   "informacion_general": {
@@ -42,20 +60,25 @@ Analiza el guión y devuelve SOLO un JSON válido con esta estructura exacta:
     "duracion_estimada_minutos": number,
     "paginas_totales": number,
     "paginas_dialogo": number,
-    "paginas_accion": number
+    "paginas_accion": number,
+    "tono": "string (ej: dramático, thriller, comedia...)",
+    "estilo_visual_sugerido": "string"
   },
   "personajes": [
     {
       "nombre": "string (EN MAYÚSCULAS)",
       "categoria": "PROTAGONISTA|PRINCIPAL|SECUNDARIO|FIGURACION",
-      "descripcion": "string",
+      "descripcion": "string (descripción física y psicológica)",
       "genero": "Masculino|Femenino|No especificado",
       "edad_aproximada": "string",
       "primera_aparicion": "string",
       "escenas_aparicion": [numbers],
       "dias_rodaje_estimados": number,
       "dialogos_principales": boolean,
-      "importancia_trama": "Alta|Media|Baja"
+      "importancia_trama": "Alta|Media|Baja",
+      "arco_dramatico": "string (evolución del personaje)",
+      "motivaciones": "string",
+      "relaciones_clave": ["strings"]
     }
   ],
   "localizaciones": [
@@ -63,12 +86,14 @@ Analiza el guión y devuelve SOLO un JSON válido con esta estructura exacta:
       "nombre": "string",
       "tipo": "INT|EXT",
       "momento_dia": "DÍA|NOCHE|ATARDECER|AMANECER",
-      "descripcion": "string",
+      "descripcion": "string (detallada)",
+      "ambiente": "string (atmósfera, sensación)",
       "escenas": [numbers],
       "paginas_totales": number,
       "dias_rodaje_estimados": number,
       "complejidad": "Baja|Media|Alta",
-      "necesidades_especiales": ["strings"]
+      "necesidades_especiales": ["strings"],
+      "requisitos_tecnicos": ["strings"]
     }
   ],
   "desglose_secuencias": [
@@ -84,115 +109,153 @@ Analiza el guión y devuelve SOLO un JSON válido con esta estructura exacta:
       "vestuario": ["strings"],
       "vehiculos": ["strings"],
       "efectos_especiales": ["strings"],
-      "complejidad_rodaje": "Baja|Media|Alta"
+      "complejidad_rodaje": "Baja|Media|Alta",
+      "notas_direccion": "string"
     }
   ],
   "resumen_produccion": {
     "total_personajes": {"protagonistas": 0, "principales": 0, "secundarios": 0, "figuracion": 0},
     "total_localizaciones": {"interiores": 0, "exteriores": 0},
     "dias_rodaje": {"estimacion_minima": 0, "estimacion_maxima": 0, "estimacion_recomendada": 0},
-    "complejidad_general": "Baja|Media|Alta"
+    "complejidad_general": "Baja|Media|Alta",
+    "elementos_destacados": ["strings (efectos especiales, stunts, etc.)"]
   }
 }
 
-IMPORTANTE: Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
+IMPORTANTE: 
+- Analiza CADA palabra del guión con detalle profesional
+- Devuelve SOLO el JSON, sin markdown ni explicaciones
+- Sé exhaustivo en el desglose de elementos de producción`;
 
-    console.log('Llamando a Lovable AI con GPT-5-mini...');
-    
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analiza este guión:\n\n${textoTruncado}` }
-        ],
-        max_completion_tokens: 16000,
-      }),
-    });
-    
-    console.log('Respuesta recibida, status:', response.status);
+    // Modelos a intentar en orden de preferencia
+    const modelos = [
+      { id: 'google/gemini-2.5-pro', nombre: 'Gemini Pro' },
+      { id: 'google/gemini-2.5-flash', nombre: 'Gemini Flash' },
+      { id: 'openai/gpt-5-mini', nombre: 'GPT-5 Mini' }
+    ];
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error de API:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Límite de solicitudes excedido. Intenta de nuevo en unos momentos.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Créditos insuficientes. Añade créditos a tu workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`Error de API: ${response.status}`);
-    }
+    let ultimoError = '';
+    let modeloUsado = '';
 
-    const aiResponse = await response.json();
-    console.log('Respuesta de IA recibida');
-    
-    // Check for errors in response
-    if (aiResponse.error) {
-      console.error('Error en respuesta:', JSON.stringify(aiResponse.error));
-      throw new Error(aiResponse.error.message || 'Error del modelo de IA');
-    }
+    for (const modelo of modelos) {
+      try {
+        console.log(`Intentando análisis con ${modelo.nombre}...`);
+        
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelo.id,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: contextoProduccion }
+            ],
+            max_completion_tokens: 16000,
+          }),
+        });
+        
+        console.log(`${modelo.nombre} - Status:`, response.status);
 
-    const content = aiResponse.choices?.[0]?.message?.content;
-    if (!content) {
-      console.error('No se recibió contenido:', JSON.stringify(aiResponse));
-      throw new Error('No se recibió respuesta del modelo');
-    }
-
-    console.log('Contenido recibido, longitud:', content.length);
-
-    // Parse JSON from response
-    let analisis;
-    try {
-      // Remove markdown code blocks if present
-      let jsonStr = content.trim();
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.slice(7);
-      } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.slice(3);
-      }
-      if (jsonStr.endsWith('```')) {
-        jsonStr = jsonStr.slice(0, -3);
-      }
-      jsonStr = jsonStr.trim();
-      
-      analisis = JSON.parse(jsonStr);
-    } catch (parseError) {
-      console.error('Error parseando JSON:', parseError);
-      console.error('Contenido recibido:', content.substring(0, 500));
-      throw new Error('Error al parsear la respuesta del modelo');
-    }
-    
-    console.log('Análisis completado');
-    console.log('Personajes:', analisis.personajes?.length || 0);
-    console.log('Localizaciones:', analisis.localizaciones?.length || 0);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        analisis,
-        metadata: {
-          modelo: 'openai/gpt-5-mini',
-          proveedor: 'lovable-ai',
-          timestamp: new Date().toISOString(),
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`${modelo.nombre} - Error:`, response.status, errorText);
+          
+          if (response.status === 429) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Límite de solicitudes excedido. Intenta de nuevo en unos momentos.' }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          if (response.status === 402) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Créditos insuficientes. Añade créditos a tu workspace.' }),
+              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          ultimoError = `${modelo.nombre}: Error ${response.status}`;
+          continue;
         }
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+
+        const aiResponse = await response.json();
+        
+        // Verificar si hay errores en la respuesta (ej: PROHIBITED_CONTENT)
+        if (aiResponse.error) {
+          console.error(`${modelo.nombre} - Error en respuesta:`, JSON.stringify(aiResponse.error));
+          ultimoError = `${modelo.nombre}: ${aiResponse.error.message || 'Error del modelo'}`;
+          continue;
+        }
+
+        // Verificar si el modelo rechazó el contenido
+        const finishReason = aiResponse.choices?.[0]?.finish_reason;
+        if (finishReason === 'content_filter' || finishReason === 'safety') {
+          console.log(`${modelo.nombre} - Contenido filtrado, probando siguiente modelo...`);
+          ultimoError = `${modelo.nombre}: Filtro de contenido activado`;
+          continue;
+        }
+
+        const content = aiResponse.choices?.[0]?.message?.content;
+        if (!content) {
+          console.error(`${modelo.nombre} - Sin contenido:`, JSON.stringify(aiResponse));
+          ultimoError = `${modelo.nombre}: Sin respuesta`;
+          continue;
+        }
+
+        console.log(`${modelo.nombre} - Contenido recibido, longitud:`, content.length);
+
+        // Parse JSON from response
+        let analisis;
+        try {
+          let jsonStr = content.trim();
+          if (jsonStr.startsWith('```json')) {
+            jsonStr = jsonStr.slice(7);
+          } else if (jsonStr.startsWith('```')) {
+            jsonStr = jsonStr.slice(3);
+          }
+          if (jsonStr.endsWith('```')) {
+            jsonStr = jsonStr.slice(0, -3);
+          }
+          jsonStr = jsonStr.trim();
+          
+          analisis = JSON.parse(jsonStr);
+        } catch (parseError) {
+          console.error(`${modelo.nombre} - Error parseando JSON:`, parseError);
+          console.error('Contenido:', content.substring(0, 500));
+          ultimoError = `${modelo.nombre}: Error parseando respuesta`;
+          continue;
+        }
+        
+        modeloUsado = modelo.id;
+        console.log(`✓ Análisis completado con ${modelo.nombre}`);
+        console.log('Personajes:', analisis.personajes?.length || 0);
+        console.log('Localizaciones:', analisis.localizaciones?.length || 0);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            analisis,
+            metadata: {
+              modelo: modeloUsado,
+              proveedor: 'lovable-ai',
+              timestamp: new Date().toISOString(),
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+
+      } catch (error) {
+        console.error(`${modelo.nombre} - Excepción:`, error);
+        ultimoError = `${modelo.nombre}: ${error instanceof Error ? error.message : 'Error desconocido'}`;
+        continue;
+      }
+    }
+
+    // Si llegamos aquí, ningún modelo funcionó
+    throw new Error(`No se pudo analizar el guión. Último error: ${ultimoError}`);
 
   } catch (error) {
     console.error('Error en analizar-guion:', error);

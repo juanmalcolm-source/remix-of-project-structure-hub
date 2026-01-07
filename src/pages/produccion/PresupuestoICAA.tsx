@@ -469,7 +469,7 @@ export default function PresupuestoICAA() {
     }
   };
 
-  // Flexible Excel parser
+  // Flexible Excel parser for ICAA format
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !projectId) return;
@@ -478,192 +478,214 @@ export default function PresupuestoICAA() {
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-
+      
       const lines: Omit<any, 'project_id'>[] = [];
-      let currentChapter = 1;
-      let chapterLineCount: Record<number, number> = {};
+      const chapterLineCount: Record<number, number> = {};
 
-      // Column name variants for detection
-      const conceptVariants = ['concepto', 'descripción', 'descripcion', 'detalle', 'partida', 'concept'];
-      const accountVariants = ['cuenta', 'código', 'codigo', 'núm', 'num', 'nº', 'partida', 'account'];
-      const totalVariants = ['total', 'importe', 'coste', 'precio', 'amount', '€'];
-
-      // Detect header row and column indices
-      let headerRowIndex = -1;
-      let colMap: { concept: number; account: number; total: number; units: number; quantity: number; unitPrice: number } = {
-        concept: -1, account: -1, total: -1, units: -1, quantity: -1, unitPrice: -1
+      // Parse number from various formats
+      const parseNumber = (val: any): number => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        const str = String(val).replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.');
+        return parseFloat(str) || 0;
       };
 
-      for (let i = 0; i < Math.min(15, jsonData.length); i++) {
-        const row = jsonData[i];
-        if (!row) continue;
+      // Process all sheets (CAPITULO 01, CAPITULO 02, etc.)
+      for (const sheetName of workbook.SheetNames) {
+        // Detect chapter from sheet name
+        const chapterMatch = sheetName.match(/CAPITULO\s*(\d{1,2})/i);
+        const sheetChapter = chapterMatch ? parseInt(chapterMatch[1]) : null;
         
-        for (let j = 0; j < row.length; j++) {
-          const cell = String(row[j] || '').toLowerCase().trim();
-          
-          if (conceptVariants.some(v => cell.includes(v)) && colMap.concept === -1) {
-            colMap.concept = j;
-            headerRowIndex = i;
-          }
-          if (accountVariants.some(v => cell.includes(v)) && colMap.account === -1) {
-            colMap.account = j;
-            headerRowIndex = i;
-          }
-          if (totalVariants.some(v => cell.includes(v)) && colMap.total === -1) {
-            colMap.total = j;
-          }
-          if (cell === 'ud' || cell === 'unidades' || cell === 'units') {
-            colMap.units = j;
-          }
-          if (cell === 'cantidad' || cell === 'qty' || cell === 'x') {
-            colMap.quantity = j;
-          }
-          if (cell.includes('€/ud') || cell.includes('precio') || cell.includes('unit')) {
-            colMap.unitPrice = j;
-          }
-        }
-        if (headerRowIndex >= 0) break;
-      }
-
-      // If no header found, try positional detection
-      if (headerRowIndex === -1) {
-        headerRowIndex = 0;
-        // Assume: Account | Concept | Units | Qty | Price | Total
-        colMap = { account: 0, concept: 1, units: 2, quantity: 3, unitPrice: 4, total: 5 };
-      }
-
-      // Parse data rows
-      for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        if (!row || row.every(cell => cell == null || String(cell).trim() === '')) continue;
-
-        // Check if this is a chapter header
-        const rowText = row.map(c => String(c || '')).join(' ').toUpperCase();
-        const chapterMatch = rowText.match(/CAP[ÍITU\.\s]*(\d{1,2})|CAPITULO\s*(\d{1,2})|^(\d{1,2})\s*[-–]\s*[A-Z]/);
-        if (chapterMatch) {
-          currentChapter = parseInt(chapterMatch[1] || chapterMatch[2] || chapterMatch[3]);
-          if (currentChapter >= 1 && currentChapter <= 12) continue;
-          currentChapter = 1; // Reset if invalid
-        }
-
-        // Extract values
-        let accountNumber = '';
-        let concept = '';
-        let units = 1;
-        let quantity = 1;
-        let unitPrice = 0;
-        let total = 0;
-
-        // Try to get account number
-        if (colMap.account >= 0 && row[colMap.account]) {
-          const accStr = String(row[colMap.account]).trim();
-          const accMatch = accStr.match(/(\d{1,2})[\.\-](\d{1,3})/);
-          if (accMatch) {
-            accountNumber = `${accMatch[1].padStart(2, '0')}.${accMatch[2].padStart(2, '0')}`;
-            // Update current chapter from account number
-            const chapFromAcc = parseInt(accMatch[1]);
-            if (chapFromAcc >= 1 && chapFromAcc <= 12) {
-              currentChapter = chapFromAcc;
-            }
-          }
-        }
-
-        // Get concept
-        if (colMap.concept >= 0 && row[colMap.concept]) {
-          concept = String(row[colMap.concept]).trim();
-        }
+        // Skip non-chapter sheets (PRESENTACION, INSTRUCCIONES, RESUMEN, etc.)
+        if (!sheetChapter && !sheetName.match(/RESUMEN/i)) continue;
         
-        // If no concept found, look for any text cell
-        if (!concept) {
-          for (const cell of row) {
-            if (typeof cell === 'string' && cell.length > 3 && isNaN(Number(cell.replace(/[.,\s€]/g, '')))) {
-              concept = cell.trim();
-              break;
-            }
-          }
-        }
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        
+        let currentChapter = sheetChapter || 1;
 
-        // Skip if no concept
-        if (!concept || concept.length < 2) continue;
-
-        // Get numeric values
-        const parseNumber = (val: any): number => {
-          if (typeof val === 'number') return val;
-          if (!val) return 0;
-          const str = String(val).replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.');
-          return parseFloat(str) || 0;
+        // Column detection for ICAA format
+        let colMap = {
+          account: -1,      // Núm. cuenta
+          concept: -1,      // Description
+          units: -1,        // UD (Días, etc.)
+          quantity: -1,     // X
+          unitPrice: -1,    // €
+          agency: -1,       // AG (%)
+          total: -1,        // REMUNERACIONES BRUTAS or ESPAÑA
         };
 
-        if (colMap.total >= 0) total = parseNumber(row[colMap.total]);
-        if (colMap.units >= 0) units = parseNumber(row[colMap.units]) || 1;
-        if (colMap.quantity >= 0) quantity = parseNumber(row[colMap.quantity]) || 1;
-        if (colMap.unitPrice >= 0) unitPrice = parseNumber(row[colMap.unitPrice]);
+        // ICAA column variants
+        const accountVariants = ['núm. cuenta', 'num. cuenta', 'núm cuenta', 'cuenta', 'nº'];
+        const unitsVariants = ['ud', 'unidades', 'días', 'dias'];
+        const quantityVariants = ['x', 'cantidad', 'qty'];
+        const priceVariants = ['€', 'precio', '€/ud', 'coste'];
+        const agencyVariants = ['ag', 'ag%', 'agencia'];
+        const totalVariants = ['remuneraciones brutas', 'españa', 'total', 'importe'];
 
-        // If we have total but no unit price, calculate it
-        if (total > 0 && unitPrice === 0 && units > 0 && quantity > 0) {
-          unitPrice = total / (units * quantity);
-        }
-
-        // If we have unit price but no total, calculate it
-        if (unitPrice > 0 && total === 0) {
-          total = units * quantity * unitPrice;
-        }
-
-        // Look for any number that could be the total if still not found
-        if (total === 0) {
-          for (let j = row.length - 1; j >= 0; j--) {
-            const num = parseNumber(row[j]);
-            if (num >= 100) { // Assume totals are at least 100€
-              total = num;
-              break;
+        // Find column indices from header rows
+        for (let i = 0; i < Math.min(20, jsonData.length); i++) {
+          const row = jsonData[i];
+          if (!row) continue;
+          
+          for (let j = 0; j < row.length; j++) {
+            const cell = String(row[j] || '').toLowerCase().trim();
+            
+            if (accountVariants.some(v => cell.includes(v)) && colMap.account === -1) {
+              colMap.account = j;
+            }
+            if (unitsVariants.some(v => cell === v) && colMap.units === -1) {
+              colMap.units = j;
+            }
+            if (quantityVariants.some(v => cell === v) && colMap.quantity === -1) {
+              colMap.quantity = j;
+            }
+            if (priceVariants.some(v => cell === v || cell.startsWith(v)) && colMap.unitPrice === -1) {
+              colMap.unitPrice = j;
+            }
+            if (agencyVariants.some(v => cell === v || cell.startsWith(v)) && colMap.agency === -1) {
+              colMap.agency = j;
+            }
+            if (totalVariants.some(v => cell.includes(v)) && colMap.total === -1) {
+              colMap.total = j;
             }
           }
         }
 
-        // Generate account number if missing
-        if (!accountNumber) {
-          if (!chapterLineCount[currentChapter]) chapterLineCount[currentChapter] = 0;
-          chapterLineCount[currentChapter]++;
-          accountNumber = `${currentChapter.toString().padStart(2, '0')}.${chapterLineCount[currentChapter].toString().padStart(2, '0')}`;
-        }
+        // Parse data rows
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (!row || row.every(cell => cell == null || String(cell).trim() === '')) continue;
 
-        lines.push({
-          chapter: currentChapter,
-          account_number: accountNumber,
-          concept,
-          units,
-          quantity,
-          unit_price: unitPrice,
-          agency_percentage: 0,
-          total,
-        });
+          // Check for chapter header in row
+          const rowText = row.map(c => String(c || '')).join(' ').toUpperCase();
+          const chapterInRow = rowText.match(/CAP[ÍITU\.\s]*(\d{1,2})|CAPITULO\s*(\d{1,2})/);
+          if (chapterInRow) {
+            const ch = parseInt(chapterInRow[1] || chapterInRow[2]);
+            if (ch >= 1 && ch <= 12) currentChapter = ch;
+          }
+
+          // Skip headers, totals, and empty conceptual rows
+          if (rowText.includes('TOTAL CAPITULO') || 
+              rowText.includes('SUMA Y SIGUE') || 
+              rowText.includes('SUMA ANTERIOR') ||
+              rowText.includes('REMUNERACIONES BRUTAS') ||
+              rowText.includes('I.R.P.F.') ||
+              rowText.includes('SEG.SOCIAL') ||
+              rowText.includes('DIETAS')) continue;
+
+          // Get account number from first cell or account column
+          let accountNumber = '';
+          const firstCell = String(row[0] || '').trim();
+          const accountMatch = firstCell.match(/^(\d{1,2})[\.\-](\d{1,2})[\.\-]?(\d{1,2})?/);
+          
+          if (accountMatch) {
+            const chap = parseInt(accountMatch[1]);
+            if (chap >= 1 && chap <= 12) currentChapter = chap;
+            accountNumber = `${accountMatch[1].padStart(2, '0')}.${accountMatch[2].padStart(2, '0')}`;
+          } else if (colMap.account >= 0 && row[colMap.account]) {
+            const accStr = String(row[colMap.account]).trim();
+            const accMatch = accStr.match(/(\d{1,2})[\.\-](\d{1,2})/);
+            if (accMatch) {
+              accountNumber = `${accMatch[1].padStart(2, '0')}.${accMatch[2].padStart(2, '0')}`;
+              const ch = parseInt(accMatch[1]);
+              if (ch >= 1 && ch <= 12) currentChapter = ch;
+            }
+          }
+
+          // Skip if no account number (not a budget line)
+          if (!accountNumber) continue;
+
+          // Get concept (usually second column)
+          let concept = '';
+          for (let j = 1; j < Math.min(4, row.length); j++) {
+            const cell = String(row[j] || '').trim();
+            // Skip markers like "+ D", "*", etc.
+            if (cell.length > 3 && !cell.match(/^[\+\*\s\-]+[DdSs]?$/) && isNaN(Number(cell.replace(/[.,\s€]/g, '')))) {
+              // Remove trailing dots
+              concept = cell.replace(/\.+$/, '').replace(/…+$/, '').trim();
+              break;
+            }
+          }
+
+          // Skip if concept is just a placeholder
+          if (!concept || concept === '*' || concept.length < 2) continue;
+
+          // Extract numeric values
+          let units = 1;
+          let quantity = 1;
+          let unitPrice = 0;
+          let agencyPct = 0;
+          let total = 0;
+
+          if (colMap.units >= 0) units = parseNumber(row[colMap.units]) || 1;
+          if (colMap.quantity >= 0) quantity = parseNumber(row[colMap.quantity]) || 1;
+          if (colMap.unitPrice >= 0) unitPrice = parseNumber(row[colMap.unitPrice]);
+          if (colMap.agency >= 0) {
+            const agVal = parseNumber(row[colMap.agency]);
+            agencyPct = agVal > 1 ? agVal : agVal * 100; // Handle both 15 and 0.15 formats
+          }
+          if (colMap.total >= 0) total = parseNumber(row[colMap.total]);
+
+          // Look for numbers in row if columns not detected
+          if (total === 0) {
+            for (let j = row.length - 1; j >= 2; j--) {
+              const num = parseNumber(row[j]);
+              if (num >= 50 && !String(row[j]).includes('%')) {
+                total = num;
+                break;
+              }
+            }
+          }
+
+          // Calculate missing values
+          if (total > 0 && unitPrice === 0 && units > 0 && quantity > 0) {
+            // Total might include agency, so reverse calculate
+            const multiplier = 1 + (agencyPct / 100);
+            unitPrice = total / (units * quantity * multiplier);
+          }
+
+          // Skip lines with no value
+          if (total === 0 && unitPrice === 0) continue;
+
+          lines.push({
+            chapter: currentChapter,
+            account_number: accountNumber,
+            concept,
+            units,
+            quantity,
+            unit_price: Math.round(unitPrice * 100) / 100,
+            agency_percentage: agencyPct,
+            // DO NOT include total - it's a generated column in the database
+          });
+        }
       }
 
       if (lines.length === 0) {
         toast({
           title: 'No se encontraron partidas',
-          description: 'El archivo no contiene datos reconocibles. Intenta con un archivo que tenga columnas de concepto y totales.',
+          description: 'El archivo no contiene datos reconocibles. Asegúrate de que tiene el formato ICAA con hojas por capítulo.',
           variant: 'destructive',
         });
         return;
       }
 
-      // Bulk insert
+      // Bulk insert (without total field)
       await bulkCreate.mutateAsync({ projectId, lines });
       setShowEmptyState(false);
       
+      // Count unique chapters
+      const uniqueChapters = new Set(lines.map(l => l.chapter)).size;
+      
       toast({
         title: '✓ Excel importado',
-        description: `Se importaron ${lines.length} partidas en ${Object.keys(chapterLineCount).length || 'varios'} capítulos`,
+        description: `Se importaron ${lines.length} partidas en ${uniqueChapters} capítulos`,
       });
     } catch (error) {
       console.error('Error importing Excel:', error);
       toast({
         title: 'Error al importar',
-        description: 'No se pudo leer el archivo Excel',
+        description: 'No se pudo leer el archivo Excel. Verifica que tiene el formato correcto.',
         variant: 'destructive',
       });
     } finally {

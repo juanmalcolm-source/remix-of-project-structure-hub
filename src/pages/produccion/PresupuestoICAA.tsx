@@ -7,9 +7,10 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
-  Upload,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  Sparkles,
+  FileUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +29,8 @@ import {
   useBulkCreateBudgetLines,
   type BudgetLine as DBBudgetLine
 } from '@/hooks/useBudgetLines';
+import { supabase } from '@/integrations/supabase/client';
+import { generarPresupuestoEstimado, type BudgetEstimationInput } from '@/services/budgetEstimator';
 
 interface LocalBudgetLine {
   id: string;
@@ -199,13 +202,73 @@ export default function PresupuestoICAA() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showEmptyState, setShowEmptyState] = useState(false);
 
   // Initialize chapters from DB
   useEffect(() => {
     if (!linesLoading) {
-      setChapters(groupByChapter(dbLines));
+      const grouped = groupByChapter(dbLines);
+      setChapters(grouped);
+      // Show empty state if no real budget lines (only defaults)
+      const hasRealData = dbLines.length > 0;
+      setShowEmptyState(!hasRealData);
     }
   }, [dbLines, linesLoading]);
+
+  // Generate estimated budget from analysis
+  const handleGenerateEstimation = async () => {
+    if (!projectId) return;
+    
+    setIsGenerating(true);
+    try {
+      // Fetch characters, locations, sequences, and creative analysis
+      const [charactersRes, locationsRes, sequencesRes, analysisRes] = await Promise.all([
+        supabase.from('characters').select('*').eq('project_id', projectId),
+        supabase.from('locations').select('*').eq('project_id', projectId),
+        supabase.from('sequences').select('*').eq('project_id', projectId),
+        supabase.from('creative_analysis').select('*').eq('project_id', projectId).single(),
+      ]);
+
+      const input: BudgetEstimationInput = {
+        characters: charactersRes.data || [],
+        locations: locationsRes.data || [],
+        sequences: sequencesRes.data || [],
+        creativeAnalysis: analysisRes.data || null,
+      };
+
+      if (input.characters.length === 0) {
+        toast({
+          title: 'Sin datos de análisis',
+          description: 'Primero analiza el guión para generar una estimación basada en personajes y localizaciones.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const estimatedLines = generarPresupuestoEstimado(input);
+      
+      // Insert all lines
+      await bulkCreate.mutateAsync({ 
+        projectId, 
+        lines: estimatedLines 
+      });
+
+      setShowEmptyState(false);
+      toast({
+        title: '✓ Presupuesto estimado generado',
+        description: `Se crearon ${estimatedLines.length} partidas basadas en el análisis del guión`,
+      });
+    } catch (error) {
+      console.error('Error generating estimation:', error);
+      toast({
+        title: 'Error al generar estimación',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleSaveLine = async (chapterId: number, line: LocalBudgetLine) => {
     if (!projectId) return;
@@ -336,6 +399,7 @@ export default function PresupuestoICAA() {
     }
   };
 
+  // Flexible Excel parser
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !projectId) return;
@@ -348,90 +412,170 @@ export default function PresupuestoICAA() {
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-      // Find header row
-      let headerRowIndex = 0;
-      for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+      const lines: Omit<any, 'project_id'>[] = [];
+      let currentChapter = 1;
+      let chapterLineCount: Record<number, number> = {};
+
+      // Column name variants for detection
+      const conceptVariants = ['concepto', 'descripción', 'descripcion', 'detalle', 'partida', 'concept'];
+      const accountVariants = ['cuenta', 'código', 'codigo', 'núm', 'num', 'nº', 'partida', 'account'];
+      const totalVariants = ['total', 'importe', 'coste', 'precio', 'amount', '€'];
+
+      // Detect header row and column indices
+      let headerRowIndex = -1;
+      let colMap: { concept: number; account: number; total: number; units: number; quantity: number; unitPrice: number } = {
+        concept: -1, account: -1, total: -1, units: -1, quantity: -1, unitPrice: -1
+      };
+
+      for (let i = 0; i < Math.min(15, jsonData.length); i++) {
         const row = jsonData[i];
-        if (row && row.some((cell: any) => 
-          typeof cell === 'string' && 
-          (cell.toLowerCase().includes('concepto') || 
-           cell.toLowerCase().includes('cuenta') ||
-           cell.toLowerCase().includes('partida'))
-        )) {
-          headerRowIndex = i;
-          break;
+        if (!row) continue;
+        
+        for (let j = 0; j < row.length; j++) {
+          const cell = String(row[j] || '').toLowerCase().trim();
+          
+          if (conceptVariants.some(v => cell.includes(v)) && colMap.concept === -1) {
+            colMap.concept = j;
+            headerRowIndex = i;
+          }
+          if (accountVariants.some(v => cell.includes(v)) && colMap.account === -1) {
+            colMap.account = j;
+            headerRowIndex = i;
+          }
+          if (totalVariants.some(v => cell.includes(v)) && colMap.total === -1) {
+            colMap.total = j;
+          }
+          if (cell === 'ud' || cell === 'unidades' || cell === 'units') {
+            colMap.units = j;
+          }
+          if (cell === 'cantidad' || cell === 'qty' || cell === 'x') {
+            colMap.quantity = j;
+          }
+          if (cell.includes('€/ud') || cell.includes('precio') || cell.includes('unit')) {
+            colMap.unitPrice = j;
+          }
         }
+        if (headerRowIndex >= 0) break;
       }
 
-      // Parse rows
-      const lines: Omit<any, 'project_id'>[] = [];
-      
+      // If no header found, try positional detection
+      if (headerRowIndex === -1) {
+        headerRowIndex = 0;
+        // Assume: Account | Concept | Units | Qty | Price | Total
+        colMap = { account: 0, concept: 1, units: 2, quantity: 3, unitPrice: 4, total: 5 };
+      }
+
+      // Parse data rows
       for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
         const row = jsonData[i];
-        if (!row || row.length === 0) continue;
+        if (!row || row.every(cell => cell == null || String(cell).trim() === '')) continue;
 
-        // Try to find account number (format: XX.XX or XX.XX.XX)
+        // Check if this is a chapter header
+        const rowText = row.map(c => String(c || '')).join(' ').toUpperCase();
+        const chapterMatch = rowText.match(/CAP[ÍITU\.\s]*(\d{1,2})|CAPITULO\s*(\d{1,2})|^(\d{1,2})\s*[-–]\s*[A-Z]/);
+        if (chapterMatch) {
+          currentChapter = parseInt(chapterMatch[1] || chapterMatch[2] || chapterMatch[3]);
+          if (currentChapter >= 1 && currentChapter <= 12) continue;
+          currentChapter = 1; // Reset if invalid
+        }
+
+        // Extract values
         let accountNumber = '';
         let concept = '';
         let units = 1;
         let quantity = 1;
         let unitPrice = 0;
-        let agencyPercentage = 0;
+        let total = 0;
 
-        for (let j = 0; j < row.length; j++) {
-          const cell = row[j];
-          if (cell == null) continue;
-
-          const cellStr = String(cell).trim();
-          
-          // Check if it's an account number (XX.XX pattern)
-          if (/^\d{1,2}\.\d{1,2}/.test(cellStr) && !accountNumber) {
-            accountNumber = cellStr;
-          }
-          // Check if it's a concept (text that's not a number)
-          else if (typeof cell === 'string' && cell.length > 2 && isNaN(Number(cell)) && !concept) {
-            concept = cell;
-          }
-          // Check for numeric values
-          else if (typeof cell === 'number' || !isNaN(Number(cell))) {
-            const num = Number(cell);
-            if (num > 0) {
-              if (unitPrice === 0 && num >= 100) {
-                unitPrice = num;
-              } else if (units === 1 && num < 100 && num > 0) {
-                if (quantity === 1) quantity = num;
-                else units = num;
-              }
+        // Try to get account number
+        if (colMap.account >= 0 && row[colMap.account]) {
+          const accStr = String(row[colMap.account]).trim();
+          const accMatch = accStr.match(/(\d{1,2})[\.\-](\d{1,3})/);
+          if (accMatch) {
+            accountNumber = `${accMatch[1].padStart(2, '0')}.${accMatch[2].padStart(2, '0')}`;
+            // Update current chapter from account number
+            const chapFromAcc = parseInt(accMatch[1]);
+            if (chapFromAcc >= 1 && chapFromAcc <= 12) {
+              currentChapter = chapFromAcc;
             }
           }
         }
 
-        // Skip if no valid data
-        if (!accountNumber || !concept) continue;
-
-        // Determine chapter from account number
-        const chapterMatch = accountNumber.match(/^(\d{1,2})\./);
-        const chapter = chapterMatch ? parseInt(chapterMatch[1]) : 1;
-
-        if (chapter >= 1 && chapter <= 12) {
-          const total = units * quantity * unitPrice * (1 + agencyPercentage / 100);
-          lines.push({
-            chapter,
-            account_number: accountNumber,
-            concept,
-            units,
-            quantity,
-            unit_price: unitPrice,
-            agency_percentage: agencyPercentage,
-            total,
-          });
+        // Get concept
+        if (colMap.concept >= 0 && row[colMap.concept]) {
+          concept = String(row[colMap.concept]).trim();
         }
+        
+        // If no concept found, look for any text cell
+        if (!concept) {
+          for (const cell of row) {
+            if (typeof cell === 'string' && cell.length > 3 && isNaN(Number(cell.replace(/[.,\s€]/g, '')))) {
+              concept = cell.trim();
+              break;
+            }
+          }
+        }
+
+        // Skip if no concept
+        if (!concept || concept.length < 2) continue;
+
+        // Get numeric values
+        const parseNumber = (val: any): number => {
+          if (typeof val === 'number') return val;
+          if (!val) return 0;
+          const str = String(val).replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.');
+          return parseFloat(str) || 0;
+        };
+
+        if (colMap.total >= 0) total = parseNumber(row[colMap.total]);
+        if (colMap.units >= 0) units = parseNumber(row[colMap.units]) || 1;
+        if (colMap.quantity >= 0) quantity = parseNumber(row[colMap.quantity]) || 1;
+        if (colMap.unitPrice >= 0) unitPrice = parseNumber(row[colMap.unitPrice]);
+
+        // If we have total but no unit price, calculate it
+        if (total > 0 && unitPrice === 0 && units > 0 && quantity > 0) {
+          unitPrice = total / (units * quantity);
+        }
+
+        // If we have unit price but no total, calculate it
+        if (unitPrice > 0 && total === 0) {
+          total = units * quantity * unitPrice;
+        }
+
+        // Look for any number that could be the total if still not found
+        if (total === 0) {
+          for (let j = row.length - 1; j >= 0; j--) {
+            const num = parseNumber(row[j]);
+            if (num >= 100) { // Assume totals are at least 100€
+              total = num;
+              break;
+            }
+          }
+        }
+
+        // Generate account number if missing
+        if (!accountNumber) {
+          if (!chapterLineCount[currentChapter]) chapterLineCount[currentChapter] = 0;
+          chapterLineCount[currentChapter]++;
+          accountNumber = `${currentChapter.toString().padStart(2, '0')}.${chapterLineCount[currentChapter].toString().padStart(2, '0')}`;
+        }
+
+        lines.push({
+          chapter: currentChapter,
+          account_number: accountNumber,
+          concept,
+          units,
+          quantity,
+          unit_price: unitPrice,
+          agency_percentage: 0,
+          total,
+        });
       }
 
       if (lines.length === 0) {
         toast({
           title: 'No se encontraron partidas',
-          description: 'El archivo no contiene partidas válidas con formato ICAA',
+          description: 'El archivo no contiene datos reconocibles. Intenta con un archivo que tenga columnas de concepto y totales.',
           variant: 'destructive',
         });
         return;
@@ -439,10 +583,11 @@ export default function PresupuestoICAA() {
 
       // Bulk insert
       await bulkCreate.mutateAsync({ projectId, lines });
+      setShowEmptyState(false);
       
       toast({
         title: '✓ Excel importado',
-        description: `Se importaron ${lines.length} partidas`,
+        description: `Se importaron ${lines.length} partidas en ${Object.keys(chapterLineCount).length || 'varios'} capítulos`,
       });
     } catch (error) {
       console.error('Error importing Excel:', error);
@@ -487,7 +632,68 @@ export default function PresupuestoICAA() {
       isSaving={isSaving}
     >
       <div className="space-y-6">
-        {/* Summary & Actions */}
+        {/* Empty State - Show options when no budget lines exist */}
+        {showEmptyState && (
+          <Card className="border-2 border-dashed border-primary/30">
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center space-y-6">
+                <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Calculator className="w-8 h-8 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">Comienza tu presupuesto</h3>
+                  <p className="text-muted-foreground mt-1">
+                    Elige cómo quieres empezar a trabajar en el presupuesto ICAA
+                  </p>
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-3 max-w-2xl mx-auto">
+                  <Button 
+                    variant="default"
+                    className="h-auto py-4 flex-col gap-2"
+                    onClick={handleGenerateEstimation}
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-6 h-6" />
+                    )}
+                    <span className="font-semibold">Generar estimación</span>
+                    <span className="text-xs opacity-80">Desde el análisis del guión</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    className="h-auto py-4 flex-col gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <FileUp className="w-6 h-6" />
+                    )}
+                    <span className="font-semibold">Importar Excel</span>
+                    <span className="text-xs opacity-80">Usa un proyecto de referencia</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost"
+                    className="h-auto py-4 flex-col gap-2"
+                    onClick={() => setShowEmptyState(false)}
+                  >
+                    <Plus className="w-6 h-6" />
+                    <span className="font-semibold">Empezar desde cero</span>
+                    <span className="text-xs opacity-80">Añade partidas manualmente</span>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Summary & Actions - Always visible */}
         <Card className="border-2 border-primary/20">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -500,27 +706,41 @@ export default function PresupuestoICAA() {
               </div>
               
               <div className="flex items-center gap-4">
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleImportExcel}
-                    className="hidden"
-                  />
-                  <Button 
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isImporting}
-                  >
-                    {isImporting ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    )}
-                    Importar Excel
-                  </Button>
-                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleImportExcel}
+                  className="hidden"
+                />
+                
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateEstimation}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Generar estimación
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isImporting}
+                >
+                  {isImporting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  )}
+                  Importar Excel
+                </Button>
                 
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">TOTAL PRESUPUESTO</p>
@@ -531,8 +751,8 @@ export default function PresupuestoICAA() {
           </CardContent>
         </Card>
 
-        {/* Chapters */}
-        {chapters.map((chapter) => (
+        {/* Chapters - Hide when showing empty state */}
+        {!showEmptyState && chapters.map((chapter) => (
           <Collapsible 
             key={chapter.id} 
             open={chapter.isOpen}
@@ -658,15 +878,17 @@ export default function PresupuestoICAA() {
           </Collapsible>
         ))}
 
-        {/* Grand Total */}
-        <Card className="border-2 border-primary">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <span className="text-xl font-semibold">TOTAL GENERAL</span>
-              <span className="text-3xl font-bold text-primary">{formatCurrency(grandTotal)}</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Grand Total - Hide when showing empty state */}
+        {!showEmptyState && (
+          <Card className="border-2 border-primary">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <span className="text-xl font-semibold">TOTAL GENERAL</span>
+                <span className="text-3xl font-bold text-primary">{formatCurrency(grandTotal)}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </ProductionLayout>
   );

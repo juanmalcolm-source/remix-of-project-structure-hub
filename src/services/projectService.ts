@@ -99,7 +99,7 @@ export async function createProjectFromAnalysis(
       project_id: projectId,
       name: loc.nombre,
       location_type: loc.tipo,
-      complexity: loc.complejidad || 'Media',
+      complexity: (loc.complejidad || 'media').toLowerCase(),
       estimated_days: Math.ceil(loc.dias_rodaje_estimados || 1), // Convert to integer
       special_needs: loc.necesidades_especiales?.join(', ') || '',
       production_notes: loc.descripcion || '',

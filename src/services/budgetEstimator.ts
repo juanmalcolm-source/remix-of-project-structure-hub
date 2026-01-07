@@ -67,7 +67,7 @@ export interface EstimatedBudgetLine {
   quantity: number;
   unit_price: number;
   agency_percentage: number;
-  total: number;
+  // total is calculated automatically by the database
 }
 
 // Base rates for estimation (editable by user later)
@@ -254,7 +254,6 @@ export function generarPresupuestoEstimado(input: BudgetEstimationInput): Estima
       quantity,
       unit_price: unitPrice,
       agency_percentage: agencyPct,
-      total: calculateTotal(units, quantity, unitPrice, agencyPct),
     });
   };
   
@@ -355,17 +354,17 @@ export function generarPresupuestoEstimado(input: BudgetEstimationInput): Estima
   }
   
   // ============ CHAPTER 10 - Seguros ============
-  const subtotalForInsurance = lines.reduce((sum, l) => sum + l.total, 0);
+  const subtotalForInsurance = lines.reduce((sum, l) => sum + (l.units * l.quantity * l.unit_price * (1 + l.agency_percentage / 100)), 0);
   addLine(10, 'Seguro de responsabilidad civil', 1, 1, Math.ceil(subtotalForInsurance * TARIFAS_BASE.seguro_rc_porcentaje));
   addLine(10, 'Seguro de negativo / material', 1, 1, Math.ceil(subtotalForInsurance * TARIFAS_BASE.seguro_negativo_porcentaje));
   addLine(10, 'Seguro de accidentes', 1, 1, 3000);
-  
+
   // ============ CHAPTER 11 - Gastos Generales ============
-  const subtotalForGeneral = lines.reduce((sum, l) => sum + l.total, 0);
+  const subtotalForGeneral = lines.reduce((sum, l) => sum + (l.units * l.quantity * l.unit_price * (1 + l.agency_percentage / 100)), 0);
   addLine(11, 'Gastos de oficina y comunicaciones', 1, 1, 3000);
   addLine(11, 'Asesoría legal y fiscal', 1, 1, 4000);
   addLine(11, 'Imprevistos (3%)', 1, 1, Math.ceil(subtotalForGeneral * TARIFAS_BASE.imprevistos_porcentaje));
-  
+
   // ============ CHAPTER 12 - Gastos Explotación ============
   addLine(12, 'Copias promocionales', 1, 1, TARIFAS_BASE.copias_promocionales);
   addLine(12, 'Publicidad y marketing inicial', 1, 1, TARIFAS_BASE.marketing_base);

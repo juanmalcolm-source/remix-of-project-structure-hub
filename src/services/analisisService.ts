@@ -1,9 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AnalisisGuion } from '@/types/analisisGuion';
 
-const TIMEOUT_MS = 120000; // 2 minutos para análisis completos
-const MAX_RETRIES = 2; // Reducido porque el timeout es mayor
-const RETRY_DELAY_MS = 3000; // 3 segundos entre reintentos
+// SIN LÍMITE DE TIEMPO - El análisis tarda lo que necesite
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 3000;
 
 interface AnalisisResponse {
   success: boolean;
@@ -72,29 +72,15 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Llama a la Edge Function con timeout
+ * Llama a la Edge Function SIN TIMEOUT - espera lo que sea necesario
  */
-async function llamarEdgeFunctionConTimeout(
-  texto: string,
-  timeoutMs: number
-): Promise<AnalisisResponse> {
-  // Usar Promise.race en lugar de AbortSignal para evitar el error "signal is aborted without reason"
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new AnalisisError(
-        'El análisis tardó demasiado tiempo. Por favor, intenta con un guión más corto.',
-        'TIMEOUT'
-      ));
-    }, timeoutMs);
-  });
-
-  const fetchPromise = (async (): Promise<AnalisisResponse> => {
+async function llamarEdgeFunction(texto: string): Promise<AnalisisResponse> {
+  try {
     const { data, error } = await supabase.functions.invoke('analizar-guion', {
       body: { texto },
     });
 
     if (error) {
-      // Detectar tipo de error
       if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
         throw new AnalisisError(
           'Límite de solicitudes excedido. Por favor, espera unos momentos antes de intentar de nuevo.',
@@ -119,10 +105,6 @@ async function llamarEdgeFunctionConTimeout(
     }
 
     return data as AnalisisResponse;
-  })();
-
-  try {
-    return await Promise.race([fetchPromise, timeoutPromise]);
   } catch (error) {
     if (error instanceof AnalisisError) {
       throw error;
@@ -162,20 +144,9 @@ export async function analizarGuion(
     );
   }
 
-  // Validar longitud del guión (estimación: 600 caracteres por página)
-  const paginasEstimadas = texto.length / 600;
-  if (paginasEstimadas > 200) {
-    throw new AnalisisError(
-      `El guión es muy extenso (aproximadamente ${Math.round(paginasEstimadas)} páginas). Divide en actos para analizar.`,
-      'GUION_MUY_LARGO',
-      undefined,
-      {
-        sugerencia: 'Los guiones muy largos pueden causar timeouts. Considera analizar por actos o secciones.',
-        accion: 'Dividir guión',
-        accionSecundaria: 'Analizar primeras 100 páginas'
-      }
-    );
-  }
+  // Sin límite de páginas - analizar guiones de cualquier tamaño
+  const paginasEstimadas = Math.round(texto.length / 600);
+  console.log(`Analizando guión de aproximadamente ${paginasEstimadas} páginas`);
 
   let lastError: AnalisisError | null = null;
 
@@ -189,7 +160,7 @@ export async function analizarGuion(
         intento
       );
 
-      const response = await llamarEdgeFunctionConTimeout(texto, TIMEOUT_MS);
+      const response = await llamarEdgeFunction(texto);
 
       // Validar estructura de respuesta
       if (!validarAnalisis(response)) {

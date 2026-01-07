@@ -27,15 +27,19 @@ serve(async (req) => {
     }
 
     // Truncar texto si es muy largo para evitar timeouts
-    const maxLength = 80000;
+    const maxLength = 100000;
     const textoTruncado = texto.length > maxLength 
       ? texto.substring(0, maxLength) + '\n\n[TEXTO TRUNCADO POR LONGITUD]' 
       : texto;
+
+    // Calcular páginas del guión (aprox 600 chars por página)
+    const paginasEstimadas = Math.ceil(texto.length / 600);
 
     // Contextualizar el texto como análisis profesional de producción
     const contextoProduccion = `[DOCUMENTO PROFESIONAL: Análisis de Producción Cinematográfica]
 [TIPO: Guión de ficción para evaluación técnica de preproducción]
 [PROPÓSITO: Desglose de producción para presupuesto y logística]
+[PÁGINAS ESTIMADAS: ${paginasEstimadas}]
 [NOTA: Este es un trabajo de ficción que requiere análisis técnico profesional]
 
 --- INICIO DEL GUIÓN ---
@@ -43,89 +47,129 @@ ${textoTruncado}
 --- FIN DEL GUIÓN ---`;
 
     const systemPrompt = `Eres un experto analista de guiones cinematográficos especializado en preproducción.
-Tu trabajo es realizar un DESGLOSE TÉCNICO PROFESIONAL para el departamento de producción.
+Tu trabajo es realizar un ANÁLISIS EXHAUSTIVO Y COMPLETO para el departamento de producción.
 
-CONTEXTO: Estás analizando un guión de ficción para planificación de rodaje. Tu análisis será usado para:
+CONTEXTO: Estás analizando un guión de ficción. Tu análisis será usado para:
+- Presentación del proyecto a inversores y distribuidores
 - Estimación de presupuesto
 - Planificación de localizaciones
 - Casting y contratación de actores
 - Logística de producción
 
-Analiza CADA DETALLE del guión y devuelve SOLO un JSON válido con esta estructura:
+Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta estructura COMPLETA:
 
 {
   "informacion_general": {
-    "titulo": "string",
-    "genero": "string", 
-    "duracion_estimada_minutos": number,
+    "titulo": "string (título del guión)",
+    "genero": "string (Drama, Thriller, Comedia, etc.)", 
+    "duracion_estimada_minutos": number (páginas × 1),
     "paginas_totales": number,
-    "paginas_dialogo": number,
-    "paginas_accion": number,
-    "tono": "string (ej: dramático, thriller, comedia...)",
-    "estilo_visual_sugerido": "string"
+    "paginas_dialogo": number (estimado),
+    "paginas_accion": number (estimado),
+    "tono": "string (ej: dramático, thriller, comedia, oscuro, ligero...)",
+    "estilo_visual_sugerido": "string (propuesta de estilo visual)",
+    "logline": "string (UNA FRASE que resume la historia - máximo 30 palabras, debe captar la esencia dramática)",
+    "synopsis": "string (sinopsis de UN PÁRRAFO, 100-150 palabras, describiendo inicio, desarrollo y conflicto principal)",
+    "core_emotional": "string (el núcleo emocional de la historia - qué emoción debe sentir el espectador)",
+    "central_theme": "string (tema central explorado en la historia)"
+  },
+  "analisis_narrativo": {
+    "estructura_actos": [
+      { "acto": 1, "descripcion": "string (qué ocurre en este acto)", "paginas_inicio": 1, "paginas_fin": number },
+      { "acto": 2, "descripcion": "string", "paginas_inicio": number, "paginas_fin": number },
+      { "acto": 3, "descripcion": "string", "paginas_inicio": number, "paginas_fin": number }
+    ],
+    "puntos_de_giro": [
+      { "nombre": "Incidente incitador", "pagina_aproximada": number, "descripcion": "string (breve descripción del momento)" },
+      { "nombre": "Punto de giro 1", "pagina_aproximada": number, "descripcion": "string" },
+      { "nombre": "Punto medio", "pagina_aproximada": number, "descripcion": "string" },
+      { "nombre": "Punto de giro 2", "pagina_aproximada": number, "descripcion": "string" },
+      { "nombre": "Clímax", "pagina_aproximada": number, "descripcion": "string" }
+    ],
+    "curva_emocional": [
+      { "momento": "Inicio", "emocion": "string", "intensidad": number (1-10) },
+      { "momento": "Incidente incitador", "emocion": "string", "intensidad": number },
+      { "momento": "Punto medio", "emocion": "string", "intensidad": number },
+      { "momento": "Clímax", "emocion": "string", "intensidad": number },
+      { "momento": "Resolución", "emocion": "string", "intensidad": number }
+    ]
   },
   "personajes": [
     {
       "nombre": "string (EN MAYÚSCULAS)",
       "categoria": "PROTAGONISTA|PRINCIPAL|SECUNDARIO|FIGURACION",
-      "descripcion": "string (descripción física y psicológica)",
+      "descripcion": "string (descripción física y psicológica detallada)",
       "genero": "Masculino|Femenino|No especificado",
-      "edad_aproximada": "string",
-      "primera_aparicion": "string",
+      "edad_aproximada": "string (ej: 35-40 años)",
+      "primera_aparicion": "string (escena o página)",
       "escenas_aparicion": [numbers],
       "dias_rodaje_estimados": number,
       "dialogos_principales": boolean,
       "importancia_trama": "Alta|Media|Baja",
-      "arco_dramatico": "string (evolución del personaje)",
-      "motivaciones": "string",
-      "relaciones_clave": ["strings"]
+      "arco_dramatico": "string (evolución completa del personaje a lo largo de la historia)",
+      "motivaciones": "string (qué quiere conseguir el personaje)",
+      "conflictos": "string (conflictos internos y externos del personaje)",
+      "relaciones_clave": ["string (Personaje X - tipo de relación)"]
     }
   ],
   "localizaciones": [
     {
-      "nombre": "string",
+      "nombre": "string (nombre descriptivo)",
       "tipo": "INT|EXT",
       "momento_dia": "DÍA|NOCHE|ATARDECER|AMANECER",
-      "descripcion": "string (detallada)",
+      "descripcion": "string (descripción detallada del espacio)",
       "ambiente": "string (atmósfera, sensación)",
       "escenas": [numbers],
       "paginas_totales": number,
       "dias_rodaje_estimados": number,
       "complejidad": "Baja|Media|Alta",
-      "necesidades_especiales": ["strings"],
-      "requisitos_tecnicos": ["strings"]
+      "necesidades_especiales": ["strings (decoración, efectos, permisos...)"],
+      "requisitos_tecnicos": ["strings (iluminación especial, grúas, etc.)"]
     }
   ],
   "desglose_secuencias": [
     {
       "numero_secuencia": number,
       "numero_escena": "string",
-      "encabezado": "string",
+      "encabezado": "string (ej: INT. CASA DE PEDRO - DÍA)",
       "localizacion": "string",
       "momento_dia": "string",
-      "paginas_octavos": number,
+      "paginas_octavos": number (en octavos de página, ej: 1.5 = 1 y 4/8),
+      "duracion_estimada_minutos": number (páginas × 1 minuto),
       "personajes": ["strings"],
-      "attrezzo": ["strings"],
-      "vestuario": ["strings"],
+      "attrezzo": ["strings (objetos necesarios)"],
+      "vestuario": ["strings (cambios de vestuario)"],
       "vehiculos": ["strings"],
       "efectos_especiales": ["strings"],
       "complejidad_rodaje": "Baja|Media|Alta",
-      "notas_direccion": "string"
+      "notas_direccion": "string (sugerencias para la dirección)"
     }
   ],
+  "viabilidad": {
+    "fortalezas": ["strings (puntos fuertes del guión para producción)"],
+    "debilidades": ["strings (puntos débiles o desafíos)"],
+    "sugerencias_mejora": ["strings (recomendaciones concretas)"],
+    "factores_positivos": ["strings (elementos que facilitan la producción)"],
+    "factores_negativos": ["strings (elementos que complican la producción)"]
+  },
   "resumen_produccion": {
     "total_personajes": {"protagonistas": 0, "principales": 0, "secundarios": 0, "figuracion": 0},
     "total_localizaciones": {"interiores": 0, "exteriores": 0},
     "dias_rodaje": {"estimacion_minima": 0, "estimacion_maxima": 0, "estimacion_recomendada": 0},
     "complejidad_general": "Baja|Media|Alta",
-    "elementos_destacados": ["strings (efectos especiales, stunts, etc.)"]
+    "elementos_destacados": ["strings (efectos especiales, stunts, escenas complicadas, etc.)"]
   }
 }
 
-IMPORTANTE: 
-- Analiza CADA palabra del guión con detalle profesional
-- Devuelve SOLO el JSON, sin markdown ni explicaciones
-- Sé exhaustivo en el desglose de elementos de producción`;
+INSTRUCCIONES CRÍTICAS:
+1. El LOGLINE debe ser UNA SOLA FRASE impactante que capture la esencia de la historia
+2. La SYNOPSIS debe resumir TODA la historia en un párrafo coherente
+3. El CORE_EMOTIONAL debe identificar la emoción principal que debe experimentar el espectador
+4. Analiza CADA personaje mencionado en el guión, no solo los principales
+5. Identifica TODAS las localizaciones únicas
+6. Calcula la DURACIÓN ESTIMADA de cada secuencia (1 página = 1 minuto)
+7. Sé EXHAUSTIVO y PROFESIONAL en el análisis
+8. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
     // Modelos a intentar en orden de preferencia
     const modelos = [
@@ -153,7 +197,7 @@ IMPORTANTE:
               { role: 'system', content: systemPrompt },
               { role: 'user', content: contextoProduccion }
             ],
-            max_completion_tokens: 16000,
+            max_completion_tokens: 32000,
           }),
         });
         
@@ -233,6 +277,11 @@ IMPORTANTE:
         console.log(`✓ Análisis completado con ${modelo.nombre}`);
         console.log('Personajes:', analisis.personajes?.length || 0);
         console.log('Localizaciones:', analisis.localizaciones?.length || 0);
+        console.log('Logline:', analisis.informacion_general?.logline ? 'Sí' : 'No');
+        console.log('Synopsis:', analisis.informacion_general?.synopsis ? 'Sí' : 'No');
+        console.log('Core Emotional:', analisis.informacion_general?.core_emotional ? 'Sí' : 'No');
+        console.log('Análisis Narrativo:', analisis.analisis_narrativo ? 'Sí' : 'No');
+        console.log('Viabilidad:', analisis.viabilidad ? 'Sí' : 'No');
 
         return new Response(
           JSON.stringify({
@@ -242,6 +291,7 @@ IMPORTANTE:
               modelo: modeloUsado,
               proveedor: 'lovable-ai',
               timestamp: new Date().toISOString(),
+              paginas_estimadas: paginasEstimadas,
             }
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

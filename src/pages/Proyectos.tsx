@@ -8,7 +8,8 @@ import {
   Trash2,
   FolderOpen,
   Settings,
-  LogOut
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,8 +57,8 @@ export default function Proyectos() {
     switch (status) {
       case 'draft': return 'bg-muted text-muted-foreground';
       case 'analyzed': return 'bg-blue-500/20 text-blue-700';
-      case 'in_production': return 'bg-yellow-500/20 text-yellow-700';
-      case 'completed': return 'bg-green-500/20 text-green-700';
+      case 'in_production': return 'bg-amber-500/20 text-amber-700';
+      case 'completed': return 'badge-gold';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -73,21 +74,23 @@ export default function Proyectos() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Film className="w-8 h-8 text-primary" />
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                <Film className="w-5 h-5 text-accent" />
+              </div>
               <div>
-                <h1 className="font-bold text-xl">App Desglose Cinematográfico</h1>
+                <h1 className="font-display font-bold text-xl">Fractal Kit</h1>
                 <p className="text-sm text-muted-foreground">Gestión de proyectos</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground hidden md:inline">
                 {profile?.company_name || user?.email}
               </span>
               <Button variant="ghost" size="icon" onClick={() => navigate('/perfil')}>
@@ -102,15 +105,15 @@ export default function Proyectos() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold">Mis Proyectos</h2>
-            <p className="text-muted-foreground">
-              {projects?.length || 0} proyecto{projects?.length !== 1 ? 's' : ''}
+            <h2 className="font-display text-3xl font-bold">Mis Proyectos</h2>
+            <p className="text-muted-foreground mt-1">
+              {projects?.length || 0} proyecto{projects?.length !== 1 ? 's' : ''} en desarrollo
             </p>
           </div>
-          <Button onClick={() => navigate('/upload')}>
+          <Button onClick={() => navigate('/upload')} className="btn-gold">
             <Plus className="w-4 h-4 mr-2" />
             Nuevo Proyecto
           </Button>
@@ -120,7 +123,7 @@ export default function Proyectos() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <Card key={i}>
+              <Card key={i} className="card-cinematic">
                 <CardHeader>
                   <Skeleton className="h-6 w-3/4" />
                   <Skeleton className="h-4 w-1/2 mt-2" />
@@ -133,39 +136,42 @@ export default function Proyectos() {
             ))}
           </div>
         ) : projects?.length === 0 ? (
-          <Card className="text-center py-16">
+          <Card className="card-cinematic text-center py-16">
             <CardContent>
-              <FolderOpen className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No hay proyectos</h3>
-              <p className="text-muted-foreground mb-6">
-                Sube tu primer guión para comenzar el análisis
+              <div className="w-20 h-20 mx-auto rounded-full bg-accent/10 flex items-center justify-center mb-6">
+                <FolderOpen className="w-10 h-10 text-accent" />
+              </div>
+              <h3 className="font-display text-2xl font-semibold mb-3">No hay proyectos</h3>
+              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                Sube tu primer guión para comenzar el análisis automático con IA
               </p>
-              <Button onClick={() => navigate('/upload')}>
-                <Plus className="w-4 h-4 mr-2" />
-                Crear Proyecto
+              <Button onClick={() => navigate('/upload')} className="btn-gold">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Crear Mi Primer Proyecto
               </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects?.map((project) => (
+            {projects?.map((project, index) => (
               <Card 
                 key={project.id} 
-                className="hover:shadow-lg transition-shadow cursor-pointer group"
+                className="card-cinematic cursor-pointer group animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
                 onClick={() => navigate(`/proyecto/${project.id}/overview`)}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="line-clamp-1 group-hover:text-primary transition-colors">
+                      <CardTitle className="font-display line-clamp-1 group-hover:text-accent transition-colors">
                         {project.title}
                       </CardTitle>
-                      <CardDescription className="mt-1">
+                      <CardDescription className="mt-2 flex flex-wrap gap-2">
                         <Badge className={getStatusColor(project.status)}>
                           {getStatusLabel(project.status)}
                         </Badge>
                         {project.project_type && (
-                          <Badge variant="outline" className="ml-2 capitalize">
+                          <Badge variant="outline" className="capitalize">
                             {project.project_type}
                           </Badge>
                         )}
@@ -182,10 +188,7 @@ export default function Proyectos() {
                           <FolderOpen className="w-4 h-4 mr-2" />
                           Abrir
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={(e) => { e.stopPropagation(); setDeleteId(project.id); }}
-                        >
+                        <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteId(project.id); }}>
                           <Trash2 className="w-4 h-4 mr-2" />
                           Eliminar
                         </DropdownMenuItem>
@@ -201,7 +204,7 @@ export default function Proyectos() {
                   )}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Calendar className="w-3 h-3" />
-                    Actualizado {new Date(project.updated_at).toLocaleDateString('es-ES')}
+                    Actualizado {new Date(project.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </CardContent>
               </Card>
@@ -214,7 +217,7 @@ export default function Proyectos() {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar proyecto?</AlertDialogTitle>
+            <AlertDialogTitle className="font-display">¿Eliminar proyecto?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta acción no se puede deshacer. Se eliminarán todos los datos del proyecto.
             </AlertDialogDescription>

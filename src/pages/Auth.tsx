@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { z } from 'zod';
 
 const authSchema = z.object({
@@ -129,7 +130,10 @@ export default function Auth() {
       </div>
 
       {/* Right Panel - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-background">
+      <div className="flex-1 flex items-center justify-center p-6 bg-background relative">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
         <Card className="w-full max-w-md card-cinematic">
           <CardHeader className="text-center pb-2">
             <div className="flex justify-center mb-4 lg:hidden">

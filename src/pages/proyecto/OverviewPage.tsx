@@ -7,7 +7,9 @@ import {
   Clock, 
   FileText, 
   Heart,
-  Sparkles 
+  Sparkles,
+  Target,
+  TrendingUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -76,46 +78,212 @@ export default function OverviewPage() {
     );
   }
 
+  // Calculate estimated duration from sequences or script text
+  const duracionFromSequences = project.sequences?.reduce((acc, s) => acc + (s.estimated_duration_minutes || 0), 0) || 0;
+  // Fallback: estimate from script text (approx 600 chars per page, 1 min per page)
+  const duracionFromScript = project.script_text ? Math.ceil(project.script_text.length / 600) : 0;
+  const duracionEstimada = duracionFromSequences > 0 ? duracionFromSequences : duracionFromScript;
+
   const stats = {
     personajes: project.characters?.length || 0,
     localizaciones: project.locations?.length || 0,
     secuencias: project.sequences?.length || 0,
-    duracionEstimada: project.sequences?.reduce((acc, s) => acc + (s.estimated_duration_minutes || 0), 0) || 0,
+    duracionEstimada,
   };
+
+  const analysis = project.creative_analysis;
 
   return (
     <CreativeLayout projectTitle={project.title} lastSaved={lastSaved} isSaving={isSaving}>
       <div className="space-y-6">
+        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2 text-muted-foreground mb-1"><Users className="w-4 h-4" /><span className="text-sm">Personajes</span></div><p className="text-2xl font-bold">{stats.personajes}</p></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2 text-muted-foreground mb-1"><MapPin className="w-4 h-4" /><span className="text-sm">Localizaciones</span></div><p className="text-2xl font-bold">{stats.localizaciones}</p></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2 text-muted-foreground mb-1"><Film className="w-4 h-4" /><span className="text-sm">Secuencias</span></div><p className="text-2xl font-bold">{stats.secuencias}</p></CardContent></Card>
-          <Card><CardContent className="pt-4"><div className="flex items-center gap-2 text-muted-foreground mb-1"><Clock className="w-4 h-4" /><span className="text-sm">Duración Est.</span></div><p className="text-2xl font-bold">{stats.duracionEstimada} min</p></CardContent></Card>
+          <Card className="card-cinematic">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Users className="w-4 h-4" />
+                <span className="text-sm">Personajes</span>
+              </div>
+              <p className="text-2xl font-bold font-display">{stats.personajes}</p>
+            </CardContent>
+          </Card>
+          <Card className="card-cinematic">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <MapPin className="w-4 h-4" />
+                <span className="text-sm">Localizaciones</span>
+              </div>
+              <p className="text-2xl font-bold font-display">{stats.localizaciones}</p>
+            </CardContent>
+          </Card>
+          <Card className="card-cinematic">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Film className="w-4 h-4" />
+                <span className="text-sm">Secuencias</span>
+              </div>
+              <p className="text-2xl font-bold font-display">{stats.secuencias}</p>
+            </CardContent>
+          </Card>
+          <Card className="card-cinematic">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Clock className="w-4 h-4" />
+                <span className="text-sm">Duración Est.</span>
+              </div>
+              <p className="text-2xl font-bold font-display">{stats.duracionEstimada} min</p>
+            </CardContent>
+          </Card>
         </div>
 
-        <Card>
-          <CardHeader className="bg-primary/5"><CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5" />Logline</CardTitle></CardHeader>
+        {/* Logline */}
+        <Card className="card-cinematic">
+          <CardHeader className="bg-primary/5 border-b border-border/50">
+            <CardTitle className="flex items-center gap-2 font-display">
+              <FileText className="w-5 h-5 text-accent" />
+              Logline
+              {project.logline && (
+                <Badge variant="secondary" className="ml-2 badge-gold">
+                  <Sparkles className="w-3 h-3 mr-1" />IA
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
           <CardContent className="pt-4">
-            <Textarea placeholder="Una frase que resume tu historia..." value={logline} onChange={(e) => setLogline(e.target.value)} onBlur={() => handleSave('logline')} rows={2} />
+            <Textarea 
+              placeholder="Una frase que resume tu historia (generada automáticamente por IA)..." 
+              value={logline} 
+              onChange={(e) => setLogline(e.target.value)} 
+              onBlur={() => handleSave('logline')} 
+              rows={2}
+              className="resize-none"
+            />
           </CardContent>
         </Card>
 
+        {/* Synopsis & Core Emocional */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader className="bg-primary/5"><CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5" />Sinopsis{project.creative_analysis?.synopsis && <Badge variant="secondary" className="ml-2"><Sparkles className="w-3 h-3 mr-1" />IA</Badge>}</CardTitle></CardHeader>
-            <CardContent className="pt-4"><Textarea placeholder="Sinopsis de la historia..." value={synopsis} onChange={(e) => setSynopsis(e.target.value)} onBlur={() => handleSave('synopsis')} rows={8} /></CardContent>
+          <Card className="card-cinematic">
+            <CardHeader className="bg-primary/5 border-b border-border/50">
+              <CardTitle className="flex items-center gap-2 font-display">
+                <FileText className="w-5 h-5 text-accent" />
+                Sinopsis
+                {analysis?.synopsis && (
+                  <Badge variant="secondary" className="ml-2 badge-gold">
+                    <Sparkles className="w-3 h-3 mr-1" />IA
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <Textarea 
+                placeholder="Sinopsis de la historia (generada automáticamente por IA)..." 
+                value={synopsis} 
+                onChange={(e) => setSynopsis(e.target.value)} 
+                onBlur={() => handleSave('synopsis')} 
+                rows={8}
+                className="resize-none"
+              />
+            </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="bg-primary/5"><CardTitle className="flex items-center gap-2"><Heart className="w-5 h-5" />Core Emocional{project.creative_analysis?.core_emotional && <Badge variant="secondary" className="ml-2"><Sparkles className="w-3 h-3 mr-1" />IA</Badge>}</CardTitle></CardHeader>
-            <CardContent className="pt-4"><Textarea placeholder="El núcleo emocional de la historia..." value={coreEmocional} onChange={(e) => setCoreEmocional(e.target.value)} onBlur={() => handleSave('coreEmocional')} rows={8} /></CardContent>
+
+          <Card className="card-cinematic">
+            <CardHeader className="bg-primary/5 border-b border-border/50">
+              <CardTitle className="flex items-center gap-2 font-display">
+                <Heart className="w-5 h-5 text-accent" />
+                Core Emocional
+                {analysis?.core_emotional && (
+                  <Badge variant="secondary" className="ml-2 badge-gold">
+                    <Sparkles className="w-3 h-3 mr-1" />IA
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <Textarea 
+                placeholder="El núcleo emocional de la historia (generado automáticamente por IA)..." 
+                value={coreEmocional} 
+                onChange={(e) => setCoreEmocional(e.target.value)} 
+                onBlur={() => handleSave('coreEmocional')} 
+                rows={8}
+                className="resize-none"
+              />
+            </CardContent>
           </Card>
         </div>
 
-        {project.creative_analysis?.central_theme && (
-          <Card>
-            <CardHeader className="bg-primary/5"><CardTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5" />Tema Central<Badge variant="secondary" className="ml-2">IA</Badge></CardTitle></CardHeader>
-            <CardContent className="pt-4"><p className="text-foreground">{project.creative_analysis.central_theme}</p></CardContent>
+        {/* Tema Central */}
+        {analysis?.central_theme && (
+          <Card className="card-cinematic">
+            <CardHeader className="bg-primary/5 border-b border-border/50">
+              <CardTitle className="flex items-center gap-2 font-display">
+                <Target className="w-5 h-5 text-accent" />
+                Tema Central
+                <Badge variant="secondary" className="ml-2 badge-gold">
+                  <Sparkles className="w-3 h-3 mr-1" />IA
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <p className="text-foreground leading-relaxed">{analysis.central_theme}</p>
+            </CardContent>
           </Card>
+        )}
+
+        {/* Producibility Score & Budget */}
+        {(analysis?.producibility_score || analysis?.estimated_budget_range) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {analysis.producibility_score !== null && (
+              <Card className="card-cinematic">
+                <CardHeader className="bg-primary/5 border-b border-border/50">
+                  <CardTitle className="flex items-center gap-2 font-display">
+                    <TrendingUp className="w-5 h-5 text-accent" />
+                    Índice de Producibilidad
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-4">
+                    <div className="text-4xl font-bold font-display text-accent">
+                      {analysis.producibility_score}%
+                    </div>
+                    <div className="flex-1">
+                      <div className="h-3 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-accent to-gold transition-all duration-500"
+                          style={{ width: `${analysis.producibility_score}%` }}
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {analysis.producibility_score >= 80 ? 'Alta producibilidad' :
+                         analysis.producibility_score >= 60 ? 'Producibilidad media' :
+                         analysis.producibility_score >= 40 ? 'Complejidad moderada' :
+                         'Alta complejidad'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {analysis.estimated_budget_range && (
+              <Card className="card-cinematic">
+                <CardHeader className="bg-primary/5 border-b border-border/50">
+                  <CardTitle className="flex items-center gap-2 font-display">
+                    <Film className="w-5 h-5 text-accent" />
+                    Presupuesto Estimado
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="text-3xl font-bold font-display text-accent">
+                    {analysis.estimated_budget_range}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Estimación basada en análisis de complejidad
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
       </div>
     </CreativeLayout>

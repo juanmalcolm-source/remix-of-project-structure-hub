@@ -1,1 +1,10 @@
 project_id = "yvyrqkckhpxvlcvinsht"
+
+[functions.analizar-guion]
+verify_jwt = false
+
+[functions.extract-pdf-text]
+verify_jwt = false
+
+[functions.generar-memoria]
+verify_jwt = false

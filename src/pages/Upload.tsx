@@ -1,6 +1,6 @@
-import { ArrowRight, Sparkles, FolderOpen } from 'lucide-react';
+import { ArrowRight, Sparkles, FolderOpen, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import FileDropzone from '@/components/features/FileDropzone';
@@ -17,6 +17,7 @@ export default function Upload() {
   const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
+  const [elapsedTime, setElapsedTime] = useState(0);
   const { toast } = useToast();
   
   const {
@@ -28,6 +29,26 @@ export default function Upload() {
     handleFileSelect,
     resetUpload,
   } = useFileUpload();
+
+  // Contador de tiempo transcurrido durante el análisis
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isAnalyzing) {
+      setElapsedTime(0);
+      interval = setInterval(() => {
+        setElapsedTime(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isAnalyzing]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const getProgressMessage = (progress: number): { message: string; submessage: string } => {
     if (progress < 20) {
@@ -164,10 +185,14 @@ export default function Upload() {
           size="lg"
           className="w-full group relative overflow-hidden"
         >
-          {isAnalyzing ? (
+        {isAnalyzing ? (
             <span className="flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 animate-spin" />
               {progressMessage || 'Analizando con IA...'}
+              <span className="flex items-center gap-1 ml-2 text-sm opacity-75">
+                <Clock className="w-4 h-4" />
+                {formatTime(elapsedTime)}
+              </span>
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">

@@ -2,95 +2,121 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* ============================================
+   FRACTAL KIT - CINEMATIC DESIGN SYSTEM
+   A dramatic, film-industry inspired palette
+   All colors in HSL format
+============================================ */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* === Core Palette: Warm Ivory & Deep Navy === */
+    --background: 40 20% 98%;
+    --foreground: 222 47% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Cards with subtle warmth */
+    --card: 40 25% 99%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 40 25% 99%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary: Rich Navy Blue */
+    --primary: 222 47% 18%;
+    --primary-foreground: 40 20% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary: Warm Stone */
+    --secondary: 35 20% 93%;
+    --secondary-foreground: 222 47% 18%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted: Soft Gray with warmth */
+    --muted: 35 15% 94%;
+    --muted-foreground: 222 15% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent: Cinematic Gold */
+    --accent: 42 80% 55%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Borders & Inputs */
+    --border: 35 20% 88%;
+    --input: 35 20% 90%;
+    --ring: 42 80% 55%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* === Cinematic Colors === */
+    --gold: 42 80% 55%;
+    --gold-light: 45 85% 65%;
+    --gold-dark: 38 75% 45%;
+    
+    --cinema-navy: 222 47% 18%;
+    --cinema-midnight: 225 50% 12%;
+    --cinema-slate: 218 30% 25%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* === Sidebar: Deep & Dramatic === */
+    --sidebar-background: 225 50% 12%;
+    --sidebar-foreground: 40 20% 92%;
+    --sidebar-primary: 42 80% 55%;
+    --sidebar-primary-foreground: 225 50% 12%;
+    --sidebar-accent: 222 40% 20%;
+    --sidebar-accent-foreground: 40 20% 95%;
+    --sidebar-border: 222 35% 22%;
+    --sidebar-ring: 42 80% 55%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* === Dark Mode: Deep Cinematic Blacks === */
+    --background: 225 50% 6%;
+    --foreground: 40 15% 92%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 225 45% 9%;
+    --card-foreground: 40 15% 92%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 225 45% 9%;
+    --popover-foreground: 40 15% 92%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Primary: Light Gold in dark mode */
+    --primary: 42 80% 60%;
+    --primary-foreground: 225 50% 8%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 222 35% 18%;
+    --secondary-foreground: 40 15% 90%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 222 30% 15%;
+    --muted-foreground: 220 15% 55%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 42 75% 50%;
+    --accent-foreground: 225 50% 8%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 222 30% 18%;
+    --input: 222 30% 20%;
+    --ring: 42 80% 55%;
+
+    /* Dark Cinematic Colors */
+    --gold: 42 75% 55%;
+    --gold-light: 45 80% 65%;
+    --gold-dark: 38 70% 40%;
+    
+    --cinema-navy: 222 40% 25%;
+    --cinema-midnight: 225 50% 8%;
+    --cinema-slate: 218 30% 35%;
+
+    /* Dark Sidebar */
+    --sidebar-background: 225 55% 5%;
+    --sidebar-foreground: 40 15% 90%;
+    --sidebar-primary: 42 80% 55%;
+    --sidebar-primary-foreground: 225 50% 8%;
+    --sidebar-accent: 222 40% 12%;
+    --sidebar-accent-foreground: 40 15% 92%;
+    --sidebar-border: 222 35% 15%;
+    --sidebar-ring: 42 80% 55%;
   }
 }
 
@@ -100,6 +126,128 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Cinematic Typography */
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl font-bold;
+  }
+
+  h2 {
+    @apply text-2xl md:text-3xl font-semibold;
+  }
+
+  h3 {
+    @apply text-xl md:text-2xl font-medium;
+  }
+}
+
+@layer components {
+  /* Cinematic Card Styles */
+  .card-cinematic {
+    @apply bg-card border border-border/50 rounded-lg shadow-cinematic;
+    @apply transition-all duration-300 ease-out;
+    @apply hover:shadow-card-hover hover:border-accent/30;
+  }
+
+  /* Gold Accent Button */
+  .btn-gold {
+    @apply bg-gradient-gold text-primary font-semibold;
+    @apply shadow-gold-glow transition-all duration-300;
+    @apply hover:shadow-lg hover:scale-[1.02];
+  }
+
+  /* Sidebar Link Style */
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg;
+    @apply text-sidebar-foreground/80 transition-all duration-200;
+    @apply hover:bg-sidebar-accent hover:text-sidebar-foreground;
+  }
+
+  .sidebar-link-active {
+    @apply bg-sidebar-accent text-sidebar-primary font-medium;
+    @apply border-l-2 border-sidebar-primary;
+  }
+
+  /* Stats Card */
+  .stats-card {
+    @apply relative overflow-hidden rounded-xl p-6;
+    @apply bg-gradient-to-br from-card to-muted/30;
+    @apply border border-border/50 shadow-cinematic;
+  }
+
+  .stats-card::before {
+    content: '';
+    @apply absolute top-0 right-0 w-24 h-24 rounded-full;
+    @apply bg-accent/5 blur-2xl -translate-y-1/2 translate-x-1/2;
+  }
+
+  /* Section Header */
+  .section-header {
+    @apply flex items-center gap-3 mb-6;
+  }
+
+  .section-header-icon {
+    @apply w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center;
+    @apply text-accent;
+  }
+
+  /* Film Strip Decoration */
+  .film-strip {
+    @apply relative pl-4 border-l-2 border-accent/30;
+  }
+
+  .film-strip::before {
+    content: '';
+    @apply absolute left-[-5px] top-0 w-2 h-2 rounded-full bg-accent;
+  }
+
+  /* Shimmer Loading Effect */
+  .shimmer {
+    @apply relative overflow-hidden;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted) / 0.5) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Badge Variants */
+  .badge-gold {
+    @apply bg-accent/15 text-accent border border-accent/30 font-medium;
+  }
+
+  .badge-navy {
+    @apply bg-primary/10 text-primary border border-primary/20 font-medium;
+  }
+}
+
+@layer utilities {
+  /* Text Gradient */
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent bg-gradient-gold;
+  }
+
+  /* Hover Scale */
+  .hover-scale {
+    @apply transition-transform duration-200 hover:scale-105;
+  }
+
+  /* Focus Ring */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+  }
+
+  /* Backdrop Blur */
+  .backdrop-cinematic {
+    @apply backdrop-blur-xl bg-background/80;
   }
 }

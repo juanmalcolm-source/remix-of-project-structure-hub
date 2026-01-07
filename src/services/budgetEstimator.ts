@@ -18,6 +18,47 @@ export interface BudgetEstimationInput {
   estimatedShootingDays?: number;
 }
 
+export interface DataAvailability {
+  hasCharacters: boolean;
+  hasLocations: boolean;
+  hasSequences: boolean;
+  hasCreativeAnalysis: boolean;
+  charactersCount: number;
+  locationsCount: number;
+  sequencesCount: number;
+  warnings: string[];
+}
+
+export function checkDataAvailability(input: BudgetEstimationInput): DataAvailability {
+  const warnings: string[] = [];
+  
+  const hasCharacters = input.characters.length > 0;
+  const hasLocations = input.locations.length > 0;
+  const hasSequences = input.sequences.length > 0;
+  const hasCreativeAnalysis = !!input.creativeAnalysis;
+
+  if (!hasLocations) {
+    warnings.push('No hay localizaciones guardadas. Se estimará basándose en el análisis creativo.');
+  }
+  if (!hasSequences) {
+    warnings.push('No hay secuencias guardadas. Los días de rodaje se estimarán desde los personajes.');
+  }
+  if (!hasCharacters) {
+    warnings.push('No hay personajes guardados. La estimación será muy aproximada.');
+  }
+
+  return {
+    hasCharacters,
+    hasLocations,
+    hasSequences,
+    hasCreativeAnalysis,
+    charactersCount: input.characters.length,
+    locationsCount: input.locations.length,
+    sequencesCount: input.sequences.length,
+    warnings,
+  };
+}
+
 export interface EstimatedBudgetLine {
   chapter: number;
   account_number: string;
@@ -137,15 +178,65 @@ function calculateTotal(units: number, quantity: number, unitPrice: number, agen
 export function generarPresupuestoEstimado(input: BudgetEstimationInput): EstimatedBudgetLine[] {
   const { characters, locations, sequences, creativeAnalysis, estimatedShootingDays } = input;
   
-  // Calculate shooting days from characters or use default
-  const totalShootingDays = estimatedShootingDays || 
-    Math.max(
-      ...characters.map(c => c.shooting_days || 0),
-      sequences.length > 0 ? Math.ceil(sequences.length / 5) : 15 // 5 sequences per day
-    ) || 15;
+  // Smart estimation of shooting days with fallbacks
+  let totalShootingDays = estimatedShootingDays;
+  
+  if (!totalShootingDays) {
+    // Priority 1: From character shooting days
+    const maxCharacterDays = Math.max(...characters.map(c => c.shooting_days || 0), 0);
+    
+    // Priority 2: From sequences
+    const daysFromSequences = sequences.length > 0 ? Math.ceil(sequences.length / 5) : 0;
+    
+    // Priority 3: Estimate from creative analysis (budget range)
+    let daysFromAnalysis = 0;
+    if (creativeAnalysis?.estimated_budget_range) {
+      const budgetStr = creativeAnalysis.estimated_budget_range;
+      // Extract numbers from strings like "€50K - €200K" or "50.000 - 200.000"
+      const numbers = budgetStr.match(/\d+/g);
+      if (numbers && numbers.length >= 2) {
+        const avgBudget = (parseInt(numbers[0]) + parseInt(numbers[1])) / 2;
+        // Rough: 1 day of shooting ≈ €15K-20K total cost
+        daysFromAnalysis = Math.ceil(avgBudget / 15);
+      }
+    }
+    
+    totalShootingDays = Math.max(maxCharacterDays, daysFromSequences, daysFromAnalysis, 15);
+  }
   
   const shootingWeeks = Math.ceil(totalShootingDays / 5);
   const teamSize = 15; // Average crew size
+  
+  // Estimate number of locations if none saved
+  let effectiveLocations = locations;
+  if (locations.length === 0 && creativeAnalysis) {
+    // Extract location count from viability factors or estimate from genre/complexity
+    const negativeFactors = JSON.stringify(creativeAnalysis.viability_factors_negative || []).toLowerCase();
+    const positiveFactors = JSON.stringify(creativeAnalysis.viability_factors_positive || []).toLowerCase();
+    
+    let estimatedLocationCount = 8; // Default for a standard film
+    
+    if (negativeFactors.includes('múltiples') || negativeFactors.includes('localizaciones')) {
+      estimatedLocationCount = 12;
+    }
+    if (positiveFactors.includes('pocas') || positiveFactors.includes('unitaria')) {
+      estimatedLocationCount = 4;
+    }
+    
+    // Create synthetic locations for estimation
+    effectiveLocations = Array.from({ length: estimatedLocationCount }, (_, i) => ({
+      id: `estimated-${i}`,
+      project_id: '',
+      name: `Localización estimada ${i + 1}`,
+      complexity: i < 2 ? 'alta' : i < 5 ? 'media' : 'baja',
+      location_type: null,
+      estimated_days: Math.ceil(totalShootingDays / estimatedLocationCount),
+      production_notes: null,
+      special_needs: null,
+      created_at: '',
+      updated_at: '',
+    })) as Location[];
+  }
   
   const lines: EstimatedBudgetLine[] = [];
   let lineCounter: Record<number, number> = {};
@@ -213,13 +304,15 @@ export function generarPresupuestoEstimado(input: BudgetEstimationInput): Estima
   addLine(3, 'Montador/a', 1, shootingWeeks + 4, TARIFAS_BASE.montador_semana);
   
   // ============ CHAPTER 4 - Escenografía ============
-  if (locations.length > 0) {
-    locations.forEach(loc => {
+  if (effectiveLocations.length > 0) {
+    effectiveLocations.forEach(loc => {
       const rate = getLocationRate(loc.complexity);
-      addLine(4, `Loc: ${loc.name}`, 1, loc.estimated_days || 1, rate);
+      const isEstimated = loc.id.startsWith('estimated-');
+      const prefix = isEstimated ? 'Loc (est): ' : 'Loc: ';
+      addLine(4, `${prefix}${loc.name}`, 1, loc.estimated_days || 1, rate);
     });
   } else {
-    // Estimate based on sequences
+    // Fallback estimate based on sequences
     const estimatedLocations = Math.max(5, Math.ceil(sequences.length / 4));
     addLine(4, 'Decorados y localizaciones (estimado)', estimatedLocations, 1, TARIFAS_BASE.localizacion_media);
   }

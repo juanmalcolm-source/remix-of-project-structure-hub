@@ -30,7 +30,9 @@ import {
   type BudgetLine as DBBudgetLine
 } from '@/hooks/useBudgetLines';
 import { supabase } from '@/integrations/supabase/client';
-import { generarPresupuestoEstimado, type BudgetEstimationInput } from '@/services/budgetEstimator';
+import { generarPresupuestoEstimado, checkDataAvailability, type BudgetEstimationInput, type DataAvailability } from '@/services/budgetEstimator';
+import { AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface LocalBudgetLine {
   id: string;
@@ -204,6 +206,8 @@ export default function PresupuestoICAA() {
   const [isImporting, setIsImporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showEmptyState, setShowEmptyState] = useState(false);
+  const [dataAvailability, setDataAvailability] = useState<DataAvailability | null>(null);
+  const [showDataCheck, setShowDataCheck] = useState(false);
 
   // Initialize chapters from DB
   useEffect(() => {
@@ -216,8 +220,8 @@ export default function PresupuestoICAA() {
     }
   }, [dbLines, linesLoading]);
 
-  // Generate estimated budget from analysis
-  const handleGenerateEstimation = async () => {
+  // Check data availability before generating
+  const handleCheckDataAndGenerate = async () => {
     if (!projectId) return;
     
     setIsGenerating(true);
@@ -237,15 +241,43 @@ export default function PresupuestoICAA() {
         creativeAnalysis: analysisRes.data || null,
       };
 
-      if (input.characters.length === 0) {
+      const availability = checkDataAvailability(input);
+      setDataAvailability(availability);
+
+      // If there are warnings, show the data check dialog
+      if (availability.warnings.length > 0 && !availability.hasCharacters) {
+        setShowDataCheck(true);
+        setIsGenerating(false);
         toast({
           title: 'Sin datos de análisis',
-          description: 'Primero analiza el guión para generar una estimación basada en personajes y localizaciones.',
+          description: 'Primero analiza el guión para generar una estimación.',
           variant: 'destructive',
         });
         return;
       }
 
+      // If there are warnings but we have characters, show warnings and proceed
+      if (availability.warnings.length > 0) {
+        setShowDataCheck(true);
+      }
+
+      // Generate the estimation
+      await generateBudgetFromInput(input, availability);
+    } catch (error) {
+      console.error('Error checking data:', error);
+      setIsGenerating(false);
+      toast({
+        title: 'Error al verificar datos',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Generate budget from validated input
+  const generateBudgetFromInput = async (input: BudgetEstimationInput, availability: DataAvailability) => {
+    if (!projectId) return;
+
+    try {
       const estimatedLines = generarPresupuestoEstimado(input);
       
       // Insert all lines
@@ -255,9 +287,15 @@ export default function PresupuestoICAA() {
       });
 
       setShowEmptyState(false);
+      setShowDataCheck(false);
+      
+      const warningText = availability.warnings.length > 0 
+        ? ' (con datos estimados para localizaciones/secuencias)'
+        : '';
+      
       toast({
         title: '✓ Presupuesto estimado generado',
-        description: `Se crearon ${estimatedLines.length} partidas basadas en el análisis del guión`,
+        description: `Se crearon ${estimatedLines.length} partidas${warningText}`,
       });
     } catch (error) {
       console.error('Error generating estimation:', error);
@@ -266,6 +304,38 @@ export default function PresupuestoICAA() {
         variant: 'destructive',
       });
     } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Proceed with generation despite warnings
+  const handleProceedWithGeneration = async () => {
+    if (!projectId) return;
+    
+    setIsGenerating(true);
+    try {
+      const [charactersRes, locationsRes, sequencesRes, analysisRes] = await Promise.all([
+        supabase.from('characters').select('*').eq('project_id', projectId),
+        supabase.from('locations').select('*').eq('project_id', projectId),
+        supabase.from('sequences').select('*').eq('project_id', projectId),
+        supabase.from('creative_analysis').select('*').eq('project_id', projectId).single(),
+      ]);
+
+      const input: BudgetEstimationInput = {
+        characters: charactersRes.data || [],
+        locations: locationsRes.data || [],
+        sequences: sequencesRes.data || [],
+        creativeAnalysis: analysisRes.data || null,
+      };
+
+      const availability = checkDataAvailability(input);
+      await generateBudgetFromInput(input, availability);
+    } catch (error) {
+      console.error('Error generating estimation:', error);
+      toast({
+        title: 'Error al generar estimación',
+        variant: 'destructive',
+      });
       setIsGenerating(false);
     }
   };
@@ -632,8 +702,73 @@ export default function PresupuestoICAA() {
       isSaving={isSaving}
     >
       <div className="space-y-6">
+        {/* Data Availability Warning */}
+        {showDataCheck && dataAvailability && (
+          <Alert variant={dataAvailability.warnings.length > 0 ? 'default' : 'default'} className="border-amber-500/50 bg-amber-500/10">
+            <Info className="h-4 w-4 text-amber-600" />
+            <AlertDescription>
+              <div className="space-y-3">
+                <p className="font-medium">Estado de los datos del análisis:</p>
+                <div className="grid gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    {dataAvailability.hasCharacters ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span>{dataAvailability.charactersCount} personajes</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {dataAvailability.hasLocations ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                    )}
+                    <span>{dataAvailability.locationsCount} localizaciones {!dataAvailability.hasLocations && '(se estimarán)'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {dataAvailability.hasSequences ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                    )}
+                    <span>{dataAvailability.sequencesCount} secuencias {!dataAvailability.hasSequences && '(días de rodaje estimados)'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {dataAvailability.hasCreativeAnalysis ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                    )}
+                    <span>Análisis creativo {dataAvailability.hasCreativeAnalysis ? 'disponible' : 'no disponible'}</span>
+                  </div>
+                </div>
+                {dataAvailability.warnings.length > 0 && (
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      size="sm" 
+                      onClick={handleProceedWithGeneration}
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                      Generar con datos actuales
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setShowDataCheck(false)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Empty State - Show options when no budget lines exist */}
-        {showEmptyState && (
+        {showEmptyState && !showDataCheck && (
           <Card className="border-2 border-dashed border-primary/30">
             <CardContent className="pt-8 pb-8">
               <div className="text-center space-y-6">
@@ -651,7 +786,7 @@ export default function PresupuestoICAA() {
                   <Button 
                     variant="default"
                     className="h-auto py-4 flex-col gap-2"
-                    onClick={handleGenerateEstimation}
+                    onClick={handleCheckDataAndGenerate}
                     disabled={isGenerating}
                   >
                     {isGenerating ? (
@@ -717,7 +852,7 @@ export default function PresupuestoICAA() {
                 <Button 
                   variant="outline"
                   size="sm"
-                  onClick={handleGenerateEstimation}
+                  onClick={handleCheckDataAndGenerate}
                   disabled={isGenerating}
                 >
                   {isGenerating ? (

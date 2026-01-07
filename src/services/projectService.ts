@@ -93,14 +93,14 @@ export async function createProjectFromAnalysis(
     }
   }
 
-  // 4. Create locations
+  // 4. Create locations (convert estimated_days to integer)
   if (analisis.localizaciones && analisis.localizaciones.length > 0) {
     const locationsData = analisis.localizaciones.map((loc) => ({
       project_id: projectId,
       name: loc.nombre,
       location_type: loc.tipo,
       complexity: loc.complejidad || 'Media',
-      estimated_days: loc.dias_rodaje_estimados || 1,
+      estimated_days: Math.ceil(loc.dias_rodaje_estimados || 1), // Convert to integer
       special_needs: loc.necesidades_especiales?.join(', ') || '',
       production_notes: loc.descripcion || '',
     }));
@@ -114,15 +114,15 @@ export async function createProjectFromAnalysis(
     }
   }
 
-  // 5. Create sequences with estimated duration
+  // 5. Create sequences with estimated duration (convert to integer)
   if (analisis.desglose_secuencias && analisis.desglose_secuencias.length > 0) {
     const sequencesData = analisis.desglose_secuencias.map((seq, index) => ({
       project_id: projectId,
       sequence_number: seq.numero_secuencia || index + 1,
       title: seq.encabezado || `Secuencia ${index + 1}`,
       description: seq.localizacion || '',
-      // Calculate duration: 1 minute per page (paginas_octavos is in eighths)
-      estimated_duration_minutes: seq.duracion_estimada_minutos || Math.ceil(seq.paginas_octavos || 1),
+      // Convert to integer - database expects integer type
+      estimated_duration_minutes: Math.ceil(seq.duracion_estimada_minutos || seq.paginas_octavos || 1),
       characters_in_scene: seq.personajes || [],
       wardrobe: seq.vestuario || [],
       attrezzo: seq.attrezzo || [],

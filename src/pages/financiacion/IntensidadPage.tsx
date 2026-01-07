@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { 
   Percent, 
   AlertTriangle,
-  CheckCircle,
   Info,
   TrendingUp
 } from 'lucide-react';
@@ -11,44 +10,85 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
 import FinancingLayout from '@/components/layout/FinancingLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { useProject, useFinancingSources } from '@/hooks/useProject';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function IntensidadPage() {
-  const location = useLocation();
-  const { toast } = useToast();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+  const { projectId } = useParams<{ projectId: string }>();
+  const { data: project, isLoading: projectLoading } = useProject(projectId);
+  const { data: sources, isLoading: sourcesLoading } = useFinancingSources(projectId);
 
-  // Simulated data - in real app would come from state/database
-  const [totalBudget] = useState(500000);
-  const [publicAid] = useState(150000); // Ayudas públicas
-  const [taxIncentive] = useState(100000); // Incentivos fiscales
-  const [investorCommission] = useState(15); // 15-17% típico
+  const [investorCommission] = useState(15);
 
-  // Calculate intensity
-  const totalPublic = publicAid + taxIncentive;
-  const intensity = (totalPublic / totalBudget) * 100;
-  
-  // Determine limit based on project type (simplified)
-  const intensityLimit = 50; // 50% for normal projects, 60% for difficult, 80% for very difficult
-  const isOverLimit = intensity > intensityLimit;
+  // Calculate values from real data
+  const calculations = useMemo(() => {
+    const totalBudget = project?.financing_plan?.total_budget || 500000;
+    const taxIncentive = project?.financing_plan?.tax_incentive_amount || 0;
+    
+    // Sum public aid from sources
+    const publicAid = sources?.filter(s => 
+      ['icaa_general', 'icaa_selectiva', 'autonomica'].includes(s.source_type || '')
+    ).reduce((sum, s) => sum + (s.amount || 0), 0) || 0;
 
-  // Net vs Gross tax incentive
-  const grossIncentive = taxIncentive;
-  const netIncentive = grossIncentive * (1 - investorCommission / 100);
+    const totalPublic = publicAid + taxIncentive;
+    const intensity = (totalPublic / totalBudget) * 100;
+    const intensityLimit = 50;
+    const isOverLimit = intensity > intensityLimit;
+
+    const grossIncentive = taxIncentive;
+    const netIncentive = grossIncentive * (1 - investorCommission / 100);
+
+    return {
+      totalBudget,
+      publicAid,
+      taxIncentive,
+      totalPublic,
+      intensity,
+      intensityLimit,
+      isOverLimit,
+      grossIncentive,
+      netIncentive,
+    };
+  }, [project, sources, investorCommission]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
   };
 
   const getIntensityColor = (value: number) => {
-    if (value > intensityLimit) return 'text-red-600';
-    if (value > intensityLimit * 0.9) return 'text-yellow-600';
+    if (value > calculations.intensityLimit) return 'text-red-600';
+    if (value > calculations.intensityLimit * 0.9) return 'text-yellow-600';
     return 'text-green-600';
   };
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  const isLoading = projectLoading || sourcesLoading;
+
+  if (isLoading) {
+    return (
+      <FinancingLayout projectTitle="Cargando...">
+        <div className="space-y-6">
+          <Skeleton className="h-64" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
+          </div>
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  if (!project) {
+    return (
+      <FinancingLayout projectTitle="Error">
+        <div className="text-center py-12 text-muted-foreground">
+          No se encontró el proyecto
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  const projectTitle = project.title || 'Mi Proyecto';
 
   return (
     <FinancingLayout projectTitle={projectTitle}>
@@ -70,26 +110,26 @@ export default function IntensidadPage() {
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Intensidad actual</p>
-                  <p className={`text-5xl font-bold ${getIntensityColor(intensity)}`}>
-                    {intensity.toFixed(1)}%
+                  <p className={`text-5xl font-bold ${getIntensityColor(calculations.intensity)}`}>
+                    {calculations.intensity.toFixed(1)}%
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Límite legal</p>
-                  <p className="text-2xl font-semibold">{intensityLimit}%</p>
+                  <p className="text-2xl font-semibold">{calculations.intensityLimit}%</p>
                 </div>
               </div>
 
               {/* Progress bar with limit marker */}
               <div className="relative">
                 <Progress 
-                  value={Math.min(intensity, 100)} 
-                  className={`h-6 ${isOverLimit ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
+                  value={Math.min(calculations.intensity, 100)} 
+                  className={`h-6 ${calculations.isOverLimit ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
                 />
                 {/* Limit marker */}
                 <div 
                   className="absolute top-0 bottom-0 w-0.5 bg-foreground"
-                  style={{ left: `${intensityLimit}%` }}
+                  style={{ left: `${calculations.intensityLimit}%` }}
                 >
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-medium">
                     Límite
@@ -105,23 +145,23 @@ export default function IntensidadPage() {
             </div>
 
             {/* Alert if over limit */}
-            {isOverLimit && (
+            {calculations.isOverLimit && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Intensidad excedida</AlertTitle>
                 <AlertDescription>
-                  La intensidad pública supera el límite legal del {intensityLimit}%. 
+                  La intensidad pública supera el límite legal del {calculations.intensityLimit}%. 
                   Revisa las soluciones sugeridas abajo.
                 </AlertDescription>
               </Alert>
             )}
 
-            {!isOverLimit && intensity > intensityLimit * 0.9 && (
+            {!calculations.isOverLimit && calculations.intensity > calculations.intensityLimit * 0.9 && (
               <Alert>
                 <Info className="h-4 w-4" />
                 <AlertTitle>Cerca del límite</AlertTitle>
                 <AlertDescription>
-                  Estás al {((intensity / intensityLimit) * 100).toFixed(0)}% del límite permitido.
+                  Estás al {((calculations.intensity / calculations.intensityLimit) * 100).toFixed(0)}% del límite permitido.
                 </AlertDescription>
               </Alert>
             )}
@@ -138,23 +178,23 @@ export default function IntensidadPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b">
                 <span>Ayudas públicas (ICAA, autonómicas...)</span>
-                <span className="font-semibold">{formatCurrency(publicAid)}</span>
+                <span className="font-semibold">{formatCurrency(calculations.publicAid)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span>Incentivos fiscales (bruto)</span>
-                <span className="font-semibold">{formatCurrency(grossIncentive)}</span>
+                <span className="font-semibold">{formatCurrency(calculations.grossIncentive)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b text-muted-foreground">
                 <span>Comisión inversor ({investorCommission}%)</span>
-                <span>-{formatCurrency(grossIncentive - netIncentive)}</span>
+                <span>-{formatCurrency(calculations.grossIncentive - calculations.netIncentive)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span>Incentivos fiscales (neto)</span>
-                <span className="font-semibold text-green-600">{formatCurrency(netIncentive)}</span>
+                <span className="font-semibold text-green-600">{formatCurrency(calculations.netIncentive)}</span>
               </div>
               <div className="flex justify-between items-center py-2 font-bold text-lg">
                 <span>TOTAL PÚBLICO</span>
-                <span className="text-primary">{formatCurrency(totalPublic)}</span>
+                <span className="text-primary">{formatCurrency(calculations.totalPublic)}</span>
               </div>
             </CardContent>
           </Card>
@@ -171,16 +211,16 @@ export default function IntensidadPage() {
               <div className="p-4 bg-muted/50 rounded-lg space-y-3">
                 <div className="flex justify-between">
                   <span>Incentivo bruto</span>
-                  <span className="font-semibold">{formatCurrency(grossIncentive)}</span>
+                  <span className="font-semibold">{formatCurrency(calculations.grossIncentive)}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Comisión inversor ({investorCommission}%)</span>
-                  <span>-{formatCurrency(grossIncentive - netIncentive)}</span>
+                  <span>-{formatCurrency(calculations.grossIncentive - calculations.netIncentive)}</span>
                 </div>
                 <hr />
                 <div className="flex justify-between font-bold">
                   <span>Incentivo neto (lo que recibes)</span>
-                  <span className="text-green-600">{formatCurrency(netIncentive)}</span>
+                  <span className="text-green-600">{formatCurrency(calculations.netIncentive)}</span>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -191,7 +231,7 @@ export default function IntensidadPage() {
         </div>
 
         {/* Solutions if over limit */}
-        {isOverLimit && (
+        {calculations.isOverLimit && (
           <Card className="border-yellow-500/50">
             <CardHeader className="bg-yellow-500/10">
               <CardTitle className="flex items-center gap-2 text-yellow-700">
@@ -205,14 +245,14 @@ export default function IntensidadPage() {
                   <Badge className="mb-2">Opción 1</Badge>
                   <h4 className="font-semibold">Reducir ayuda ICAA</h4>
                   <p className="text-sm text-muted-foreground">
-                    Solicitar {formatCurrency(publicAid - (totalBudget * intensityLimit / 100 - taxIncentive))} menos en ayudas
+                    Solicitar {formatCurrency(calculations.publicAid - (calculations.totalBudget * calculations.intensityLimit / 100 - calculations.taxIncentive))} menos en ayudas
                   </p>
                 </div>
                 <div className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">
                   <Badge className="mb-2">Opción 2</Badge>
                   <h4 className="font-semibold">Aumentar presupuesto</h4>
                   <p className="text-sm text-muted-foreground">
-                    Incrementar a {formatCurrency(totalPublic / (intensityLimit / 100))}
+                    Incrementar a {formatCurrency(calculations.totalPublic / (calculations.intensityLimit / 100))}
                   </p>
                 </div>
                 <div className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer">

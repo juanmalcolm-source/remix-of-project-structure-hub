@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { cn } from '@/lib/utils';
 
 interface CreativeLayoutProps {
@@ -141,6 +142,7 @@ export default function CreativeLayout({
                 {profile?.company_name || user?.email?.split('@')[0]}
               </p>
             </div>
+            <ThemeToggle />
             <Button variant="ghost" size="icon" onClick={() => navigate('/perfil')} className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
               <Settings className="w-4 h-4" />
             </Button>

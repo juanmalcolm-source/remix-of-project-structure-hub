@@ -1,243 +1,99 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { 
-  BookOpen, 
-  Edit2, 
-  Plus,
-  TrendingUp,
-  Sparkles
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { BookOpen, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import CreativeLayout from '@/components/layout/CreativeLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { PageSkeleton, ErrorState } from '@/components/common/PageSkeleton';
+import { useProject, useUpdateCreativeAnalysis } from '@/hooks/useProject';
+import { Json } from '@/integrations/supabase/types';
 
-interface Act {
-  id: number;
-  name: string;
-  pages: string;
-  description: string;
-  turningPoint: string;
+interface ActStructure { acto: number; nombre: string; descripcion: string; }
+interface TurningPoint { nombre: string; descripcion: string; momento?: string; }
+
+function parseJsonArray<T>(data: Json | null | undefined): T[] {
+  if (!data || !Array.isArray(data)) return [];
+  return data as T[];
 }
 
 export default function NarrativoPage() {
-  const location = useLocation();
+  const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+  const { data: project, isLoading, error } = useProject(projectId);
+  const updateAnalysis = useUpdateCreativeAnalysis();
 
-  const [acts, setActs] = useState<Act[]>([
-    { id: 1, name: 'Acto I - Planteamiento', pages: '1-25', description: 'Presentación del mundo y el protagonista', turningPoint: 'Detonante' },
-    { id: 2, name: 'Acto II - Confrontación', pages: '26-75', description: 'El protagonista enfrenta obstáculos', turningPoint: 'Punto medio' },
-    { id: 3, name: 'Acto III - Resolución', pages: '76-95', description: 'Clímax y resolución del conflicto', turningPoint: 'Clímax' },
-  ]);
-
-  const [editingAct, setEditingAct] = useState<number | null>(null);
+  const [actStructure, setActStructure] = useState<ActStructure[]>([]);
+  const [turningPoints, setTurningPoints] = useState<TurningPoint[]>([]);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Emotional curve data points (simplified visualization)
-  const emotionalCurve = [
-    { x: 0, y: 30, label: 'Inicio' },
-    { x: 20, y: 40, label: 'Detonante' },
-    { x: 40, y: 60, label: 'Punto medio' },
-    { x: 60, y: 45, label: 'Crisis' },
-    { x: 80, y: 90, label: 'Clímax' },
-    { x: 100, y: 50, label: 'Resolución' },
-  ];
+  useEffect(() => {
+    if (project?.creative_analysis) {
+      setActStructure(parseJsonArray<ActStructure>(project.creative_analysis.act_structure));
+      setTurningPoints(parseJsonArray<TurningPoint>(project.creative_analysis.turning_points));
+    }
+  }, [project]);
 
-  const handleSave = () => {
+  const handleSaveAct = async (index: number, descripcion: string) => {
+    if (!projectId) return;
+    const updated = [...actStructure];
+    updated[index] = { ...updated[index], descripcion };
+    setActStructure(updated);
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await updateAnalysis.mutateAsync({ projectId, data: { act_structure: updated as unknown as Json } });
       setLastSaved(new Date());
       toast({ title: '✓ Guardado', duration: 1000 });
-    }, 500);
+    } catch { toast({ title: 'Error al guardar', variant: 'destructive' }); }
+    finally { setIsSaving(false); }
   };
 
-  const updateAct = (id: number, field: keyof Act, value: string) => {
-    setActs(prev => prev.map(act => 
-      act.id === id ? { ...act, [field]: value } : act
-    ));
-  };
+  if (isLoading) return <CreativeLayout projectTitle="Cargando..."><PageSkeleton variant="cards" /></CreativeLayout>;
+  if (error || !project) return <CreativeLayout projectTitle="Error"><ErrorState message="No se pudo cargar el proyecto" /></CreativeLayout>;
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  const hasAnalysis = project.creative_analysis && (actStructure.length > 0 || turningPoints.length > 0);
 
   return (
-    <CreativeLayout 
-      projectTitle={projectTitle}
-      lastSaved={lastSaved}
-      isSaving={isSaving}
-    >
+    <CreativeLayout projectTitle={project.title} lastSaved={lastSaved} isSaving={isSaving}>
       <div className="space-y-6">
-        {/* Estructura de 3 Actos */}
-        <Card>
-          <CardHeader className="bg-primary/5">
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5" />
-              Estructura de 3 Actos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              {acts.map((act) => (
-                <div 
-                  key={act.id}
-                  className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline" className="font-mono">
-                        {act.pages}
-                      </Badge>
-                      {editingAct === act.id ? (
-                        <Input
-                          value={act.name}
-                          onChange={(e) => updateAct(act.id, 'name', e.target.value)}
-                          onBlur={() => { setEditingAct(null); handleSave(); }}
-                          className="font-semibold"
-                          autoFocus
-                        />
-                      ) : (
-                        <h3 
-                          className="font-semibold cursor-pointer hover:text-primary"
-                          onClick={() => setEditingAct(act.id)}
-                        >
-                          {act.name}
-                          <Edit2 className="w-3 h-3 inline ml-2 opacity-50" />
-                        </h3>
-                      )}
+        <div className="flex items-center gap-3"><BookOpen className="w-6 h-6" /><div><h2 className="text-2xl font-bold">Análisis Narrativo</h2><p className="text-muted-foreground">Estructura dramática del guión</p></div></div>
+
+        {!hasAnalysis ? (
+          <Card className="border-dashed"><CardContent className="py-12 text-center"><Sparkles className="w-12 h-12 mx-auto text-muted-foreground mb-4" /><h3 className="text-lg font-semibold mb-2">Sin análisis narrativo</h3><p className="text-muted-foreground">Analiza un guión para generar automáticamente la estructura de 3 actos y puntos de giro.</p></CardContent></Card>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="bg-primary/5"><CardTitle className="flex items-center gap-2">Estructura de 3 Actos<Badge variant="secondary"><Sparkles className="w-3 h-3 mr-1" />IA</Badge></CardTitle></CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {actStructure.map((acto, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3"><div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">{acto.acto || index + 1}</div><span className="font-medium">{acto.nombre || `Acto ${index + 1}`}</span></div>
+                      <Textarea value={acto.descripcion || ''} onChange={(e) => { const u = [...actStructure]; u[index] = { ...u[index], descripcion: e.target.value }; setActStructure(u); }} onBlur={(e) => handleSaveAct(index, e.target.value)} placeholder="Descripción del acto..." rows={4} />
                     </div>
-                    <Badge>{act.turningPoint}</Badge>
-                  </div>
-                  
-                  {editingAct === act.id ? (
-                    <Textarea
-                      value={act.description}
-                      onChange={(e) => updateAct(act.id, 'description', e.target.value)}
-                      onBlur={() => { setEditingAct(null); handleSave(); }}
-                      rows={2}
-                    />
-                  ) : (
-                    <p 
-                      className="text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 p-2 rounded"
-                      onClick={() => setEditingAct(act.id)}
-                    >
-                      {act.description}
-                    </p>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        {/* Mapa de Sensaciones (Emotional Curve) */}
-        <Card>
-          <CardHeader className="bg-primary/5">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Mapa de Sensaciones
-              <Badge variant="secondary" className="ml-2">Curva Emocional</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {/* Simple SVG curve visualization */}
-            <div className="relative h-64 bg-muted/30 rounded-lg p-4">
-              <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                {/* Grid lines */}
-                <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeOpacity="0.1" />
-                <line x1="25" y1="0" x2="25" y2="100" stroke="currentColor" strokeOpacity="0.1" />
-                <line x1="50" y1="0" x2="50" y2="100" stroke="currentColor" strokeOpacity="0.1" />
-                <line x1="75" y1="0" x2="75" y2="100" stroke="currentColor" strokeOpacity="0.1" />
-                
-                {/* Curve path */}
-                <path
-                  d={`M ${emotionalCurve.map(p => `${p.x},${100 - p.y}`).join(' L ')}`}
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="2"
-                  className="drop-shadow-md"
-                />
-                
-                {/* Data points */}
-                {emotionalCurve.map((point, i) => (
-                  <g key={i}>
-                    <circle
-                      cx={point.x}
-                      cy={100 - point.y}
-                      r="3"
-                      fill="hsl(var(--primary))"
-                      className="cursor-pointer hover:r-4 transition-all"
-                    />
-                  </g>
-                ))}
-              </svg>
-
-              {/* Labels */}
-              <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-muted-foreground px-4">
-                {emotionalCurve.map((point, i) => (
-                  <span key={i}>{point.label}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-4">
-              <p className="text-sm text-muted-foreground">
-                Haz clic en los puntos para editar la intensidad emocional
-              </p>
-              <Button variant="outline" size="sm">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Regenerar con IA
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Puntos de Giro */}
-        <Card>
-          <CardHeader className="bg-primary/5">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Puntos de Giro Identificados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="border rounded-lg p-4 text-center">
-                <Badge className="mb-2">Pág. 10-12</Badge>
-                <h4 className="font-semibold">Detonante</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  El evento que lanza la historia
-                </p>
-              </div>
-              
-              <div className="border rounded-lg p-4 text-center">
-                <Badge className="mb-2">Pág. 45-50</Badge>
-                <h4 className="font-semibold">Punto Medio</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Cambio de dirección o revelación
-                </p>
-              </div>
-              
-              <div className="border rounded-lg p-4 text-center">
-                <Badge className="mb-2">Pág. 80-85</Badge>
-                <h4 className="font-semibold">Clímax</h4>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Momento de máxima tensión
-                </p>
-              </div>
-            </div>
-
-            <Button variant="outline" size="sm" className="mt-4">
-              <Plus className="w-4 h-4 mr-2" />
-              Añadir punto de giro
-            </Button>
-          </CardContent>
-        </Card>
+            {turningPoints.length > 0 && (
+              <Card>
+                <CardHeader className="bg-primary/5"><CardTitle className="flex items-center gap-2">Puntos de Giro<Badge variant="secondary"><Sparkles className="w-3 h-3 mr-1" />IA</Badge></CardTitle></CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {turningPoints.map((point, index) => (
+                      <div key={index} className="flex gap-4 items-start border-l-4 border-primary pl-4">
+                        <div><h4 className="font-medium">{point.nombre}</h4>{point.momento && <span className="text-xs text-muted-foreground">{point.momento}</span>}<p className="text-sm text-muted-foreground mt-1">{point.descripcion}</p></div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
       </div>
     </CreativeLayout>
   );

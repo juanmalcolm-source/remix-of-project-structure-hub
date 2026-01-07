@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { 
   Scale, 
   ThumbsUp, 
@@ -16,47 +16,74 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import CreativeLayout from '@/components/layout/CreativeLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { PageSkeleton, ErrorState } from '@/components/common/PageSkeleton';
+import { useProject, useUpdateCreativeAnalysis } from '@/hooks/useProject';
+import { Json } from '@/integrations/supabase/types';
 
 interface ListItem {
   id: string;
   text: string;
 }
 
+function parseToListItems(data: Json | null | undefined): ListItem[] {
+  if (!data) return [];
+  if (Array.isArray(data)) {
+    return data.map((item, index) => ({
+      id: `${index}`,
+      text: typeof item === 'string' ? item : JSON.stringify(item),
+    }));
+  }
+  return [];
+}
+
+function listItemsToStrings(items: ListItem[]): string[] {
+  return items.map(item => item.text);
+}
+
 export default function VentajasPage() {
-  const location = useLocation();
+  const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+  const { data: project, isLoading, error } = useProject(projectId);
+  const updateAnalysis = useUpdateCreativeAnalysis();
 
-  const [strengths, setStrengths] = useState<ListItem[]>([
-    { id: '1', text: 'Historia original con elementos únicos' },
-    { id: '2', text: 'Personajes con arcos bien definidos' },
-    { id: '3', text: 'Diálogos naturales y creíbles' },
-  ]);
-
-  const [weaknesses, setWeaknesses] = useState<ListItem[]>([
-    { id: '1', text: 'Segundo acto algo lento' },
-    { id: '2', text: 'Demasiadas localizaciones exteriores' },
-  ]);
-
-  const [suggestions, setSuggestions] = useState<ListItem[]>([
-    { id: '1', text: 'Condensar escenas del segundo acto' },
-    { id: '2', text: 'Considerar filmar exteriores en una misma zona' },
-  ]);
-
+  const [strengths, setStrengths] = useState<ListItem[]>([]);
+  const [weaknesses, setWeaknesses] = useState<ListItem[]>([]);
+  const [suggestions, setSuggestions] = useState<ListItem[]>([]);
   const [confidentialNotes, setConfidentialNotes] = useState('');
   const [editingItem, setEditingItem] = useState<{ list: string; id: string } | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (project?.creative_analysis) {
+      setStrengths(parseToListItems(project.creative_analysis.strengths));
+      setWeaknesses(parseToListItems(project.creative_analysis.weaknesses));
+      setSuggestions(parseToListItems(project.creative_analysis.improvement_suggestions));
+      setConfidentialNotes(project.creative_analysis.confidential_notes || '');
+    }
+  }, [project]);
+
+  const handleSave = async () => {
+    if (!projectId) return;
+    
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await updateAnalysis.mutateAsync({
+        projectId,
+        data: {
+          strengths: listItemsToStrings(strengths) as unknown as Json,
+          weaknesses: listItemsToStrings(weaknesses) as unknown as Json,
+          improvement_suggestions: listItemsToStrings(suggestions) as unknown as Json,
+          confidential_notes: confidentialNotes,
+        },
+      });
       setLastSaved(new Date());
       toast({ title: '✓ Guardado', duration: 1000 });
-    }, 500);
+    } catch {
+      toast({ title: 'Error al guardar', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const addItem = (list: 'strengths' | 'weaknesses' | 'suggestions') => {
@@ -106,46 +133,18 @@ export default function VentajasPage() {
         setSuggestions(filter);
         break;
     }
-  };
-
-  const handleGenerate = async () => {
-    setIsGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Simulate AI generation
-    setStrengths([
-      { id: '1', text: 'Conflicto central potente y universal' },
-      { id: '2', text: 'Protagonista con motivaciones claras' },
-      { id: '3', text: 'Estructura narrativa sólida' },
-    ]);
-    
-    setWeaknesses([
-      { id: '1', text: 'El antagonista necesita más desarrollo' },
-      { id: '2', text: 'Algunas transiciones abruptas' },
-    ]);
-    
-    setSuggestions([
-      { id: '1', text: 'Añadir escena que humanice al antagonista' },
-      { id: '2', text: 'Suavizar transiciones con escenas puente' },
-    ]);
-    
-    toast({ title: 'Análisis regenerado con IA' });
-    setIsGenerating(false);
+    handleSave();
   };
 
   const renderList = (
     items: ListItem[], 
     listName: 'strengths' | 'weaknesses' | 'suggestions',
-    icon: React.ReactNode,
-    iconColor: string
+    dotColor: string
   ) => (
     <div className="space-y-2">
       {items.map((item) => (
-        <div 
-          key={item.id}
-          className="flex items-start gap-2 group"
-        >
-          <span className={`mt-1 ${iconColor}`}>{icon}</span>
+        <div key={item.id} className="flex items-start gap-2 group">
+          <span className={`mt-2 w-2 h-2 rounded-full ${dotColor}`} />
           {editingItem?.list === listName && editingItem.id === item.id ? (
             <Textarea
               value={item.text}
@@ -185,25 +184,46 @@ export default function VentajasPage() {
     </div>
   );
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  if (isLoading) {
+    return (
+      <CreativeLayout projectTitle="Cargando...">
+        <PageSkeleton variant="cards" />
+      </CreativeLayout>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <CreativeLayout projectTitle="Error">
+        <ErrorState message="No se pudo cargar el proyecto" />
+      </CreativeLayout>
+    );
+  }
+
+  const hasData = strengths.length > 0 || weaknesses.length > 0 || suggestions.length > 0;
 
   return (
     <CreativeLayout 
-      projectTitle={projectTitle}
+      projectTitle={project.title}
       lastSaved={lastSaved}
       isSaving={isSaving}
     >
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Ventajas y Desventajas</h2>
-            <p className="text-muted-foreground">Análisis DAFO del guión</p>
+          <div className="flex items-center gap-3">
+            <Scale className="w-6 h-6" />
+            <div>
+              <h2 className="text-2xl font-bold">Ventajas y Desventajas</h2>
+              <p className="text-muted-foreground">Análisis DAFO del guión</p>
+            </div>
           </div>
-          <Button onClick={handleGenerate} disabled={isGenerating}>
-            <Sparkles className="w-4 h-4 mr-2" />
-            {isGenerating ? 'Generando...' : 'Regenerar con IA'}
-          </Button>
+          {hasData && (
+            <Badge variant="secondary">
+              <Sparkles className="w-3 h-3 mr-1" />
+              IA
+            </Badge>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -216,12 +236,7 @@ export default function VentajasPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
-              {renderList(
-                strengths, 
-                'strengths', 
-                <div className="w-2 h-2 rounded-full bg-green-500" />,
-                ''
-              )}
+              {renderList(strengths, 'strengths', 'bg-green-500')}
             </CardContent>
           </Card>
 
@@ -234,12 +249,7 @@ export default function VentajasPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
-              {renderList(
-                weaknesses, 
-                'weaknesses', 
-                <div className="w-2 h-2 rounded-full bg-red-500" />,
-                ''
-              )}
+              {renderList(weaknesses, 'weaknesses', 'bg-red-500')}
             </CardContent>
           </Card>
 
@@ -252,12 +262,7 @@ export default function VentajasPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
-              {renderList(
-                suggestions, 
-                'suggestions', 
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />,
-                ''
-              )}
+              {renderList(suggestions, 'suggestions', 'bg-yellow-500')}
             </CardContent>
           </Card>
         </div>

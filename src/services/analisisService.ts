@@ -1,9 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AnalisisGuion } from '@/types/analisisGuion';
 
-const TIMEOUT_MS = 60000; // 60 segundos
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2000; // 2 segundos entre reintentos
+const TIMEOUT_MS = 120000; // 2 minutos para análisis completos
+const MAX_RETRIES = 2; // Reducido porque el timeout es mayor
+const RETRY_DELAY_MS = 3000; // 3 segundos entre reintentos
 
 interface AnalisisResponse {
   success: boolean;
@@ -78,17 +78,20 @@ async function llamarEdgeFunctionConTimeout(
   texto: string,
   timeoutMs: number
 ): Promise<AnalisisResponse> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // Usar Promise.race en lugar de AbortSignal para evitar el error "signal is aborted without reason"
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new AnalisisError(
+        'El análisis tardó demasiado tiempo. Por favor, intenta con un guión más corto.',
+        'TIMEOUT'
+      ));
+    }, timeoutMs);
+  });
 
-  try {
+  const fetchPromise = (async (): Promise<AnalisisResponse> => {
     const { data, error } = await supabase.functions.invoke('analizar-guion', {
       body: { texto },
-      // @ts-ignore - El tipo de supabase no incluye signal pero funciona
-      signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
 
     if (error) {
       // Detectar tipo de error
@@ -116,19 +119,13 @@ async function llamarEdgeFunctionConTimeout(
     }
 
     return data as AnalisisResponse;
-  } catch (error) {
-    clearTimeout(timeoutId);
+  })();
 
+  try {
+    return await Promise.race([fetchPromise, timeoutPromise]);
+  } catch (error) {
     if (error instanceof AnalisisError) {
       throw error;
-    }
-
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new AnalisisError(
-        'El análisis tardó demasiado tiempo. Por favor, intenta con un guión más corto.',
-        'TIMEOUT',
-        error
-      );
     }
 
     throw new AnalisisError(

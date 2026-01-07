@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { 
   Calendar, 
   Plus,
@@ -8,7 +8,6 @@ import {
   MapPin,
   ChevronUp,
   ChevronDown,
-  GripVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ProductionLayout from '@/components/layout/ProductionLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { useProject } from '@/hooks/useProject';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ShootingDay {
   id: string;
@@ -30,26 +30,32 @@ interface ShootingDay {
 }
 
 export default function PlanRodajePage() {
-  const location = useLocation();
+  const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+  const { data: project, isLoading } = useProject(projectId);
 
-  const estimatedDays = analisis?.resumen_produccion.dias_rodaje.estimacion_recomendada || 20;
-
-  const [shootingDays, setShootingDays] = useState<ShootingDay[]>(
-    Array.from({ length: Math.min(estimatedDays, 5) }, (_, i) => ({
-      id: `day-${i}`,
-      dayNumber: i + 1,
-      date: '',
-      location: analisis?.localizaciones[i % (analisis?.localizaciones.length || 1)]?.nombre || `Localización ${i + 1}`,
-      scenes: [`Esc. ${i * 3 + 1}`, `Esc. ${i * 3 + 2}`, `Esc. ${i * 3 + 3}`],
-      characters: analisis?.personajes.slice(0, 3).map(p => p.nombre) || ['Protagonista', 'Secundario'],
-      notes: '',
-    }))
-  );
-
+  const [shootingDays, setShootingDays] = useState<ShootingDay[]>([]);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Initialize shooting days from project data
+  useEffect(() => {
+    if (project?.locations && project.locations.length > 0) {
+      const totalDays = project.locations.reduce((sum, loc) => sum + (loc.estimated_days || 1), 0);
+      const daysToCreate = Math.min(totalDays, 10); // Limit initial days
+      
+      const initialDays = Array.from({ length: daysToCreate }, (_, i) => ({
+        id: `day-${i}`,
+        dayNumber: i + 1,
+        date: '',
+        location: project.locations[i % project.locations.length]?.name || `Localización ${i + 1}`,
+        scenes: [],
+        characters: project.characters?.slice(0, 3).map(c => c.name) || [],
+        notes: '',
+      }));
+      setShootingDays(initialDays);
+    }
+  }, [project]);
 
   const handleSave = () => {
     setIsSaving(true);
@@ -60,7 +66,7 @@ export default function PlanRodajePage() {
     }, 500);
   };
 
-  const updateDay = (id: string, field: keyof ShootingDay, value: any) => {
+  const updateDay = (id: string, field: keyof ShootingDay, value: unknown) => {
     setShootingDays(prev => prev.map(day => 
       day.id === id ? { ...day, [field]: value } : day
     ));
@@ -82,7 +88,6 @@ export default function PlanRodajePage() {
   const deleteDay = (id: string) => {
     setShootingDays(prev => {
       const filtered = prev.filter(day => day.id !== id);
-      // Renumber days
       return filtered.map((day, i) => ({ ...day, dayNumber: i + 1 }));
     });
     toast({ title: 'Día eliminado' });
@@ -98,16 +103,36 @@ export default function PlanRodajePage() {
     const newDays = [...shootingDays];
     [newDays[index], newDays[newIndex]] = [newDays[newIndex], newDays[index]];
     
-    // Renumber
     setShootingDays(newDays.map((day, i) => ({ ...day, dayNumber: i + 1 })));
     handleSave();
   };
 
-  // Get unique locations from analisis
-  const availableLocations = analisis?.localizaciones.map(l => l.nombre) || ['Localización 1', 'Localización 2'];
-  const availableCharacters = analisis?.personajes.map(p => p.nombre) || ['Protagonista', 'Secundario'];
+  if (isLoading) {
+    return (
+      <ProductionLayout projectTitle="Cargando...">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}
+          </div>
+          <Skeleton className="h-96" />
+        </div>
+      </ProductionLayout>
+    );
+  }
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  if (!project) {
+    return (
+      <ProductionLayout projectTitle="Error">
+        <div className="text-center py-12 text-muted-foreground">
+          No se encontró el proyecto
+        </div>
+      </ProductionLayout>
+    );
+  }
+
+  const availableLocations = project.locations?.map(l => l.name) || [];
+  const estimatedDays = project.locations?.reduce((sum, loc) => sum + (loc.estimated_days || 1), 0) || 20;
+  const projectTitle = project.title || 'Mi Proyecto';
 
   return (
     <ProductionLayout 
@@ -228,9 +253,13 @@ export default function PlanRodajePage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {availableLocations.map((loc, i) => (
-                              <SelectItem key={i} value={loc}>{loc}</SelectItem>
-                            ))}
+                            {availableLocations.length > 0 ? (
+                              availableLocations.map((loc, i) => (
+                                <SelectItem key={i} value={loc}>{loc}</SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="sin-localizaciones">Sin localizaciones</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -240,7 +269,7 @@ export default function PlanRodajePage() {
                         <label className="text-xs text-muted-foreground">Escenas</label>
                         <Input
                           value={day.scenes.join(', ')}
-                          onChange={(e) => updateDay(day.id, 'scenes', e.target.value.split(',').map(s => s.trim()))}
+                          onChange={(e) => updateDay(day.id, 'scenes', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
                           onBlur={handleSave}
                           placeholder="Esc. 1, Esc. 2..."
                         />

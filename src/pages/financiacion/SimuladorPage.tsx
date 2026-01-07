@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { 
   FlaskConical, 
   TrendingUp,
@@ -15,7 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import FinancingLayout from '@/components/layout/FinancingLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { useProject } from '@/hooks/useProject';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Scenario {
   budget: number;
@@ -26,8 +27,8 @@ interface Scenario {
 }
 
 export default function SimuladorPage() {
-  const location = useLocation();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+  const { projectId } = useParams<{ projectId: string }>();
+  const { data: project, isLoading } = useProject(projectId);
 
   // Base scenario
   const [baseScenario, setBaseScenario] = useState<Scenario>({
@@ -46,6 +47,21 @@ export default function SimuladorPage() {
     isDebut: false,
     euskera: false,
   });
+
+  // Initialize from project data
+  useMemo(() => {
+    if (project?.financing_plan) {
+      const fp = project.financing_plan;
+      const initialScenario = {
+        budget: fp.total_budget || 500000,
+        territory: fp.shooting_territory || 'madrid',
+        directorFemale: fp.director_gender === 'female',
+        isDebut: fp.is_debut || false,
+        euskera: false,
+      };
+      setBaseScenario(initialScenario);
+    }
+  }, [project]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
@@ -107,7 +123,30 @@ export default function SimuladorPage() {
   const compareResult = useMemo(() => calculateIncentive(compareScenario), [compareScenario]);
   const difference = compareResult.incentive - baseResult.incentive;
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  if (isLoading) {
+    return (
+      <FinancingLayout projectTitle="Cargando...">
+        <div className="space-y-6">
+          <Skeleton className="h-32 mx-auto max-w-md" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-96" />)}
+          </div>
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  if (!project) {
+    return (
+      <FinancingLayout projectTitle="Error">
+        <div className="text-center py-12 text-muted-foreground">
+          No se encontró el proyecto
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  const projectTitle = project.title || 'Mi Proyecto';
 
   const renderScenarioCard = (
     scenario: Scenario, 

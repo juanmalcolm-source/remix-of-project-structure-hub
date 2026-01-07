@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { 
   Settings, 
   Film,
@@ -15,12 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import FinancingLayout from '@/components/layout/FinancingLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { useProject, useUpdateFinancingPlan } from '@/hooks/useProject';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ConfiguracionPage() {
-  const location = useLocation();
+  const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+  const { data: project, isLoading } = useProject(projectId);
+  const updateFinancing = useUpdateFinancingPlan();
 
   const [projectType, setProjectType] = useState('largometraje');
   const [directorGender, setDirectorGender] = useState('');
@@ -30,20 +32,66 @@ export default function ConfiguracionPage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
+  // Initialize from project data
+  useEffect(() => {
+    if (project) {
+      setProjectType(project.project_type || 'largometraje');
+      if (project.financing_plan) {
+        setDirectorGender(project.financing_plan.director_gender || '');
+        setIsDebut(project.financing_plan.is_debut || false);
+        setShootingTerritory(project.financing_plan.shooting_territory || '');
+        setTotalBudget(project.financing_plan.total_budget || 500000);
+      }
+    }
+  }, [project]);
+
+  const handleSave = async () => {
+    if (!projectId) return;
+    
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await updateFinancing.mutateAsync({
+        projectId,
+        data: {
+          director_gender: directorGender,
+          is_debut: isDebut,
+          shooting_territory: shootingTerritory,
+          total_budget: totalBudget,
+        }
+      });
       setLastSaved(new Date());
       toast({ title: '✓ Configuración guardada', duration: 1000 });
-    }, 500);
+    } catch (error) {
+      toast({ title: 'Error al guardar', variant: 'destructive' });
+    }
+    setIsSaving(false);
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
   };
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  if (isLoading) {
+    return (
+      <FinancingLayout projectTitle="Cargando...">
+        <div className="max-w-3xl mx-auto space-y-6">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-48" />)}
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  if (!project) {
+    return (
+      <FinancingLayout projectTitle="Error">
+        <div className="text-center py-12 text-muted-foreground">
+          No se encontró el proyecto
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  const projectTitle = project.title || 'Mi Proyecto';
 
   return (
     <FinancingLayout 

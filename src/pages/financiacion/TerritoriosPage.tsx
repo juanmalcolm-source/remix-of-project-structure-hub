@@ -1,11 +1,9 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { 
   Map, 
   Check,
   Star,
-  AlertCircle,
-  TrendingUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import FinancingLayout from '@/components/layout/FinancingLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { useProject } from '@/hooks/useProject';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Territory {
   id: string;
@@ -87,11 +86,18 @@ const TERRITORIES: Territory[] = [
 ];
 
 export default function TerritoriosPage() {
-  const location = useLocation();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+  const { projectId } = useParams<{ projectId: string }>();
+  const { data: project, isLoading } = useProject(projectId);
 
   const [budget, setBudget] = useState(500000);
   const [selectedTerritory, setSelectedTerritory] = useState<string | null>(null);
+
+  // Initialize from project data
+  useMemo(() => {
+    if (project?.financing_plan?.total_budget) {
+      setBudget(project.financing_plan.total_budget);
+    }
+  }, [project]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
@@ -103,7 +109,7 @@ export default function TerritoriosPage() {
       case 'navarra':
         return Math.min(budget * 0.45, 5000000);
       case 'bizkaia':
-        return budget * 0.50; // No limit
+        return budget * 0.50;
       case 'alava-gipuzkoa':
         return Math.min(budget * 0.55, 10000000);
       case 'canarias':
@@ -128,7 +134,29 @@ export default function TerritoriosPage() {
 
   const bestTerritory = incentives[0];
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  if (isLoading) {
+    return (
+      <FinancingLayout projectTitle="Cargando...">
+        <div className="space-y-6">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-96" />
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  if (!project) {
+    return (
+      <FinancingLayout projectTitle="Error">
+        <div className="text-center py-12 text-muted-foreground">
+          No se encontró el proyecto
+        </div>
+      </FinancingLayout>
+    );
+  }
+
+  const projectTitle = project.title || 'Mi Proyecto';
 
   return (
     <FinancingLayout projectTitle={projectTitle}>

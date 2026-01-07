@@ -541,8 +541,11 @@ export type Database = {
           estimated_duration_minutes: number | null
           id: string
           location_id: string | null
+          page_eighths: number | null
           project_id: string
+          scene_complexity: string | null
           sequence_number: number
+          time_of_day: string | null
           title: string | null
           updated_at: string
           wardrobe: Json | null
@@ -556,8 +559,11 @@ export type Database = {
           estimated_duration_minutes?: number | null
           id?: string
           location_id?: string | null
+          page_eighths?: number | null
           project_id: string
+          scene_complexity?: string | null
           sequence_number: number
+          time_of_day?: string | null
           title?: string | null
           updated_at?: string
           wardrobe?: Json | null
@@ -571,8 +577,11 @@ export type Database = {
           estimated_duration_minutes?: number | null
           id?: string
           location_id?: string | null
+          page_eighths?: number | null
           project_id?: string
+          scene_complexity?: string | null
           sequence_number?: number
+          time_of_day?: string | null
           title?: string | null
           updated_at?: string
           wardrobe?: Json | null
@@ -587,6 +596,72 @@ export type Database = {
           },
           {
             foreignKeyName: "sequences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shooting_days: {
+        Row: {
+          characters: Json | null
+          created_at: string | null
+          day_number: number
+          estimated_hours: number | null
+          id: string
+          location_id: string | null
+          location_name: string | null
+          notes: string | null
+          project_id: string
+          sequences: Json | null
+          shooting_date: string | null
+          time_of_day: string | null
+          total_eighths: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          characters?: Json | null
+          created_at?: string | null
+          day_number: number
+          estimated_hours?: number | null
+          id?: string
+          location_id?: string | null
+          location_name?: string | null
+          notes?: string | null
+          project_id: string
+          sequences?: Json | null
+          shooting_date?: string | null
+          time_of_day?: string | null
+          total_eighths?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          characters?: Json | null
+          created_at?: string | null
+          day_number?: number
+          estimated_hours?: number | null
+          id?: string
+          location_id?: string | null
+          location_name?: string | null
+          notes?: string | null
+          project_id?: string
+          sequences?: Json | null
+          shooting_date?: string | null
+          time_of_day?: string | null
+          total_eighths?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shooting_days_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shooting_days_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

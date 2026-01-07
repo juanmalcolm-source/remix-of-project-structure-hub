@@ -17,7 +17,7 @@ export async function createProjectFromAnalysis(
       title: analisis.informacion_general.titulo || 'Sin título',
       script_text: scriptText,
       project_type: 'largometraje',
-      status: 'analyzed',
+      status: 'completed',
     })
     .select()
     .single();

@@ -1,12 +1,15 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { 
   Calculator, 
   Plus,
   Trash2,
   ChevronDown,
   ChevronRight,
-  DollarSign
+  Upload,
+  FileSpreadsheet,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,9 +19,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import ProductionLayout from '@/components/layout/ProductionLayout';
-import type { AnalisisGuion } from '@/types/analisisGuion';
+import { useProject } from '@/hooks/useProject';
+import { 
+  useBudgetLines, 
+  useCreateBudgetLine, 
+  useUpdateBudgetLine, 
+  useDeleteBudgetLine,
+  useBulkCreateBudgetLines,
+  type BudgetLine as DBBudgetLine
+} from '@/hooks/useBudgetLines';
 
-interface BudgetLine {
+interface LocalBudgetLine {
   id: string;
   accountNumber: string;
   concept: string;
@@ -27,12 +38,13 @@ interface BudgetLine {
   unitPrice: number;
   agencyPercentage: number;
   total: number;
+  isNew?: boolean;
 }
 
 interface BudgetChapter {
   id: number;
   name: string;
-  lines: BudgetLine[];
+  lines: LocalBudgetLine[];
   isOpen: boolean;
 }
 
@@ -53,8 +65,8 @@ const ICAA_CHAPTERS = [
 ];
 
 // Default line templates per chapter
-const getDefaultLines = (chapterId: number): BudgetLine[] => {
-  const templates: Record<number, Partial<BudgetLine>[]> = {
+const getDefaultLines = (chapterId: number): LocalBudgetLine[] => {
+  const templates: Record<number, Partial<LocalBudgetLine>[]> = {
     1: [
       { accountNumber: '01.01', concept: 'Guión (derechos autor)' },
       { accountNumber: '01.02', concept: 'Música original' },
@@ -131,7 +143,7 @@ const getDefaultLines = (chapterId: number): BudgetLine[] => {
   };
 
   return (templates[chapterId] || []).map((t, i) => ({
-    id: `${chapterId}-${i}`,
+    id: `new-${chapterId}-${i}`,
     accountNumber: t.accountNumber || '',
     concept: t.concept || '',
     units: 1,
@@ -139,32 +151,113 @@ const getDefaultLines = (chapterId: number): BudgetLine[] => {
     unitPrice: 0,
     agencyPercentage: 0,
     total: 0,
+    isNew: true,
   }));
 };
 
-export default function PresupuestoICAA() {
-  const location = useLocation();
-  const { toast } = useToast();
-  const analisis = location.state?.analisis as AnalisisGuion | undefined;
+// Convert DB line to local format
+const dbToLocal = (line: DBBudgetLine): LocalBudgetLine => ({
+  id: line.id,
+  accountNumber: line.account_number || '',
+  concept: line.concept,
+  units: Number(line.units) || 1,
+  quantity: Number(line.quantity) || 1,
+  unitPrice: Number(line.unit_price) || 0,
+  agencyPercentage: Number(line.agency_percentage) || 0,
+  total: Number(line.total) || 0,
+  isNew: false,
+});
 
-  const [chapters, setChapters] = useState<BudgetChapter[]>(
-    ICAA_CHAPTERS.map(ch => ({
+// Group DB lines by chapter
+const groupByChapter = (dbLines: DBBudgetLine[]): BudgetChapter[] => {
+  return ICAA_CHAPTERS.map(ch => {
+    const chapterLines = dbLines.filter(line => line.chapter === ch.id);
+    return {
       ...ch,
-      lines: getDefaultLines(ch.id),
-      isOpen: ch.id <= 3, // Open first 3 chapters by default
-    }))
-  );
+      lines: chapterLines.length > 0 
+        ? chapterLines.map(dbToLocal)
+        : getDefaultLines(ch.id),
+      isOpen: ch.id <= 3,
+    };
+  });
+};
 
+export default function PresupuestoICAA() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { data: project, isLoading: projectLoading } = useProject(projectId);
+  const { data: dbLines = [], isLoading: linesLoading } = useBudgetLines(projectId);
+  
+  const createLine = useCreateBudgetLine();
+  const updateLine = useUpdateBudgetLine();
+  const deleteLine = useDeleteBudgetLine();
+  const bulkCreate = useBulkCreateBudgetLines();
+
+  const [chapters, setChapters] = useState<BudgetChapter[]>([]);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
-  const handleSave = () => {
+  // Initialize chapters from DB
+  useEffect(() => {
+    if (!linesLoading) {
+      setChapters(groupByChapter(dbLines));
+    }
+  }, [dbLines, linesLoading]);
+
+  const handleSaveLine = async (chapterId: number, line: LocalBudgetLine) => {
+    if (!projectId) return;
+    
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      const lineData = {
+        account_number: line.accountNumber,
+        concept: line.concept,
+        units: line.units,
+        quantity: line.quantity,
+        unit_price: line.unitPrice,
+        agency_percentage: line.agencyPercentage,
+        total: line.total,
+        chapter: chapterId,
+      };
+
+      if (line.isNew || line.id.startsWith('new-')) {
+        const result = await createLine.mutateAsync({
+          ...lineData,
+          project_id: projectId,
+        });
+        // Update local state with real ID
+        setChapters(prev => prev.map(ch => {
+          if (ch.id !== chapterId) return ch;
+          return {
+            ...ch,
+            lines: ch.lines.map(l => 
+              l.id === line.id ? { ...l, id: result.id, isNew: false } : l
+            ),
+          };
+        }));
+      } else {
+        await updateLine.mutateAsync({
+          id: line.id,
+          projectId,
+          updates: lineData,
+        });
+      }
+      
       setLastSaved(new Date());
       toast({ title: '✓ Guardado', duration: 1000 });
-    }, 500);
+    } catch (error) {
+      console.error('Error saving line:', error);
+      toast({ 
+        title: 'Error al guardar', 
+        description: 'No se pudo guardar la partida',
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const toggleChapter = (chapterId: number) => {
@@ -173,7 +266,7 @@ export default function PresupuestoICAA() {
     ));
   };
 
-  const updateLine = (chapterId: number, lineId: string, field: keyof BudgetLine, value: any) => {
+  const handleUpdateLine = (chapterId: number, lineId: string, field: keyof LocalBudgetLine, value: any) => {
     setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
       
@@ -191,12 +284,16 @@ export default function PresupuestoICAA() {
     }));
   };
 
+  const handleLineBlur = (chapterId: number, line: LocalBudgetLine) => {
+    handleSaveLine(chapterId, line);
+  };
+
   const addLine = (chapterId: number) => {
     setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
       
-      const newLine: BudgetLine = {
-        id: `${chapterId}-${Date.now()}`,
+      const newLine: LocalBudgetLine = {
+        id: `new-${chapterId}-${Date.now()}`,
         accountNumber: `${chapterId.toString().padStart(2, '0')}.${(ch.lines.length + 1).toString().padStart(2, '0')}`,
         concept: 'Nueva partida',
         units: 1,
@@ -204,30 +301,184 @@ export default function PresupuestoICAA() {
         unitPrice: 0,
         agencyPercentage: 0,
         total: 0,
+        isNew: true,
       };
       
       return { ...ch, lines: [...ch.lines, newLine] };
     }));
   };
 
-  const deleteLine = (chapterId: number, lineId: string) => {
-    setChapters(prev => prev.map(ch => {
-      if (ch.id !== chapterId) return ch;
-      return { ...ch, lines: ch.lines.filter(line => line.id !== lineId) };
-    }));
+  const handleDeleteLine = async (chapterId: number, lineId: string) => {
+    if (!projectId) return;
+    
+    // If it's a new line that hasn't been saved, just remove from state
+    if (lineId.startsWith('new-')) {
+      setChapters(prev => prev.map(ch => {
+        if (ch.id !== chapterId) return ch;
+        return { ...ch, lines: ch.lines.filter(line => line.id !== lineId) };
+      }));
+      return;
+    }
+
+    try {
+      await deleteLine.mutateAsync({ id: lineId, projectId });
+      setChapters(prev => prev.map(ch => {
+        if (ch.id !== chapterId) return ch;
+        return { ...ch, lines: ch.lines.filter(line => line.id !== lineId) };
+      }));
+      toast({ title: '✓ Partida eliminada', duration: 1000 });
+    } catch (error) {
+      console.error('Error deleting line:', error);
+      toast({ 
+        title: 'Error al eliminar', 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !projectId) return;
+
+    setIsImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      // Find header row
+      let headerRowIndex = 0;
+      for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+        const row = jsonData[i];
+        if (row && row.some((cell: any) => 
+          typeof cell === 'string' && 
+          (cell.toLowerCase().includes('concepto') || 
+           cell.toLowerCase().includes('cuenta') ||
+           cell.toLowerCase().includes('partida'))
+        )) {
+          headerRowIndex = i;
+          break;
+        }
+      }
+
+      // Parse rows
+      const lines: Omit<any, 'project_id'>[] = [];
+      
+      for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (!row || row.length === 0) continue;
+
+        // Try to find account number (format: XX.XX or XX.XX.XX)
+        let accountNumber = '';
+        let concept = '';
+        let units = 1;
+        let quantity = 1;
+        let unitPrice = 0;
+        let agencyPercentage = 0;
+
+        for (let j = 0; j < row.length; j++) {
+          const cell = row[j];
+          if (cell == null) continue;
+
+          const cellStr = String(cell).trim();
+          
+          // Check if it's an account number (XX.XX pattern)
+          if (/^\d{1,2}\.\d{1,2}/.test(cellStr) && !accountNumber) {
+            accountNumber = cellStr;
+          }
+          // Check if it's a concept (text that's not a number)
+          else if (typeof cell === 'string' && cell.length > 2 && isNaN(Number(cell)) && !concept) {
+            concept = cell;
+          }
+          // Check for numeric values
+          else if (typeof cell === 'number' || !isNaN(Number(cell))) {
+            const num = Number(cell);
+            if (num > 0) {
+              if (unitPrice === 0 && num >= 100) {
+                unitPrice = num;
+              } else if (units === 1 && num < 100 && num > 0) {
+                if (quantity === 1) quantity = num;
+                else units = num;
+              }
+            }
+          }
+        }
+
+        // Skip if no valid data
+        if (!accountNumber || !concept) continue;
+
+        // Determine chapter from account number
+        const chapterMatch = accountNumber.match(/^(\d{1,2})\./);
+        const chapter = chapterMatch ? parseInt(chapterMatch[1]) : 1;
+
+        if (chapter >= 1 && chapter <= 12) {
+          const total = units * quantity * unitPrice * (1 + agencyPercentage / 100);
+          lines.push({
+            chapter,
+            account_number: accountNumber,
+            concept,
+            units,
+            quantity,
+            unit_price: unitPrice,
+            agency_percentage: agencyPercentage,
+            total,
+          });
+        }
+      }
+
+      if (lines.length === 0) {
+        toast({
+          title: 'No se encontraron partidas',
+          description: 'El archivo no contiene partidas válidas con formato ICAA',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Bulk insert
+      await bulkCreate.mutateAsync({ projectId, lines });
+      
+      toast({
+        title: '✓ Excel importado',
+        description: `Se importaron ${lines.length} partidas`,
+      });
+    } catch (error) {
+      console.error('Error importing Excel:', error);
+      toast({
+        title: 'Error al importar',
+        description: 'No se pudo leer el archivo Excel',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
   };
 
-  // Calculate totals
   const getChapterTotal = (chapter: BudgetChapter) => 
     chapter.lines.reduce((sum, line) => sum + line.total, 0);
 
   const grandTotal = chapters.reduce((sum, ch) => sum + getChapterTotal(ch), 0);
 
-  const projectTitle = analisis?.informacion_general.titulo || 'Mi Proyecto';
+  const projectTitle = project?.title || 'Mi Proyecto';
+
+  if (projectLoading || linesLoading) {
+    return (
+      <ProductionLayout projectTitle="Cargando...">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </ProductionLayout>
+    );
+  }
 
   return (
     <ProductionLayout 
@@ -236,10 +487,10 @@ export default function PresupuestoICAA() {
       isSaving={isSaving}
     >
       <div className="space-y-6">
-        {/* Summary */}
+        {/* Summary & Actions */}
         <Card className="border-2 border-primary/20">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-4">
                 <Calculator className="w-10 h-10 text-primary" />
                 <div>
@@ -247,9 +498,34 @@ export default function PresupuestoICAA() {
                   <p className="text-sm text-muted-foreground">12 Capítulos oficiales</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">TOTAL PRESUPUESTO</p>
-                <p className="text-3xl font-bold text-primary">{formatCurrency(grandTotal)}</p>
+              
+              <div className="flex items-center gap-4">
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleImportExcel}
+                    className="hidden"
+                  />
+                  <Button 
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    )}
+                    Importar Excel
+                  </Button>
+                </div>
+                
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">TOTAL PRESUPUESTO</p>
+                  <p className="text-3xl font-bold text-primary">{formatCurrency(grandTotal)}</p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -297,24 +573,24 @@ export default function PresupuestoICAA() {
                           <TableCell>
                             <Input
                               value={line.accountNumber}
-                              onChange={(e) => updateLine(chapter.id, line.id, 'accountNumber', e.target.value)}
-                              onBlur={handleSave}
+                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'accountNumber', e.target.value)}
+                              onBlur={() => handleLineBlur(chapter.id, line)}
                               className="w-20 font-mono text-sm"
                             />
                           </TableCell>
                           <TableCell>
                             <Input
                               value={line.concept}
-                              onChange={(e) => updateLine(chapter.id, line.id, 'concept', e.target.value)}
-                              onBlur={handleSave}
+                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'concept', e.target.value)}
+                              onBlur={() => handleLineBlur(chapter.id, line)}
                             />
                           </TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
                               value={line.units}
-                              onChange={(e) => updateLine(chapter.id, line.id, 'units', parseFloat(e.target.value) || 0)}
-                              onBlur={handleSave}
+                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'units', parseFloat(e.target.value) || 0)}
+                              onBlur={() => handleLineBlur(chapter.id, line)}
                               className="w-16 text-right"
                             />
                           </TableCell>
@@ -322,8 +598,8 @@ export default function PresupuestoICAA() {
                             <Input
                               type="number"
                               value={line.quantity}
-                              onChange={(e) => updateLine(chapter.id, line.id, 'quantity', parseFloat(e.target.value) || 0)}
-                              onBlur={handleSave}
+                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'quantity', parseFloat(e.target.value) || 0)}
+                              onBlur={() => handleLineBlur(chapter.id, line)}
                               className="w-16 text-right"
                             />
                           </TableCell>
@@ -331,8 +607,8 @@ export default function PresupuestoICAA() {
                             <Input
                               type="number"
                               value={line.unitPrice}
-                              onChange={(e) => updateLine(chapter.id, line.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                              onBlur={handleSave}
+                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                              onBlur={() => handleLineBlur(chapter.id, line)}
                               className="w-24 text-right"
                             />
                           </TableCell>
@@ -340,8 +616,8 @@ export default function PresupuestoICAA() {
                             <Input
                               type="number"
                               value={line.agencyPercentage}
-                              onChange={(e) => updateLine(chapter.id, line.id, 'agencyPercentage', parseFloat(e.target.value) || 0)}
-                              onBlur={handleSave}
+                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'agencyPercentage', parseFloat(e.target.value) || 0)}
+                              onBlur={() => handleLineBlur(chapter.id, line)}
                               className="w-16 text-right"
                             />
                           </TableCell>
@@ -352,7 +628,7 @@ export default function PresupuestoICAA() {
                             <Button 
                               variant="ghost" 
                               size="icon"
-                              onClick={() => deleteLine(chapter.id, line.id)}
+                              onClick={() => handleDeleteLine(chapter.id, line.id)}
                             >
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>

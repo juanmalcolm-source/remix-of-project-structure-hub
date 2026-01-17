@@ -13,9 +13,11 @@ import {
   Sunset,
   MapPin,
   Users,
-  Filter
+  Filter,
+  GripVertical
 } from "lucide-react";
-import { SceneForPlanning, ProposedShootingDay } from "@/services/shootingPlanService";
+import { ProposedShootingDay } from "@/services/shootingPlanService";
+import { useDragDrop } from "@/contexts/DragDropContext";
 import { cn } from "@/lib/utils";
 
 interface UnassignedScenesPanelProps {
@@ -42,6 +44,8 @@ export function UnassignedScenesPanel({
 }: UnassignedScenesPanelProps) {
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
+  
+  const { startDrag, endDrag, isDragging } = useDragDrop();
 
   // Calculate unassigned scenes
   const unassignedScenes = useMemo(() => {
@@ -82,6 +86,28 @@ export function UnassignedScenesPanel({
     if (title.includes('ATARDECER')) return 'ATARDECER';
     if (title.includes('AMANECER')) return 'AMANECER';
     return 'DÍA';
+  };
+
+  const handleDragStart = (e: React.DragEvent, scene: any) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', scene.id);
+    
+    const characters = Array.isArray(scene.characters_in_scene) 
+      ? scene.characters_in_scene 
+      : [];
+    
+    startDrag({
+      id: scene.id,
+      sequence_number: scene.sequence_number,
+      title: scene.title || `Escena ${scene.sequence_number}`,
+      page_eighths: scene.page_eighths || 1,
+      characters,
+      fromDayNumber: undefined, // From unassigned
+    });
+  };
+
+  const handleDragEnd = () => {
+    endDrag();
   };
 
   if (unassignedScenes.length === 0) {
@@ -142,6 +168,11 @@ export function UnassignedScenesPanel({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Drag hint */}
+        <p className="text-xs text-muted-foreground mt-2">
+          💡 Arrastra las escenas a un día de rodaje
+        </p>
       </CardHeader>
       
       <CardContent className="flex-1 pt-0">
@@ -156,10 +187,17 @@ export function UnassignedScenesPanel({
               return (
                 <div 
                   key={scene.id}
-                  className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors group"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, scene)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    "p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors group cursor-grab active:cursor-grabbing",
+                    "border-2 border-transparent hover:border-primary/20"
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
+                      <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
                       <Badge variant="outline" className="shrink-0 text-xs">
                         {scene.sequence_number}
                       </Badge>
@@ -186,8 +224,8 @@ export function UnassignedScenesPanel({
                     </div>
                   )}
                   
-                  {/* Assignment options */}
-                  <div className="flex gap-2 mt-2">
+                  {/* Assignment options - fallback if drag doesn't work */}
+                  <div className="flex gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     {shootingDays.length > 0 ? (
                       <Select 
                         onValueChange={(value) => {

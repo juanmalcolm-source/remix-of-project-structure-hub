@@ -24,6 +24,7 @@ import { ShootingPlanGenerator } from '@/components/features/ShootingPlanGenerat
 import { ShootingPlanStats } from '@/components/features/ShootingPlanStats';
 import { UnassignedScenesPanel } from '@/components/features/UnassignedScenesPanel';
 import { AddShootingDayDialog } from '@/components/features/AddShootingDayDialog';
+import { DragDropProvider } from '@/contexts/DragDropContext';
 import { calculatePlanStats, PlanGenerationOptions, SceneForPlanning, calculateEffectiveEighths, parseTimeOfDay } from '@/services/shootingPlanService';
 import { cn } from '@/lib/utils';
 
@@ -124,6 +125,17 @@ export default function PlanRodajePage() {
     swapDays({ dayNumber1: dayNumber, dayNumber2: targetDayNumber });
   };
 
+  // Handle drop from drag and drop
+  const handleSceneDrop = (dayNumber: number, sceneId: string, fromDayNumber?: number) => {
+    if (fromDayNumber === undefined) {
+      // Scene from unassigned panel
+      addSceneToDay({ sequenceId: sceneId, dayNumber });
+    } else if (fromDayNumber !== dayNumber) {
+      // Scene from another day
+      moveScene({ sceneId, fromDayNumber, toDayNumber: dayNumber });
+    }
+  };
+
   if (isLoading) {
     return (
       <ProductionLayout projectTitle="Cargando...">
@@ -151,216 +163,219 @@ export default function PlanRodajePage() {
 
   return (
     <ProductionLayout projectTitle={projectTitle}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Calendar className="h-6 w-6 text-primary" />
-              Plan de Rodaje
-            </h1>
-            <p className="text-muted-foreground">
-              Planifica y organiza los días de rodaje usando la Ley de los Octavos
-            </p>
+      <DragDropProvider>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Calendar className="h-6 w-6 text-primary" />
+                Plan de Rodaje
+              </h1>
+              <p className="text-muted-foreground">
+                Planifica y organiza los días de rodaje usando la Ley de los Octavos
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {hasPlan && (
+                <>
+                  <Button variant="outline" onClick={handleClearPlan}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Borrar plan
+                  </Button>
+                  <Button variant="outline">
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar
+                  </Button>
+                </>
+              )}
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setShowUnassigned(!showUnassigned)}
+                className={cn(!showUnassigned && "text-muted-foreground")}
+              >
+                {showUnassigned ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+              </Button>
+            </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            {hasPlan && (
-              <>
-                <Button variant="outline" onClick={handleClearPlan}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Borrar plan
-                </Button>
-                <Button variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar
-                </Button>
-              </>
-            )}
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setShowUnassigned(!showUnassigned)}
-              className={cn(!showUnassigned && "text-muted-foreground")}
-            >
-              {showUnassigned ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
-            </Button>
-          </div>
-        </div>
 
-        {/* Stats */}
-        {hasPlan && (
-          <ShootingPlanStats
-            totalScenes={stats.totalScenes}
-            totalEighths={stats.totalEighths}
-            totalDays={stats.totalDays}
-            uniqueLocations={stats.uniqueLocations}
-            dayDays={stats.dayDays}
-            nightDays={stats.nightDays}
-            totalCharacters={stats.totalCharacters}
-            avgEighthsPerDay={stats.avgEighthsPerDay}
-          />
-        )}
+          {/* Stats */}
+          {hasPlan && (
+            <ShootingPlanStats
+              totalScenes={stats.totalScenes}
+              totalEighths={stats.totalEighths}
+              totalDays={stats.totalDays}
+              uniqueLocations={stats.uniqueLocations}
+              dayDays={stats.dayDays}
+              nightDays={stats.nightDays}
+              totalCharacters={stats.totalCharacters}
+              avgEighthsPerDay={stats.avgEighthsPerDay}
+            />
+          )}
 
-        {/* No sequences warning */}
-        {!hasSequences && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              No hay escenas analizadas en este proyecto. Primero analiza el guión para poder generar un plan de rodaje inteligente.
-            </AlertDescription>
-          </Alert>
-        )}
+          {/* No sequences warning */}
+          {!hasSequences && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No hay escenas analizadas en este proyecto. Primero analiza el guión para poder generar un plan de rodaje inteligente.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {/* Main content with tabs */}
-        <div className={cn(
-          "grid gap-6",
-          showUnassigned && hasPlan ? "lg:grid-cols-[1fr,320px]" : ""
-        )}>
-          <div>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="plan" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Plan de Rodaje
-                </TabsTrigger>
-                <TabsTrigger value="generator" className="flex items-center gap-2">
-                  <Wand2 className="h-4 w-4" />
-                  Generador Inteligente
-                </TabsTrigger>
-              </TabsList>
+          {/* Main content with tabs */}
+          <div className={cn(
+            "grid gap-6",
+            showUnassigned && hasPlan ? "lg:grid-cols-[1fr,320px]" : ""
+          )}>
+            <div>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="plan" className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Plan de Rodaje
+                  </TabsTrigger>
+                  <TabsTrigger value="generator" className="flex items-center gap-2">
+                    <Wand2 className="h-4 w-4" />
+                    Generador Inteligente
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Generator Tab */}
-              <TabsContent value="generator" className="mt-6">
-                <ShootingPlanGenerator
-                  onGenerate={handleGeneratePlan}
-                  isGenerating={isGenerating}
-                  totalScenes={sequences.length}
-                  totalLocations={locations.length}
-                />
-              </TabsContent>
+                {/* Generator Tab */}
+                <TabsContent value="generator" className="mt-6">
+                  <ShootingPlanGenerator
+                    onGenerate={handleGeneratePlan}
+                    isGenerating={isGenerating}
+                    totalScenes={sequences.length}
+                    totalLocations={locations.length}
+                  />
+                </TabsContent>
 
-              {/* Plan Tab */}
-              <TabsContent value="plan" className="mt-6">
-                {hasPlan ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium">
-                        {shootingDays.length} días de rodaje planificados
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <AddShootingDayDialog
-                          locations={locations}
-                          existingDaysCount={shootingDays.length}
-                          onAddDay={handleAddDay}
-                          trigger={
-                            <Button variant="outline" size="sm">
-                              <Plus className="h-4 w-4 mr-2" />
-                              Añadir Jornada
-                            </Button>
-                          }
-                        />
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setActiveTab('generator')}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Regenerar plan
-                        </Button>
-                      </div>
-                    </div>
-
-                    {shootingDays.map((day, index) => (
-                      <ShootingDayCard
-                        key={day.dayNumber}
-                        day={day}
-                        allDays={shootingDays}
-                        maxEighths={8}
-                        onDelete={() => handleDeleteDay(day.dayNumber)}
-                        onMoveUp={() => handleSwapDays(day.dayNumber, 'up')}
-                        onMoveDown={() => handleSwapDays(day.dayNumber, 'down')}
-                        onSceneRemove={(sceneId) => handleRemoveSceneFromDay(sceneId, day.dayNumber)}
-                        onSceneMove={(sceneId, toDayNumber) => handleMoveSceneBetweenDays(sceneId, day.dayNumber, toDayNumber)}
-                        onUpdateDay={(updates) => updateDay({ dayNumber: day.dayNumber, updates })}
-                        isFirst={index === 0}
-                        isLast={index === shootingDays.length - 1}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Card>
-                    <CardContent className="py-12">
-                      <div className="text-center">
-                        <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-medium mb-2">No hay plan de rodaje</h3>
-                        <p className="text-muted-foreground mb-6">
-                          Genera un plan de rodaje inteligente basado en el análisis del guión
-                        </p>
-                        <div className="flex justify-center gap-3">
+                {/* Plan Tab */}
+                <TabsContent value="plan" className="mt-6">
+                  {hasPlan ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium">
+                          {shootingDays.length} días de rodaje planificados
+                        </h3>
+                        <div className="flex items-center gap-2">
                           <AddShootingDayDialog
                             locations={locations}
-                            existingDaysCount={0}
+                            existingDaysCount={shootingDays.length}
                             onAddDay={handleAddDay}
                             trigger={
-                              <Button variant="outline">
+                              <Button variant="outline" size="sm">
                                 <Plus className="h-4 w-4 mr-2" />
-                                Añadir Jornada Manual
+                                Añadir Jornada
                               </Button>
                             }
                           />
-                          <Button onClick={() => setActiveTab('generator')}>
-                            <Wand2 className="h-4 w-4 mr-2" />
-                            Generar Automáticamente
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setActiveTab('generator')}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Regenerar plan
                           </Button>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-            </Tabs>
+
+                      {shootingDays.map((day, index) => (
+                        <ShootingDayCard
+                          key={day.dayNumber}
+                          day={day}
+                          allDays={shootingDays}
+                          maxEighths={8}
+                          onDelete={() => handleDeleteDay(day.dayNumber)}
+                          onMoveUp={() => handleSwapDays(day.dayNumber, 'up')}
+                          onMoveDown={() => handleSwapDays(day.dayNumber, 'down')}
+                          onSceneRemove={(sceneId) => handleRemoveSceneFromDay(sceneId, day.dayNumber)}
+                          onSceneMove={(sceneId, toDayNumber) => handleMoveSceneBetweenDays(sceneId, day.dayNumber, toDayNumber)}
+                          onUpdateDay={(updates) => updateDay({ dayNumber: day.dayNumber, updates })}
+                          onSceneDrop={(sceneId, fromDayNumber) => handleSceneDrop(day.dayNumber, sceneId, fromDayNumber)}
+                          isFirst={index === 0}
+                          isLast={index === shootingDays.length - 1}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-12">
+                        <div className="text-center">
+                          <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="text-lg font-medium mb-2">No hay plan de rodaje</h3>
+                          <p className="text-muted-foreground mb-6">
+                            Genera un plan de rodaje inteligente basado en el análisis del guión
+                          </p>
+                          <div className="flex justify-center gap-3">
+                            <AddShootingDayDialog
+                              locations={locations}
+                              existingDaysCount={0}
+                              onAddDay={handleAddDay}
+                              trigger={
+                                <Button variant="outline">
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Añadir Jornada Manual
+                                </Button>
+                              }
+                            />
+                            <Button onClick={() => setActiveTab('generator')}>
+                              <Wand2 className="h-4 w-4 mr-2" />
+                              Generar Automáticamente
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Unassigned Scenes Panel */}
+            {showUnassigned && hasPlan && (
+              <div className="hidden lg:block">
+                <UnassignedScenesPanel
+                  sequences={sequences}
+                  shootingDays={shootingDays}
+                  locations={locations}
+                  onAssignToDay={handleAssignSceneToDay}
+                  onCreateDayWithScene={handleCreateDayWithScene}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Unassigned Scenes Panel */}
-          {showUnassigned && hasPlan && (
-            <div className="hidden lg:block">
-              <UnassignedScenesPanel
-                sequences={sequences}
-                shootingDays={shootingDays}
-                locations={locations}
-                onAssignToDay={handleAssignSceneToDay}
-                onCreateDayWithScene={handleCreateDayWithScene}
-              />
-            </div>
-          )}
+          {/* Info card */}
+          <Card className="bg-muted/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                ¿Cómo funciona la Ley de los Octavos?
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                <div>
+                  <p className="font-medium text-foreground mb-1">📄 1 página = 8 octavos</p>
+                  <p>Cada página de guión se divide en 8 partes. Una escena de 1/4 de página = 2 octavos.</p>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground mb-1">📅 1 día = ~8 octavos</p>
+                  <p>Un día de rodaje estándar permite filmar aproximadamente 8 octavos (1 página completa).</p>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground mb-1">⚙️ Ajuste por complejidad</p>
+                  <p>Las escenas complejas (stunts, efectos) requieren más tiempo. Las simples permiten rodar más.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-
-        {/* Info card */}
-        <Card className="bg-muted/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              ¿Cómo funciona la Ley de los Octavos?
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground">
-              <div>
-                <p className="font-medium text-foreground mb-1">📄 1 página = 8 octavos</p>
-                <p>Cada página de guión se divide en 8 partes. Una escena de 1/4 de página = 2 octavos.</p>
-              </div>
-              <div>
-                <p className="font-medium text-foreground mb-1">📅 1 día = ~8 octavos</p>
-                <p>Un día de rodaje estándar permite filmar aproximadamente 8 octavos (1 página completa).</p>
-              </div>
-              <div>
-                <p className="font-medium text-foreground mb-1">⚙️ Ajuste por complejidad</p>
-                <p>Las escenas complejas (stunts, efectos) requieren más tiempo. Las simples permiten rodar más.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      </DragDropProvider>
     </ProductionLayout>
   );
 }

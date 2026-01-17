@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
@@ -21,9 +22,12 @@ import {
   ArrowRight,
   X,
   MoreVertical,
+  Edit2,
+  Check,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ProposedShootingDay } from "@/services/shootingPlanService";
+import { useDragDrop, DraggedScene } from "@/contexts/DragDropContext";
 import { cn } from "@/lib/utils";
 
 interface ShootingDayCardProps {
@@ -36,6 +40,7 @@ interface ShootingDayCardProps {
   onSceneRemove?: (sceneId: string) => void;
   onSceneMove?: (sceneId: string, toDayNumber: number) => void;
   onUpdateDay?: (updates: Partial<ProposedShootingDay>) => void;
+  onSceneDrop?: (sceneId: string, fromDayNumber?: number) => void;
   isFirst?: boolean;
   isLast?: boolean;
 }
@@ -60,10 +65,16 @@ export function ShootingDayCard({
   onSceneRemove,
   onSceneMove,
   onUpdateDay,
+  onSceneDrop,
   isFirst,
   isLast,
 }: ShootingDayCardProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [editedLocation, setEditedLocation] = useState(day.location);
+  
+  const { draggedScene, startDrag, endDrag } = useDragDrop();
   
   const loadPercentage = (day.totalEighths / maxEighths) * 100;
   const isOverloaded = day.totalEighths > maxEighths;
@@ -74,13 +85,76 @@ export function ShootingDayCard({
   const handleTimeOfDayChange = (newTime: string) => {
     onUpdateDay?.({ timeOfDay: newTime });
   };
+
+  const handleLocationSave = () => {
+    if (editedLocation.trim() && editedLocation !== day.location) {
+      onUpdateDay?.({ location: editedLocation.trim() });
+    }
+    setIsEditingLocation(false);
+  };
+
+  const handleLocationKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleLocationSave();
+    } else if (e.key === 'Escape') {
+      setEditedLocation(day.location);
+      setIsEditingLocation(false);
+    }
+  };
+
+  // Drag and Drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    if (draggedScene && draggedScene.fromDayNumber !== day.dayNumber) {
+      onSceneDrop?.(draggedScene.id, draggedScene.fromDayNumber);
+    }
+    endDrag();
+  };
+
+  const handleSceneDragStart = (e: React.DragEvent, scene: any) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', scene.id);
+    
+    startDrag({
+      id: scene.id,
+      sequence_number: scene.sequence_number,
+      title: scene.title,
+      page_eighths: scene.page_eighths || 1,
+      effectiveEighths: scene.effectiveEighths,
+      characters: scene.characters || [],
+      fromDayNumber: day.dayNumber,
+    });
+  };
+
+  const handleSceneDragEnd = () => {
+    endDrag();
+  };
   
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card className={cn(
-        "transition-all",
-        isOverloaded && "border-destructive/50 bg-destructive/5"
-      )}>
+      <Card 
+        className={cn(
+          "transition-all",
+          isOverloaded && "border-destructive/50 bg-destructive/5",
+          isDragOver && "ring-2 ring-primary ring-offset-2 bg-primary/5"
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -92,7 +166,36 @@ export function ShootingDayCard({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{day.location}</span>
+                  
+                  {/* Editable location */}
+                  {isEditingLocation ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={editedLocation}
+                        onChange={(e) => setEditedLocation(e.target.value)}
+                        onKeyDown={handleLocationKeyDown}
+                        onBlur={handleLocationSave}
+                        className="h-7 w-48 text-sm"
+                        autoFocus
+                      />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7"
+                        onClick={handleLocationSave}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span 
+                      className="font-medium cursor-pointer hover:underline flex items-center gap-1 group"
+                      onClick={() => setIsEditingLocation(true)}
+                    >
+                      {day.location}
+                      <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </span>
+                  )}
                   
                   {/* Time of day selector */}
                   <Select value={day.timeOfDay} onValueChange={handleTimeOfDayChange}>
@@ -208,9 +311,15 @@ export function ShootingDayCard({
               {day.scenes.map((scene, index) => (
                 <div 
                   key={scene.id || index}
-                  className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors group"
+                  draggable
+                  onDragStart={(e) => handleSceneDragStart(e, scene)}
+                  onDragEnd={handleSceneDragEnd}
+                  className={cn(
+                    "flex items-center gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors group cursor-grab active:cursor-grabbing",
+                    "border-2 border-transparent hover:border-primary/20"
+                  )}
                 >
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab opacity-50 group-hover:opacity-100" />
+                  <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -280,11 +389,19 @@ export function ShootingDayCard({
                 </div>
               ))}
               
-              {day.scenes.length === 0 && (
-                <div className="text-center py-4 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
-                  No hay escenas asignadas a este día
-                </div>
-              )}
+              {/* Drop zone when empty or for adding more */}
+              <div 
+                className={cn(
+                  "text-center py-4 text-muted-foreground text-sm border-2 border-dashed rounded-lg transition-colors",
+                  isDragOver && "border-primary bg-primary/10 text-primary",
+                  day.scenes.length === 0 && "py-8"
+                )}
+              >
+                {day.scenes.length === 0 
+                  ? (isDragOver ? "Suelta aquí para añadir" : "Arrastra escenas aquí o usa el panel lateral")
+                  : (isDragOver ? "Suelta para añadir escena" : "Arrastra más escenas aquí")
+                }
+              </div>
             </div>
             
             {/* Characters */}

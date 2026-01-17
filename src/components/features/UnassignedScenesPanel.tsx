@@ -16,7 +16,7 @@ import {
   Filter,
   GripVertical
 } from "lucide-react";
-import { ProposedShootingDay } from "@/services/shootingPlanService";
+import { ProposedShootingDay, calculateSceneShootingTime } from "@/services/shootingPlanService";
 import { useDragDrop } from "@/contexts/DragDropContext";
 import { cn } from "@/lib/utils";
 
@@ -205,11 +205,15 @@ export function UnassignedScenesPanel({
                         {timeOfDayIcons[timeOfDay]}
                       </span>
                     </div>
-                    <Badge variant="secondary" className="shrink-0 text-xs">
-                      {scene.page_eighths || 1}/8
-                    </Badge>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <Badge variant="secondary" className="shrink-0 text-xs">
+                        {scene.page_eighths || 1}/8
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ~{calculateSceneShootingTime(scene).toFixed(1)}h
+                      </span>
+                    </div>
                   </div>
-                  
                   <p className="text-xs truncate mb-2" title={scene.title}>
                     {scene.title || `Escena ${scene.sequence_number}`}
                   </p>

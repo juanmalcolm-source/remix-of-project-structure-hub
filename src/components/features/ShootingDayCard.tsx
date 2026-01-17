@@ -26,7 +26,7 @@ import {
   Check,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ProposedShootingDay } from "@/services/shootingPlanService";
+import { ProposedShootingDay, calculateSceneShootingTime } from "@/services/shootingPlanService";
 import { useDragDrop, DraggedScene } from "@/contexts/DragDropContext";
 import { cn } from "@/lib/utils";
 
@@ -367,6 +367,10 @@ export function ShootingDayCard({
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="shrink-0 font-mono">
                       {formatEighths(scene.page_eighths || scene.effectiveEighths || 1)}
+                    </Badge>
+                    <Badge variant="outline" className="shrink-0 text-xs">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {calculateSceneShootingTime(scene).toFixed(1)}h
                     </Badge>
                     
                     {/* Scene actions */}

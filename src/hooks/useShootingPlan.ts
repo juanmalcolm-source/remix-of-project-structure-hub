@@ -10,6 +10,7 @@ import {
   SceneForPlanning,
   calculateEffectiveEighths,
   parseTimeOfDay,
+  recalculateDayTime,
 } from "@/services/shootingPlanService";
 import { toast } from "sonner";
 
@@ -174,7 +175,7 @@ export function useShootingPlan(projectId: string) {
           sequences: scenes as unknown as null,
           characters: characters as unknown as null,
           total_eighths: totalEighths,
-          estimated_hours: (totalEighths / 8) * 10,
+          estimated_hours: recalculateDayTime(scenes),
         });
       
       if (error) throw error;
@@ -210,13 +211,15 @@ export function useShootingPlan(projectId: string) {
       // Update from day (remove scene)
       const newFromScenes = fromDay.scenes.filter((s: any) => s.id !== sceneId);
       const fromCharacters = [...new Set(newFromScenes.flatMap((s: any) => s.characters || []))];
+      const fromTotalEighths = newFromScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       
       await supabase
         .from('shooting_days')
         .update({ 
           sequences: newFromScenes as unknown as null,
           characters: fromCharacters as unknown as null,
-          total_eighths: newFromScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0),
+          total_eighths: fromTotalEighths,
+          estimated_hours: recalculateDayTime(newFromScenes),
         })
         .eq('project_id', projectId)
         .eq('day_number', fromDayNumber);
@@ -224,13 +227,15 @@ export function useShootingPlan(projectId: string) {
       // Update to day (add scene)
       const newToScenes = [...toDay.scenes, scene];
       const toCharacters = [...new Set(newToScenes.flatMap((s: any) => s.characters || []))];
+      const toTotalEighths = newToScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       
       await supabase
         .from('shooting_days')
         .update({ 
           sequences: newToScenes as unknown as null,
           characters: toCharacters as unknown as null,
-          total_eighths: newToScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0),
+          total_eighths: toTotalEighths,
+          estimated_hours: recalculateDayTime(newToScenes),
         })
         .eq('project_id', projectId)
         .eq('day_number', toDayNumber);
@@ -277,13 +282,15 @@ export function useShootingPlan(projectId: string) {
       
       const newScenes = [...day.scenes, newScene];
       const newCharacters = [...new Set(newScenes.flatMap((s: any) => s.characters || []))];
+      const newTotalEighths = newScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       
       await supabase
         .from('shooting_days')
         .update({ 
           sequences: newScenes as unknown as null,
           characters: newCharacters as unknown as null,
-          total_eighths: newScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0),
+          total_eighths: newTotalEighths,
+          estimated_hours: recalculateDayTime(newScenes),
         })
         .eq('project_id', projectId)
         .eq('day_number', dayNumber);
@@ -308,13 +315,15 @@ export function useShootingPlan(projectId: string) {
       
       const newScenes = day.scenes.filter((s: any) => s.id !== sceneId);
       const newCharacters = [...new Set(newScenes.flatMap((s: any) => s.characters || []))];
+      const newTotalEighths = newScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       
       await supabase
         .from('shooting_days')
         .update({ 
           sequences: newScenes as unknown as null,
           characters: newCharacters as unknown as null,
-          total_eighths: newScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0),
+          total_eighths: newTotalEighths,
+          estimated_hours: recalculateDayTime(newScenes),
         })
         .eq('project_id', projectId)
         .eq('day_number', dayNumber);

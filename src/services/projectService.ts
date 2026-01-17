@@ -18,7 +18,16 @@ export async function createProjectFromAnalysis(
   console.log('Localizaciones:', analisis.localizaciones?.length);
   console.log('Secuencias:', analisis.desglose_secuencias?.length);
 
-  // 1. Create the project with logline
+  // Detect project type automatically based on script pages
+  // Short film: < 60 pages (approx. < 60 minutes)
+  // Feature film: >= 60 pages
+  const paginasTotales = analisis.informacion_general.paginas_totales || 
+    Math.ceil(scriptText.length / 600); // Approximate: 1 page ≈ 600 characters
+  const projectType = paginasTotales < 60 ? 'cortometraje' : 'largometraje';
+  
+  console.log('Páginas detectadas:', paginasTotales, '-> Tipo:', projectType);
+
+  // 1. Create the project with logline and auto-detected type
   const { data: project, error: projectError } = await supabase
     .from('projects')
     .insert({
@@ -26,7 +35,7 @@ export async function createProjectFromAnalysis(
       title: analisis.informacion_general.titulo || 'Sin título',
       logline: analisis.informacion_general.logline || null,
       script_text: scriptText,
-      project_type: 'largometraje',
+      project_type: projectType,
       status: 'completed',
     })
     .select()

@@ -15,14 +15,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import FinancingLayout from '@/components/layout/FinancingLayout';
-import { useProject, useUpdateFinancingPlan } from '@/hooks/useProject';
+import { useProject, useUpdateFinancingPlan, useUpdateProject } from '@/hooks/useProject';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 export default function ConfiguracionPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
   const { data: project, isLoading } = useProject(projectId);
   const updateFinancing = useUpdateFinancingPlan();
+  const updateProject = useUpdateProject();
 
   const [projectType, setProjectType] = useState('largometraje');
   const [directorGender, setDirectorGender] = useState('');
@@ -50,6 +52,13 @@ export default function ConfiguracionPage() {
     
     setIsSaving(true);
     try {
+      // Save project type to projects table
+      await updateProject.mutateAsync({
+        id: projectId,
+        data: { project_type: projectType }
+      });
+      
+      // Save financing configuration
       await updateFinancing.mutateAsync({
         projectId,
         data: {
@@ -66,6 +75,12 @@ export default function ConfiguracionPage() {
     }
     setIsSaving(false);
   };
+  
+  // Estimate pages from script text
+  const estimatedPages = project?.script_text 
+    ? Math.ceil(project.script_text.length / 600) 
+    : null;
+  const isAutoDetectedShort = estimatedPages && estimatedPages < 60;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
@@ -117,6 +132,16 @@ export default function ConfiguracionPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isAutoDetectedShort && projectType === 'cortometraje' && (
+              <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <Badge variant="outline" className="border-amber-500 text-amber-600">
+                  Auto-detectado
+                </Badge>
+                <span className="text-sm text-amber-700 dark:text-amber-400">
+                  Clasificado como cortometraje ({estimatedPages} páginas &lt; 60)
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {['largometraje', 'cortometraje', 'documental', 'serie'].map((type) => (
                 <Button
@@ -129,6 +154,12 @@ export default function ConfiguracionPage() {
                 </Button>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {projectType === 'cortometraje' && 'Límite de intensidad pública: 80%'}
+              {projectType === 'documental' && 'Límite de intensidad pública: 80%'}
+              {projectType === 'serie' && 'Límite de intensidad pública: 60%'}
+              {projectType === 'largometraje' && 'Límite de intensidad pública: 50%'}
+            </p>
           </CardContent>
         </Card>
 

@@ -21,10 +21,25 @@ export default function IntensidadPage() {
 
   const [investorCommission] = useState(15);
 
+  // Determine intensity limit based on project type
+  const getIntensityLimit = (projectType: string | null | undefined): number => {
+    switch (projectType) {
+      case 'cortometraje':
+        return 80; // Short films can reach 80%
+      case 'documental':
+        return 80; // Documentaries can reach 80%
+      case 'serie':
+        return 60; // Series: 60%
+      default:
+        return 50; // Feature films: 50% standard
+    }
+  };
+
   // Calculate values from real data
   const calculations = useMemo(() => {
     const totalBudget = project?.financing_plan?.total_budget || 500000;
     const taxIncentive = project?.financing_plan?.tax_incentive_amount || 0;
+    const projectType = project?.project_type;
     
     // Sum public aid from sources
     const publicAid = sources?.filter(s => 
@@ -33,7 +48,7 @@ export default function IntensidadPage() {
 
     const totalPublic = publicAid + taxIncentive;
     const intensity = (totalPublic / totalBudget) * 100;
-    const intensityLimit = 50;
+    const intensityLimit = getIntensityLimit(projectType);
     const isOverLimit = intensity > intensityLimit;
 
     const grossIncentive = taxIncentive;
@@ -49,6 +64,7 @@ export default function IntensidadPage() {
       isOverLimit,
       grossIncentive,
       netIncentive,
+      projectType,
     };
   }, [project, sources, investorCommission]);
 
@@ -139,9 +155,15 @@ export default function IntensidadPage() {
 
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>0%</span>
-                <span>50%</span>
+                <span>{calculations.intensityLimit}%</span>
                 <span>100%</span>
               </div>
+              
+              {calculations.projectType && calculations.projectType !== 'largometraje' && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  ℹ️ Límite del {calculations.intensityLimit}% aplicado por ser <span className="font-medium capitalize">{calculations.projectType}</span>
+                </p>
+              )}
             </div>
 
             {/* Alert if over limit */}

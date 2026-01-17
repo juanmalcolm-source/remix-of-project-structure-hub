@@ -55,6 +55,20 @@ const timeOfDayIcons: Record<string, React.ReactNode> = {
 
 const timeOptions = ['DÍA', 'NOCHE', 'ATARDECER', 'AMANECER'];
 
+// Formatear octavos en formato profesional de producción
+function formatEighths(eighths: number): string {
+  if (!eighths || eighths <= 0) return '1/8';
+  if (eighths < 8) {
+    return `${eighths}/8`;
+  }
+  const pages = Math.floor(eighths / 8);
+  const remainder = eighths % 8;
+  if (remainder === 0) {
+    return `${pages} pág`;
+  }
+  return `${pages} ${remainder}/8`;
+}
+
 export function ShootingDayCard({
   day,
   allDays,
@@ -346,8 +360,8 @@ export function ShootingDayCard({
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="shrink-0">
-                      {scene.page_eighths || scene.effectiveEighths || 1}/8
+                    <Badge variant="secondary" className="shrink-0 font-mono">
+                      {formatEighths(scene.page_eighths || scene.effectiveEighths || 1)}
                     </Badge>
                     
                     {/* Scene actions */}

@@ -38,15 +38,38 @@ export interface PlanGenerationOptions {
   optimizeByProximity: boolean;
 }
 
+// Normalizar octavos según la Ley de los Octavos profesional
+// El valor debe ser un entero de 1 a 16+ (nunca 0, nunca fracciones)
+export function normalizeEighths(rawValue: number | null | undefined): number {
+  if (!rawValue || rawValue <= 0) return 1; // Mínimo es 1/8
+  
+  // Si viene como decimal pequeño (0.125, 0.5, 0.875), convertir de páginas a octavos
+  if (rawValue > 0 && rawValue < 1) {
+    // Formato de páginas decimales (ej: 0.5 = 4/8 = 4 octavos)
+    return Math.max(1, Math.round(rawValue * 8));
+  }
+  
+  // Si está entre 1 y 3 con decimales, podría ser páginas (ej: 1.25 = 1 página y 2 octavos = 10 octavos)
+  if (rawValue >= 1 && rawValue < 3 && rawValue !== Math.floor(rawValue)) {
+    // Tiene decimales, convertir de páginas a octavos
+    return Math.max(1, Math.round(rawValue * 8));
+  }
+  
+  // Ya son octavos directos (1, 2, 3, 4, 5, 6, 7, 8, 9, ...)
+  return Math.max(1, Math.round(rawValue));
+}
+
 // Calculate effective eighths based on complexity
 export function calculateEffectiveEighths(pageEighths: number, complexity: string): number {
+  const normalizedEighths = normalizeEighths(pageEighths);
+  
   switch (complexity?.toLowerCase()) {
     case 'alta':
-      return pageEighths * 2; // High complexity = double time
+      return normalizedEighths * 1.5; // High complexity = 50% more time
     case 'baja':
-      return pageEighths * 0.66; // Low complexity = less time
+      return normalizedEighths * 0.75; // Low complexity = 25% less time
     default:
-      return pageEighths; // Medium = standard time
+      return normalizedEighths; // Medium = standard time
   }
 }
 
@@ -313,7 +336,8 @@ export function generateSmartShootingPlan(
                seq.title?.toLowerCase().includes(loc.name.toLowerCase())
     );
     
-    const pageEighths = seq.page_eighths || 1;
+    const rawEighths = seq.page_eighths;
+    const pageEighths = normalizeEighths(rawEighths);
     const complexity = seq.scene_complexity || 'media';
     
     return {

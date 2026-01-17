@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 interface ShootingDayCardProps {
   day: ProposedShootingDay;
   allDays: ProposedShootingDay[];
-  maxEighths?: number;
+  maxEighthsPerDay?: number; // Octavos máximos por día (estándar profesional: 32 = 4 páginas)
   onDelete?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -72,7 +72,7 @@ function formatEighths(eighths: number): string {
 export function ShootingDayCard({
   day,
   allDays,
-  maxEighths = 8,
+  maxEighthsPerDay = 32, // 4 páginas/día = estándar profesional
   onDelete,
   onMoveUp,
   onMoveDown,
@@ -90,8 +90,11 @@ export function ShootingDayCard({
   
   const { draggedScene, startDrag, endDrag } = useDragDrop();
   
-  const loadPercentage = (day.totalEighths / maxEighths) * 100;
-  const isOverloaded = day.totalEighths > maxEighths;
+  // Calcular carga en páginas
+  const loadPercentage = Math.min((day.totalEighths / maxEighthsPerDay) * 100, 100);
+  const isOverloaded = day.totalEighths > maxEighthsPerDay;
+  const pagesLoaded = (day.totalEighths / 8).toFixed(1);
+  const maxPages = (maxEighthsPerDay / 8).toFixed(0);
   
   // Other days for moving scenes
   const otherDays = allDays.filter(d => d.dayNumber !== day.dayNumber);
@@ -244,20 +247,22 @@ export function ShootingDayCard({
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Load indicator */}
-              <div className="flex flex-col items-end gap-1 min-w-[100px]">
+              {/* Load indicator - en páginas */}
+              <div className="flex flex-col items-end gap-1 min-w-[120px]">
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     "text-sm font-medium",
                     isOverloaded ? "text-destructive" : "text-foreground"
                   )}>
-                    {day.totalEighths.toFixed(1)}/{maxEighths}
+                    {pagesLoaded}/{maxPages} pág
                   </span>
-                  <span className="text-xs text-muted-foreground">octavos</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({day.totalEighths.toFixed(0)} oct)
+                  </span>
                 </div>
                 <Progress 
-                  value={Math.min(loadPercentage, 100)} 
-                  className={cn("h-2 w-24", isOverloaded && "[&>div]:bg-destructive")}
+                  value={loadPercentage} 
+                  className={cn("h-2 w-28", isOverloaded && "[&>div]:bg-destructive")}
                 />
               </div>
               

@@ -75,12 +75,37 @@ export default function ConfiguracionPage() {
     }
     setIsSaving(false);
   };
-  
+
+  // Dedicated function to save project type immediately with the correct value
+  const handleProjectTypeChange = async (newType: string) => {
+    setProjectType(newType);
+    if (!projectId) return;
+    
+    setIsSaving(true);
+    try {
+      await updateProject.mutateAsync({
+        id: projectId,
+        data: { project_type: newType }
+      });
+      setLastSaved(new Date());
+      toast({ title: '✓ Tipo de proyecto actualizado', duration: 1000 });
+    } catch (error) {
+      toast({ title: 'Error al guardar tipo', variant: 'destructive' });
+    }
+    setIsSaving(false);
+  };
+
   // Estimate pages from script text
   const estimatedPages = project?.script_text 
     ? Math.ceil(project.script_text.length / 600) 
     : null;
   const isAutoDetectedShort = estimatedPages && estimatedPages < 60;
+
+  // Check for inconsistency between estimated pages and project type
+  const isTypeInconsistent = estimatedPages && (
+    (estimatedPages < 60 && projectType === 'largometraje') ||
+    (estimatedPages >= 60 && projectType === 'cortometraje')
+  );
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount);
@@ -133,12 +158,23 @@ export default function ConfiguracionPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {isAutoDetectedShort && projectType === 'cortometraje' && (
+              <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <Badge variant="outline" className="border-green-500 text-green-600">
+                  ✓ Auto-detectado
+                </Badge>
+                <span className="text-sm text-green-700 dark:text-green-400">
+                  Clasificado como cortometraje ({estimatedPages} páginas &lt; 60)
+                </span>
+              </div>
+            )}
+            {isTypeInconsistent && (
               <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                 <Badge variant="outline" className="border-amber-500 text-amber-600">
-                  Auto-detectado
+                  ⚠️ Inconsistencia
                 </Badge>
                 <span className="text-sm text-amber-700 dark:text-amber-400">
-                  Clasificado como cortometraje ({estimatedPages} páginas &lt; 60)
+                  El guión tiene ~{estimatedPages} páginas, lo que sugiere 
+                  {estimatedPages < 60 ? ' un cortometraje' : ' un largometraje'}.
                 </span>
               </div>
             )}
@@ -147,7 +183,7 @@ export default function ConfiguracionPage() {
                 <Button
                   key={type}
                   variant={projectType === type ? 'default' : 'outline'}
-                  onClick={() => { setProjectType(type); handleSave(); }}
+                  onClick={() => handleProjectTypeChange(type)}
                   className="capitalize"
                 >
                   {type}

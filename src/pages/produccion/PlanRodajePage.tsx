@@ -7,9 +7,12 @@ import {
   RefreshCw,
   Download,
   AlertCircle,
+  Plus,
+  PanelRightOpen,
+  PanelRightClose,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import ProductionLayout from '@/components/layout/ProductionLayout';
@@ -19,21 +22,32 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ShootingDayCard } from '@/components/features/ShootingDayCard';
 import { ShootingPlanGenerator } from '@/components/features/ShootingPlanGenerator';
 import { ShootingPlanStats } from '@/components/features/ShootingPlanStats';
-import { calculatePlanStats, PlanGenerationOptions } from '@/services/shootingPlanService';
+import { UnassignedScenesPanel } from '@/components/features/UnassignedScenesPanel';
+import { AddShootingDayDialog } from '@/components/features/AddShootingDayDialog';
+import { calculatePlanStats, PlanGenerationOptions, SceneForPlanning, calculateEffectiveEighths, parseTimeOfDay } from '@/services/shootingPlanService';
+import { cn } from '@/lib/utils';
 
 export default function PlanRodajePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { data: project, isLoading: projectLoading } = useProject(projectId);
   const [activeTab, setActiveTab] = useState('plan');
+  const [showUnassigned, setShowUnassigned] = useState(true);
 
   const {
     sequences,
     locations,
     shootingDays,
+    unassignedScenes,
     isLoading: planLoading,
     generatePlan,
     isGenerating,
     deleteDay,
+    addDay,
+    moveScene,
+    addSceneToDay,
+    removeSceneFromDay,
+    updateDay,
+    swapDays,
     clearPlan,
   } = useShootingPlan(projectId || '');
 
@@ -57,6 +71,57 @@ export default function PlanRodajePage() {
     if (confirm('¿Eliminar todo el plan de rodaje? Esta acción no se puede deshacer.')) {
       clearPlan();
     }
+  };
+
+  const handleAddDay = (dayData: { location: string; locationId?: string; timeOfDay: string; notes?: string }) => {
+    addDay(dayData);
+  };
+
+  const handleAssignSceneToDay = (sequenceId: string, dayNumber: number) => {
+    addSceneToDay({ sequenceId, dayNumber });
+  };
+
+  const handleCreateDayWithScene = (sequenceId: string) => {
+    const sequence = sequences.find(s => s.id === sequenceId);
+    if (!sequence) return;
+    
+    const pageEighths = sequence.page_eighths || 1;
+    const complexity = sequence.scene_complexity || 'media';
+    
+    const scene: SceneForPlanning = {
+      id: sequence.id,
+      sequence_number: sequence.sequence_number,
+      title: sequence.title || `Escena ${sequence.sequence_number}`,
+      description: sequence.description || '',
+      location_name: sequence.title?.replace(/^(INT\.|EXT\.|INT\/EXT\.)\s*/i, '').replace(/\s*[-—].*$/i, '') || 'Nueva localización',
+      location_id: null,
+      time_of_day: sequence.time_of_day || parseTimeOfDay(sequence.title || ''),
+      page_eighths: pageEighths,
+      scene_complexity: complexity,
+      characters: Array.isArray(sequence.characters_in_scene) 
+        ? (sequence.characters_in_scene as string[]) 
+        : [],
+      effectiveEighths: calculateEffectiveEighths(pageEighths, complexity),
+    };
+    
+    addDay({
+      location: scene.location_name,
+      timeOfDay: scene.time_of_day,
+      scenes: [scene],
+    });
+  };
+
+  const handleMoveSceneBetweenDays = (sceneId: string, fromDayNumber: number, toDayNumber: number) => {
+    moveScene({ sceneId, fromDayNumber, toDayNumber });
+  };
+
+  const handleRemoveSceneFromDay = (sceneId: string, dayNumber: number) => {
+    removeSceneFromDay({ sceneId, dayNumber });
+  };
+
+  const handleSwapDays = (dayNumber: number, direction: 'up' | 'down') => {
+    const targetDayNumber = direction === 'up' ? dayNumber - 1 : dayNumber + 1;
+    swapDays({ dayNumber1: dayNumber, dayNumber2: targetDayNumber });
   };
 
   if (isLoading) {
@@ -99,18 +164,28 @@ export default function PlanRodajePage() {
             </p>
           </div>
           
-          {hasPlan && (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleClearPlan}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Borrar plan
-              </Button>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {hasPlan && (
+              <>
+                <Button variant="outline" onClick={handleClearPlan}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Borrar plan
+                </Button>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+              </>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setShowUnassigned(!showUnassigned)}
+              className={cn(!showUnassigned && "text-muted-foreground")}
+            >
+              {showUnassigned ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -138,76 +213,128 @@ export default function PlanRodajePage() {
         )}
 
         {/* Main content with tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="plan" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Plan de Rodaje
-            </TabsTrigger>
-            <TabsTrigger value="generator" className="flex items-center gap-2">
-              <Wand2 className="h-4 w-4" />
-              Generador Inteligente
-            </TabsTrigger>
-          </TabsList>
+        <div className={cn(
+          "grid gap-6",
+          showUnassigned && hasPlan ? "lg:grid-cols-[1fr,320px]" : ""
+        )}>
+          <div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="plan" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Plan de Rodaje
+                </TabsTrigger>
+                <TabsTrigger value="generator" className="flex items-center gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  Generador Inteligente
+                </TabsTrigger>
+              </TabsList>
 
-          {/* Generator Tab */}
-          <TabsContent value="generator" className="mt-6">
-            <ShootingPlanGenerator
-              onGenerate={handleGeneratePlan}
-              isGenerating={isGenerating}
-              totalScenes={sequences.length}
-              totalLocations={locations.length}
-            />
-          </TabsContent>
+              {/* Generator Tab */}
+              <TabsContent value="generator" className="mt-6">
+                <ShootingPlanGenerator
+                  onGenerate={handleGeneratePlan}
+                  isGenerating={isGenerating}
+                  totalScenes={sequences.length}
+                  totalLocations={locations.length}
+                />
+              </TabsContent>
 
-          {/* Plan Tab */}
-          <TabsContent value="plan" className="mt-6">
-            {hasPlan ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">
-                    {shootingDays.length} días de rodaje planificados
-                  </h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setActiveTab('generator')}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Regenerar plan
-                  </Button>
-                </div>
+              {/* Plan Tab */}
+              <TabsContent value="plan" className="mt-6">
+                {hasPlan ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">
+                        {shootingDays.length} días de rodaje planificados
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <AddShootingDayDialog
+                          locations={locations}
+                          existingDaysCount={shootingDays.length}
+                          onAddDay={handleAddDay}
+                          trigger={
+                            <Button variant="outline" size="sm">
+                              <Plus className="h-4 w-4 mr-2" />
+                              Añadir Jornada
+                            </Button>
+                          }
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setActiveTab('generator')}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Regenerar plan
+                        </Button>
+                      </div>
+                    </div>
 
-                {shootingDays.map((day, index) => (
-                  <ShootingDayCard
-                    key={day.dayNumber}
-                    day={day}
-                    maxEighths={8}
-                    onDelete={() => handleDeleteDay(day.dayNumber)}
-                    isFirst={index === 0}
-                    isLast={index === shootingDays.length - 1}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-12">
-                  <div className="text-center">
-                    <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No hay plan de rodaje</h3>
-                    <p className="text-muted-foreground mb-6">
-                      Genera un plan de rodaje inteligente basado en el análisis del guión
-                    </p>
-                    <Button onClick={() => setActiveTab('generator')}>
-                      <Wand2 className="h-4 w-4 mr-2" />
-                      Ir al Generador
-                    </Button>
+                    {shootingDays.map((day, index) => (
+                      <ShootingDayCard
+                        key={day.dayNumber}
+                        day={day}
+                        allDays={shootingDays}
+                        maxEighths={8}
+                        onDelete={() => handleDeleteDay(day.dayNumber)}
+                        onMoveUp={() => handleSwapDays(day.dayNumber, 'up')}
+                        onMoveDown={() => handleSwapDays(day.dayNumber, 'down')}
+                        onSceneRemove={(sceneId) => handleRemoveSceneFromDay(sceneId, day.dayNumber)}
+                        onSceneMove={(sceneId, toDayNumber) => handleMoveSceneBetweenDays(sceneId, day.dayNumber, toDayNumber)}
+                        onUpdateDay={(updates) => updateDay({ dayNumber: day.dayNumber, updates })}
+                        isFirst={index === 0}
+                        isLast={index === shootingDays.length - 1}
+                      />
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+                ) : (
+                  <Card>
+                    <CardContent className="py-12">
+                      <div className="text-center">
+                        <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-medium mb-2">No hay plan de rodaje</h3>
+                        <p className="text-muted-foreground mb-6">
+                          Genera un plan de rodaje inteligente basado en el análisis del guión
+                        </p>
+                        <div className="flex justify-center gap-3">
+                          <AddShootingDayDialog
+                            locations={locations}
+                            existingDaysCount={0}
+                            onAddDay={handleAddDay}
+                            trigger={
+                              <Button variant="outline">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Añadir Jornada Manual
+                              </Button>
+                            }
+                          />
+                          <Button onClick={() => setActiveTab('generator')}>
+                            <Wand2 className="h-4 w-4 mr-2" />
+                            Generar Automáticamente
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Unassigned Scenes Panel */}
+          {showUnassigned && hasPlan && (
+            <div className="hidden lg:block">
+              <UnassignedScenesPanel
+                sequences={sequences}
+                shootingDays={shootingDays}
+                locations={locations}
+                onAssignToDay={handleAssignSceneToDay}
+                onCreateDayWithScene={handleCreateDayWithScene}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Info card */}
         <Card className="bg-muted/30">

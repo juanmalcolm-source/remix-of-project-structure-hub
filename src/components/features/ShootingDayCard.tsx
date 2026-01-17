@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -19,18 +18,24 @@ import {
   Clock,
   Users,
   AlertTriangle,
-  Calendar
+  ArrowRight,
+  X,
+  MoreVertical,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ProposedShootingDay } from "@/services/shootingPlanService";
 import { cn } from "@/lib/utils";
 
 interface ShootingDayCardProps {
   day: ProposedShootingDay;
+  allDays: ProposedShootingDay[];
   maxEighths?: number;
   onDelete?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onSceneRemove?: (sceneId: string) => void;
+  onSceneMove?: (sceneId: string, toDayNumber: number) => void;
+  onUpdateDay?: (updates: Partial<ProposedShootingDay>) => void;
   isFirst?: boolean;
   isLast?: boolean;
 }
@@ -43,13 +48,18 @@ const timeOfDayIcons: Record<string, React.ReactNode> = {
   'MIXTO': <Sun className="h-4 w-4 text-muted-foreground" />,
 };
 
+const timeOptions = ['DÍA', 'NOCHE', 'ATARDECER', 'AMANECER'];
+
 export function ShootingDayCard({
   day,
+  allDays,
   maxEighths = 8,
   onDelete,
   onMoveUp,
   onMoveDown,
   onSceneRemove,
+  onSceneMove,
+  onUpdateDay,
   isFirst,
   isLast,
 }: ShootingDayCardProps) {
@@ -57,6 +67,13 @@ export function ShootingDayCard({
   
   const loadPercentage = (day.totalEighths / maxEighths) * 100;
   const isOverloaded = day.totalEighths > maxEighths;
+  
+  // Other days for moving scenes
+  const otherDays = allDays.filter(d => d.dayNumber !== day.dayNumber);
+  
+  const handleTimeOfDayChange = (newTime: string) => {
+    onUpdateDay?.({ timeOfDay: newTime });
+  };
   
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -76,10 +93,24 @@ export function ShootingDayCard({
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{day.location}</span>
-                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                    {timeOfDayIcons[day.timeOfDay] || timeOfDayIcons['MIXTO']}
-                    {day.timeOfDay}
-                  </span>
+                  
+                  {/* Time of day selector */}
+                  <Select value={day.timeOfDay} onValueChange={handleTimeOfDayChange}>
+                    <SelectTrigger className="h-7 w-auto gap-1 border-none bg-muted/50 hover:bg-muted">
+                      {timeOfDayIcons[day.timeOfDay] || timeOfDayIcons['MIXTO']}
+                      <span className="text-sm">{day.timeOfDay}</span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map(time => (
+                        <SelectItem key={time} value={time}>
+                          <span className="flex items-center gap-2">
+                            {timeOfDayIcons[time]}
+                            {time}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -121,6 +152,7 @@ export function ShootingDayCard({
                   onClick={onMoveUp} 
                   disabled={isFirst}
                   className="h-8 w-8"
+                  title="Mover día arriba"
                 >
                   <ChevronUp className="h-4 w-4" />
                 </Button>
@@ -130,6 +162,7 @@ export function ShootingDayCard({
                   onClick={onMoveDown} 
                   disabled={isLast}
                   className="h-8 w-8"
+                  title="Mover día abajo"
                 >
                   <ChevronDown className="h-4 w-4" />
                 </Button>
@@ -138,6 +171,7 @@ export function ShootingDayCard({
                   size="icon" 
                   onClick={onDelete}
                   className="h-8 w-8 text-destructive hover:text-destructive"
+                  title="Eliminar día"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -174,9 +208,9 @@ export function ShootingDayCard({
               {day.scenes.map((scene, index) => (
                 <div 
                   key={scene.id || index}
-                  className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
+                  className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors group"
                 >
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab opacity-50 group-hover:opacity-100" />
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -206,22 +240,48 @@ export function ShootingDayCard({
                     <Badge variant="secondary" className="shrink-0">
                       {scene.page_eighths || scene.effectiveEighths || 1}/8
                     </Badge>
-                    {onSceneRemove && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-6 w-6"
-                        onClick={() => onSceneRemove(scene.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
+                    
+                    {/* Scene actions */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {otherDays.length > 0 && (
+                          <>
+                            {otherDays.map(targetDay => (
+                              <DropdownMenuItem 
+                                key={targetDay.dayNumber}
+                                onClick={() => onSceneMove?.(scene.id, targetDay.dayNumber)}
+                              >
+                                <ArrowRight className="h-4 w-4 mr-2" />
+                                Mover a Día {targetDay.dayNumber}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem 
+                          onClick={() => onSceneRemove?.(scene.id)}
+                          className="text-destructive"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Quitar del día
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               ))}
               
               {day.scenes.length === 0 && (
-                <div className="text-center py-4 text-muted-foreground text-sm">
+                <div className="text-center py-4 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
                   No hay escenas asignadas a este día
                 </div>
               )}

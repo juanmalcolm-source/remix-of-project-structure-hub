@@ -22,6 +22,10 @@ export function ShootingPlanStats({
   totalCharacters,
   avgEighthsPerDay,
 }: ShootingPlanStatsProps) {
+  // Convertir octavos a páginas para mostrar
+  const totalPages = (totalEighths / 8).toFixed(1);
+  const avgPagesPerDay = totalDays > 0 ? (avgEighthsPerDay / 8).toFixed(1) : '0';
+
   const stats = [
     {
       label: "Escenas",
@@ -31,25 +35,33 @@ export function ShootingPlanStats({
       bgColor: "bg-primary/10",
     },
     {
-      label: "Localizaciones",
-      value: uniqueLocations,
-      icon: <MapPin className="h-5 w-5" />,
-      color: "text-emerald-500",
-      bgColor: "bg-emerald-500/10",
+      label: "Días rodaje",
+      value: totalDays,
+      icon: <Calendar className="h-5 w-5" />,
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
     },
     {
-      label: "Octavos totales",
-      value: `${totalEighths.toFixed(0)}/8`,
+      label: "Total guión",
+      value: `${totalPages} pág`,
+      subvalue: `(${totalEighths.toFixed(0)} oct)`,
       icon: <Clock className="h-5 w-5" />,
       color: "text-amber-500",
       bgColor: "bg-amber-500/10",
     },
     {
-      label: "Días de rodaje",
-      value: totalDays,
-      icon: <Calendar className="h-5 w-5" />,
-      color: "text-blue-500",
-      bgColor: "bg-blue-500/10",
+      label: "Media/día",
+      value: `${avgPagesPerDay} pág`,
+      icon: <Clock className="h-5 w-5" />,
+      color: "text-teal-500",
+      bgColor: "bg-teal-500/10",
+    },
+    {
+      label: "Localizaciones",
+      value: uniqueLocations,
+      icon: <MapPin className="h-5 w-5" />,
+      color: "text-emerald-500",
+      bgColor: "bg-emerald-500/10",
     },
     {
       label: "Días (DÍA)",
@@ -72,13 +84,6 @@ export function ShootingPlanStats({
       color: "text-pink-500",
       bgColor: "bg-pink-500/10",
     },
-    {
-      label: "Media oct./día",
-      value: avgEighthsPerDay.toFixed(1),
-      icon: <Clock className="h-5 w-5" />,
-      color: "text-teal-500",
-      bgColor: "bg-teal-500/10",
-    },
   ];
 
   return (
@@ -91,6 +96,9 @@ export function ShootingPlanStats({
             </div>
             <div className="text-2xl font-bold">{stat.value}</div>
             <div className="text-xs text-muted-foreground">{stat.label}</div>
+            {'subvalue' in stat && stat.subvalue && (
+              <div className="text-xs text-muted-foreground mt-0.5">{stat.subvalue}</div>
+            )}
           </CardContent>
         </Card>
       ))}

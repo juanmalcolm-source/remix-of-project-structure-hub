@@ -44,26 +44,26 @@ interface ProductionPreset {
 const productionPresets: Record<ProductionType, ProductionPreset> = {
   cortometraje: {
     label: 'Cortometraje',
-    description: 'Ritmo rápido, ~80-96 octavos/día',
-    pagesPerDay: 88, // ~11 páginas * 8 octavos
+    description: '3-4 páginas/día (ritmo indie)',
+    pagesPerDay: 28, // 3.5 páginas × 8 = 28 octavos
     icon: <Film className="h-5 w-5" />,
   },
   largometraje: {
     label: 'Largometraje',
-    description: 'Estándar, ~48-64 octavos/día',
-    pagesPerDay: 56, // ~7 páginas * 8 octavos
+    description: '3-5 páginas/día (estándar)',
+    pagesPerDay: 32, // 4 páginas × 8 = 32 octavos
     icon: <Calendar className="h-5 w-5" />,
   },
   serie: {
     label: 'Serie TV',
-    description: 'Intensivo, ~64-80 octavos/día',
-    pagesPerDay: 72, // ~9 páginas * 8 octavos
+    description: '5-7 páginas/día (intensivo)',
+    pagesPerDay: 48, // 6 páginas × 8 = 48 octavos
     icon: <Clock className="h-5 w-5" />,
   },
   bajo_presupuesto: {
     label: 'Bajo Presupuesto',
-    description: 'Muy rápido, ~96-120 octavos/día',
-    pagesPerDay: 104, // ~13 páginas * 8 octavos
+    description: '6-8 páginas/día (muy rápido)',
+    pagesPerDay: 56, // 7 páginas × 8 = 56 octavos
     icon: <Zap className="h-5 w-5" />,
   },
 };
@@ -196,17 +196,17 @@ export function ShootingPlanGenerator({
               </div>
               <Slider
                 id="customPages"
-                min={32}
-                max={128}
+                min={16}
+                max={80}
                 step={8}
                 value={[eighthsPerDay]}
                 onValueChange={([v]) => setCustomPagesPerDay(v)}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>4 pág (lento)</span>
-                <span>8 pág (estándar)</span>
-                <span>16 pág (muy rápido)</span>
+                <span>2 pág (detallado)</span>
+                <span>4 pág (estándar)</span>
+                <span>10 pág (muy rápido)</span>
               </div>
             </div>
           </div>

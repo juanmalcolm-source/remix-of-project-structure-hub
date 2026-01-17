@@ -289,7 +289,7 @@ export default function PlanRodajePage() {
                           key={day.dayNumber}
                           day={day}
                           allDays={shootingDays}
-                          maxEighths={8}
+                          maxEighthsPerDay={32}
                           onDelete={() => handleDeleteDay(day.dayNumber)}
                           onMoveUp={() => handleSwapDays(day.dayNumber, 'up')}
                           onMoveDown={() => handleSwapDays(day.dayNumber, 'down')}
@@ -350,26 +350,30 @@ export default function PlanRodajePage() {
             )}
           </div>
 
-          {/* Info card */}
-          <Card className="bg-muted/30">
+          {/* Info card - Ley de los Octavos */}
+          <Card className="bg-muted/30 border-dashed">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
-                ¿Cómo funciona la Ley de los Octavos?
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                📐 La "Ley de los Octavos" - Regla de Oro de Producción
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Sistema profesional de los Asistentes de Dirección (1er AD) para medir escenas y planificar rodajes.
+                Cada página de guión (Courier 12) se divide en 8 partes iguales llamadas "octavos".
+              </p>
               <div className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                 <div>
                   <p className="font-medium text-foreground mb-1">📄 1 página = 8 octavos</p>
-                  <p>Cada página de guión se divide en 8 partes. Una escena de 1/4 de página = 2 octavos.</p>
+                  <p>El mínimo por escena siempre es 1/8. Una página ≈ 1 minuto en pantalla.</p>
                 </div>
                 <div>
-                  <p className="font-medium text-foreground mb-1">📅 1 día = ~8 octavos</p>
-                  <p>Un día de rodaje estándar permite filmar aproximadamente 8 octavos (1 página completa).</p>
+                  <p className="font-medium text-foreground mb-1">📅 3-5 páginas/día (24-40 oct)</p>
+                  <p>Ritmo estándar profesional. Para indie/cortos: 3-4 páginas (24-32 oct).</p>
                 </div>
                 <div>
                   <p className="font-medium text-foreground mb-1">⚙️ Ajuste por complejidad</p>
-                  <p>Las escenas complejas (stunts, efectos) requieren más tiempo. Las simples permiten rodar más.</p>
+                  <p>Acción/stunts = ×1.5 tiempo. Diálogos simples se ruedan más rápido.</p>
                 </div>
               </div>
             </CardContent>

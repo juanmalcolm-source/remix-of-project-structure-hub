@@ -74,16 +74,38 @@ function groupByLocation(scenes: SceneForPlanning[]): Map<string, SceneForPlanni
   return groups;
 }
 
-// Group scenes by time of day within a location
+// Group scenes by time of day
 function groupByTimeOfDay(scenes: SceneForPlanning[]): Map<string, SceneForPlanning[]> {
   const groups = new Map<string, SceneForPlanning[]>();
   
   for (const scene of scenes) {
-    const key = scene.time_of_day;
+    const key = scene.time_of_day || 'DÍA';
     if (!groups.has(key)) {
       groups.set(key, []);
     }
     groups.get(key)!.push(scene);
+  }
+  
+  return groups;
+}
+
+// Group scenes by characters (proximity optimization)
+function groupByCharacters(scenes: SceneForPlanning[]): Map<string, SceneForPlanning[]> {
+  const groups = new Map<string, SceneForPlanning[]>();
+  
+  // Sort by main characters to group similar casts together
+  const sortedScenes = [...scenes].sort((a, b) => {
+    const aKey = a.characters.slice(0, 3).sort().join(',') || 'SIN PERSONAJES';
+    const bKey = b.characters.slice(0, 3).sort().join(',') || 'SIN PERSONAJES';
+    return aKey.localeCompare(bKey);
+  });
+  
+  for (const scene of sortedScenes) {
+    const mainChars = scene.characters.slice(0, 2).sort().join(' + ') || 'SIN PERSONAJES';
+    if (!groups.has(mainChars)) {
+      groups.set(mainChars, []);
+    }
+    groups.get(mainChars)!.push(scene);
   }
   
   return groups;
@@ -156,12 +178,134 @@ function distributeIntoDays(
   return days;
 }
 
+// Group and distribute by LOCATION
+function groupAndDistributeByLocation(
+  scenes: SceneForPlanning[],
+  options: PlanGenerationOptions
+): ProposedShootingDay[] {
+  const allDays: ProposedShootingDay[] = [];
+  let dayNumber = 1;
+  
+  const locationGroups = groupByLocation(scenes);
+  
+  for (const [locationName, locationScenes] of locationGroups) {
+    const locationId = locationScenes[0]?.location_id || null;
+    
+    if (options.separateDayNight) {
+      const timeGroups = groupByTimeOfDay(locationScenes);
+      const timeOrder = ['DÍA', 'AMANECER', 'ATARDECER', 'NOCHE'];
+      
+      for (const time of timeOrder) {
+        const timeScenes = timeGroups.get(time);
+        if (timeScenes && timeScenes.length > 0) {
+          const days = distributeIntoDays(timeScenes, locationName, locationId, time, options.maxEighthsPerDay, dayNumber);
+          for (const day of days) {
+            day.dayNumber = dayNumber++;
+            allDays.push(day);
+          }
+        }
+      }
+    } else {
+      const days = distributeIntoDays(locationScenes, locationName, locationId, 'MIXTO', options.maxEighthsPerDay, dayNumber);
+      for (const day of days) {
+        day.dayNumber = dayNumber++;
+        allDays.push(day);
+      }
+    }
+  }
+  
+  return allDays;
+}
+
+// Group and distribute by TIME OF DAY first
+function groupAndDistributeByTimeOfDay(
+  scenes: SceneForPlanning[],
+  options: PlanGenerationOptions
+): ProposedShootingDay[] {
+  const allDays: ProposedShootingDay[] = [];
+  let dayNumber = 1;
+  
+  const timeGroups = groupByTimeOfDay(scenes);
+  const timeOrder = ['DÍA', 'AMANECER', 'ATARDECER', 'NOCHE'];
+  
+  for (const time of timeOrder) {
+    const timeScenes = timeGroups.get(time);
+    if (!timeScenes || timeScenes.length === 0) continue;
+    
+    if (options.separateDayNight) {
+      // Sub-group by location within each time period
+      const locationGroups = groupByLocation(timeScenes);
+      
+      for (const [locationName, locScenes] of locationGroups) {
+        const locationId = locScenes[0]?.location_id || null;
+        const days = distributeIntoDays(locScenes, locationName, locationId, time, options.maxEighthsPerDay, dayNumber);
+        for (const day of days) {
+          day.dayNumber = dayNumber++;
+          allDays.push(day);
+        }
+      }
+    } else {
+      // All scenes from this time period together
+      const days = distributeIntoDays(timeScenes, 'VARIAS LOCALIZACIONES', null, time, options.maxEighthsPerDay, dayNumber);
+      for (const day of days) {
+        day.dayNumber = dayNumber++;
+        allDays.push(day);
+      }
+    }
+  }
+  
+  return allDays;
+}
+
+// Group and distribute by CHARACTERS (proximity)
+function groupAndDistributeByCharacters(
+  scenes: SceneForPlanning[],
+  options: PlanGenerationOptions
+): ProposedShootingDay[] {
+  const allDays: ProposedShootingDay[] = [];
+  let dayNumber = 1;
+  
+  const charGroups = groupByCharacters(scenes);
+  
+  for (const [charKey, charScenes] of charGroups) {
+    if (options.separateDayNight) {
+      const timeGroups = groupByTimeOfDay(charScenes);
+      const timeOrder = ['DÍA', 'AMANECER', 'ATARDECER', 'NOCHE'];
+      
+      for (const time of timeOrder) {
+        const timeScenes = timeGroups.get(time);
+        if (timeScenes && timeScenes.length > 0) {
+          const primaryLocation = timeScenes[0]?.location_name || 'VARIAS';
+          const days = distributeIntoDays(timeScenes, primaryLocation, null, time, options.maxEighthsPerDay, dayNumber);
+          for (const day of days) {
+            day.dayNumber = dayNumber++;
+            day.warnings.push(`Personajes: ${charKey}`);
+            allDays.push(day);
+          }
+        }
+      }
+    } else {
+      const primaryLocation = charScenes[0]?.location_name || 'VARIAS';
+      const days = distributeIntoDays(charScenes, primaryLocation, null, 'MIXTO', options.maxEighthsPerDay, dayNumber);
+      for (const day of days) {
+        day.dayNumber = dayNumber++;
+        day.warnings.push(`Personajes: ${charKey}`);
+        allDays.push(day);
+      }
+    }
+  }
+  
+  return allDays;
+}
+
 // Main function: Generate smart shooting plan
 export function generateSmartShootingPlan(
   sequences: any[],
   locations: any[],
   options: PlanGenerationOptions
 ): ProposedShootingDay[] {
+  console.log('[ShootingPlan] Generating plan with options:', options);
+  
   // 1. Prepare scenes for planning
   const scenes: SceneForPlanning[] = sequences.map((seq) => {
     const locationMatch = locations.find(
@@ -187,58 +331,34 @@ export function generateSmartShootingPlan(
     };
   });
   
-  // 2. Group scenes by location
-  const locationGroups = groupByLocation(scenes);
+  console.log(`[ShootingPlan] Processing ${scenes.length} scenes with groupBy: ${options.groupBy}`);
   
-  // 3. Generate days
-  const allDays: ProposedShootingDay[] = [];
-  let dayNumber = 1;
-  
-  for (const [locationName, locationScenes] of locationGroups) {
-    const locationId = locationScenes[0]?.location_id || null;
-    
-    if (options.separateDayNight) {
-      // Group by time of day within location
-      const timeGroups = groupByTimeOfDay(locationScenes);
-      
-      // Process DAY scenes first, then NIGHT
-      const timeOrder = ['DÍA', 'AMANECER', 'ATARDECER', 'NOCHE'];
-      
-      for (const time of timeOrder) {
-        const timeScenes = timeGroups.get(time);
-        if (timeScenes && timeScenes.length > 0) {
-          const days = distributeIntoDays(
-            timeScenes,
-            locationName,
-            locationId,
-            time,
-            options.maxEighthsPerDay,
-            dayNumber
-          );
-          
-          for (const day of days) {
-            day.dayNumber = dayNumber++;
-            allDays.push(day);
-          }
-        }
-      }
-    } else {
-      // All scenes from location together
-      const days = distributeIntoDays(
-        locationScenes,
-        locationName,
-        locationId,
-        'MIXTO',
-        options.maxEighthsPerDay,
-        dayNumber
-      );
-      
-      for (const day of days) {
-        day.dayNumber = dayNumber++;
-        allDays.push(day);
-      }
-    }
+  if (scenes.length === 0) {
+    return [];
   }
+  
+  // 2. Generate days based on groupBy option
+  let allDays: ProposedShootingDay[] = [];
+  
+  switch (options.groupBy) {
+    case 'time_of_day':
+      console.log('[ShootingPlan] Grouping by TIME OF DAY');
+      allDays = groupAndDistributeByTimeOfDay(scenes, options);
+      break;
+      
+    case 'proximity':
+      console.log('[ShootingPlan] Grouping by CHARACTERS/PROXIMITY');
+      allDays = groupAndDistributeByCharacters(scenes, options);
+      break;
+      
+    case 'location':
+    default:
+      console.log('[ShootingPlan] Grouping by LOCATION');
+      allDays = groupAndDistributeByLocation(scenes, options);
+      break;
+  }
+  
+  console.log(`[ShootingPlan] Generated ${allDays.length} shooting days`);
   
   return allDays;
 }

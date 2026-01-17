@@ -44,26 +44,26 @@ interface ProductionPreset {
 const productionPresets: Record<ProductionType, ProductionPreset> = {
   cortometraje: {
     label: 'Cortometraje',
-    description: 'Ritmo rápido, 10-12 páginas/día',
-    pagesPerDay: 11,
+    description: 'Ritmo rápido, ~80-96 octavos/día',
+    pagesPerDay: 88, // ~11 páginas * 8 octavos
     icon: <Film className="h-5 w-5" />,
   },
   largometraje: {
     label: 'Largometraje',
-    description: 'Estándar, 6-8 páginas/día',
-    pagesPerDay: 7,
+    description: 'Estándar, ~48-64 octavos/día',
+    pagesPerDay: 56, // ~7 páginas * 8 octavos
     icon: <Calendar className="h-5 w-5" />,
   },
   serie: {
     label: 'Serie TV',
-    description: 'Intensivo, 8-10 páginas/día',
-    pagesPerDay: 9,
+    description: 'Intensivo, ~64-80 octavos/día',
+    pagesPerDay: 72, // ~9 páginas * 8 octavos
     icon: <Clock className="h-5 w-5" />,
   },
   bajo_presupuesto: {
     label: 'Bajo Presupuesto',
-    description: 'Muy rápido, 12-15 páginas/día',
-    pagesPerDay: 13,
+    description: 'Muy rápido, ~96-120 octavos/día',
+    pagesPerDay: 104, // ~13 páginas * 8 octavos
     icon: <Zap className="h-5 w-5" />,
   },
 };
@@ -82,8 +82,8 @@ export function ShootingPlanGenerator({
   const [prioritizeBy, setPrioritizeBy] = useState<'location' | 'time_of_day' | 'proximity'>('location');
   const [customPagesPerDay, setCustomPagesPerDay] = useState<number | null>(null);
   
-  const pagesPerDay = customPagesPerDay || productionPresets[productionType].pagesPerDay;
-  const maxEighthsPerDay = pagesPerDay; // 1 page = 8 eighths, so pagesPerDay * 8 / 8 = pagesPerDay
+  const eighthsPerDay = customPagesPerDay || productionPresets[productionType].pagesPerDay;
+  const pagesPerDayDisplay = Math.round(eighthsPerDay / 8 * 10) / 10;
 
   // Calculate estimated days
   const estimatedDays = useMemo(() => {
@@ -91,16 +91,17 @@ export function ShootingPlanGenerator({
     // Rough estimation: totalScenes * avg eighths per scene / eighths per day
     const avgEighthsPerScene = 2; // Assume 2/8 average
     const totalEighths = totalScenes * avgEighthsPerScene;
-    return Math.ceil(totalEighths / maxEighthsPerDay);
-  }, [totalScenes, maxEighthsPerDay]);
+    return Math.ceil(totalEighths / eighthsPerDay);
+  }, [totalScenes, eighthsPerDay]);
 
   const handleGenerate = () => {
     const options: PlanGenerationOptions = {
       groupBy: prioritizeBy,
-      maxEighthsPerDay: maxEighthsPerDay,
+      maxEighthsPerDay: eighthsPerDay,
       separateDayNight: hasNightScenes,
       optimizeByProximity: prioritizeBy === 'proximity',
     };
+    console.log('[ShootingPlanGenerator] Generating with options:', options);
     onGenerate(options);
   };
 
@@ -178,34 +179,34 @@ export function ShootingPlanGenerator({
                     <div className="font-medium">{preset.label}</div>
                     <div className="text-sm text-muted-foreground">{preset.description}</div>
                   </div>
-                  <Badge variant="secondary">{preset.pagesPerDay} oct/día</Badge>
+                  <Badge variant="secondary">{Math.round(preset.pagesPerDay / 8)} pág/día</Badge>
                 </label>
               ))}
             </RadioGroup>
 
-            {/* Custom pages per day */}
+            {/* Custom eighths per day */}
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between mb-2">
                 <Label htmlFor="customPages" className="text-sm">
-                  Ajustar octavos por día manualmente
+                  Ajustar ritmo de rodaje manualmente
                 </Label>
                 <span className="text-sm font-medium text-primary">
-                  {pagesPerDay} octavos/día
+                  {pagesPerDayDisplay} páginas/día ({eighthsPerDay} octavos)
                 </span>
               </div>
               <Slider
                 id="customPages"
-                min={4}
-                max={16}
-                step={1}
-                value={[pagesPerDay]}
+                min={32}
+                max={128}
+                step={8}
+                value={[eighthsPerDay]}
                 onValueChange={([v]) => setCustomPagesPerDay(v)}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>4 (lento)</span>
-                <span>8 (estándar)</span>
-                <span>16 (muy rápido)</span>
+                <span>4 pág (lento)</span>
+                <span>8 pág (estándar)</span>
+                <span>16 pág (muy rápido)</span>
               </div>
             </div>
           </div>
@@ -355,7 +356,7 @@ export function ShootingPlanGenerator({
                   <p className="font-medium text-primary">Estimación del plan</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Con <strong>{totalScenes} escenas</strong> a un ritmo de{' '}
-                    <strong>{pagesPerDay} octavos/día</strong>, necesitarás aproximadamente{' '}
+                    <strong>{pagesPerDayDisplay} páginas/día</strong>, necesitarás aproximadamente{' '}
                     <strong className="text-primary">{estimatedDays} días de rodaje</strong>.
                   </p>
                 </div>

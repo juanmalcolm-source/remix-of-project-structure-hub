@@ -73,6 +73,47 @@ export function calculateEffectiveEighths(pageEighths: number, complexity: strin
   }
 }
 
+// Estimar tiempo de rodaje por escena (en horas)
+// Basado en: octavos efectivos, complejidad, y número de personajes
+export function calculateSceneShootingTime(scene: SceneForPlanning | any): number {
+  const baseTimePerEighth = 0.25; // 15 minutos base por octavo
+  
+  // Obtener octavos de la escena
+  const eighths = scene.effectiveEighths || scene.page_eighths || 1;
+  
+  // Ajuste por complejidad (ya incluido en effectiveEighths si existe)
+  let complexityMultiplier = 1.0;
+  if (!scene.effectiveEighths) {
+    switch (scene.scene_complexity?.toLowerCase()) {
+      case 'alta': complexityMultiplier = 1.5; break;
+      case 'baja': complexityMultiplier = 0.75; break;
+      default: complexityMultiplier = 1.0;
+    }
+  }
+  
+  // Ajuste por número de personajes (más personajes = más setup)
+  const characters = scene.characters || scene.characters_in_scene || [];
+  const charactersBonus = Math.min(characters.length * 0.1, 0.5); // Max +0.5h
+  
+  // Tiempo base en horas
+  const baseTime = eighths * baseTimePerEighth * complexityMultiplier;
+  
+  return baseTime + charactersBonus;
+}
+
+// Recalcular tiempo total de un día basado en sus escenas
+export function recalculateDayTime(scenes: (SceneForPlanning | any)[]): number {
+  if (!scenes || scenes.length === 0) return 0;
+  
+  const sceneTimes = scenes.map(calculateSceneShootingTime);
+  const totalSceneTime = sceneTimes.reduce((sum, t) => sum + t, 0);
+  
+  // Añadir tiempo de setup entre escenas (15 min por escena adicional)
+  const setupTime = Math.max(0, (scenes.length - 1) * 0.25);
+  
+  return totalSceneTime + setupTime;
+}
+
 // Parse time of day from scene header
 export function parseTimeOfDay(header: string): string {
   const headerUpper = header.toUpperCase();
@@ -173,7 +214,8 @@ function distributeIntoDays(
     // Add scene to current day
     currentDay.scenes.push(scene);
     currentDay.totalEighths += scene.effectiveEighths;
-    currentDay.estimatedHours = (currentDay.totalEighths / 8) * 10; // Approx 10 hours for 8 eighths
+    // Recalcular tiempo estimado basado en escenas individuales
+    currentDay.estimatedHours = recalculateDayTime(currentDay.scenes);
     
     // Merge characters
     for (const char of scene.characters) {

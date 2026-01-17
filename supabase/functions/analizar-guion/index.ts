@@ -56,6 +56,49 @@ CONTEXTO: Estás analizando un guión de ficción. Tu análisis será usado para
 - Casting y contratación de actores
 - Logística de producción
 
+═══════════════════════════════════════════════════════════════════════
+LEY DE LOS OCTAVOS - REGLA DE ORO DE PRODUCCIÓN CINEMATOGRÁFICA
+═══════════════════════════════════════════════════════════════════════
+Esta es la herramienta principal que utiliza un Asistente de Dirección (1er AD) 
+para saber cuánto tiempo real tomará rodar cada escena.
+
+FUNDAMENTO:
+- En formato estándar (Courier 12): 1 página de guión ≈ 1 minuto en pantalla
+- Cada página se divide en 8 partes horizontales iguales = 8 OCTAVOS
+- 1 página completa = 8/8 = 8 octavos
+- Media página = 4/8 = 4 octavos
+- Un par de líneas de diálogo = 1/8 = 1 octavo
+
+CÓMO CALCULAR OCTAVOS (valores que debes usar):
+┌─────────────────────────────────────────────────────────────┐
+│ OCTAVOS │ DESCRIPCIÓN                    │ LÍNEAS APROX    │
+├─────────────────────────────────────────────────────────────┤
+│    1    │ Escena muy corta, transición   │ 1-7 líneas      │
+│    2    │ Escena corta, diálogo breve    │ 8-14 líneas     │
+│    3    │ Escena mediana-corta           │ 15-21 líneas    │
+│    4    │ Media página                   │ 22-28 líneas    │
+│    5    │ Escena mediana-larga           │ 29-35 líneas    │
+│    6    │ Tres cuartos de página         │ 36-42 líneas    │
+│    7    │ Casi página completa           │ 43-49 líneas    │
+│    8    │ Página completa                │ 50-55 líneas    │
+│   9+    │ Más de una página (suma octavos)│ 56+ líneas      │
+└─────────────────────────────────────────────────────────────┘
+
+REGLAS CRÍTICAS:
+1. El MÍNIMO siempre es 1 octavo (nunca 0, ni fracciones como 0.5)
+2. Si una escena continúa en otra página, SUMA los octavos:
+   - Ejemplo: 6 octavos en pág.1 + 3 octavos en pág.2 = 9 octavos totales
+3. NO cuentes espacios en blanco entre escenas
+4. Mide desde el encabezado (INT./EXT.) hasta donde termina el texto
+5. Escenas de ACCIÓN con mucha descripción = más octavos
+6. Diálogos cortos y rápidos = menos octavos
+
+REFERENCIA DE DÍAS DE RODAJE:
+- Un día estándar de rodaje: 24-40 octavos (3-5 páginas)
+- Corto independiente: 24-32 octavos/día (3-4 páginas)
+- Producción con recursos: 40-48 octavos/día (5-6 páginas)
+═══════════════════════════════════════════════════════════════════════
+
 Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta estructura COMPLETA:
 
 {
@@ -134,8 +177,8 @@ Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta es
       "encabezado": "string (ej: INT. CASA DE PEDRO - DÍA)",
       "localizacion": "string",
       "momento_dia": "string",
-      "paginas_octavos": number (en octavos de página, ej: 1.5 = 1 y 4/8),
-      "duracion_estimada_minutos": number (páginas × 1 minuto),
+      "paginas_octavos": number (ENTERO de 1 a 16+. NUNCA usar 1 para todas. Mide según LEY DE OCTAVOS arriba),
+      "duracion_estimada_minutos": number (octavos/8, redondeado),
       "personajes": ["strings"],
       "attrezzo": ["strings (objetos necesarios)"],
       "vestuario": ["strings (cambios de vestuario)"],
@@ -155,6 +198,7 @@ Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta es
   "resumen_produccion": {
     "total_personajes": {"protagonistas": 0, "principales": 0, "secundarios": 0, "figuracion": 0},
     "total_localizaciones": {"interiores": 0, "exteriores": 0},
+    "total_octavos": number (SUMA de todos los paginas_octavos de desglose_secuencias),
     "dias_rodaje": {"estimacion_minima": 0, "estimacion_maxima": 0, "estimacion_recomendada": 0},
     "complejidad_general": "Baja|Media|Alta",
     "elementos_destacados": ["strings (efectos especiales, stunts, escenas complicadas, etc.)"]
@@ -167,9 +211,14 @@ INSTRUCCIONES CRÍTICAS:
 3. El CORE_EMOTIONAL debe identificar la emoción principal que debe experimentar el espectador
 4. Analiza CADA personaje mencionado en el guión, no solo los principales
 5. Identifica TODAS las localizaciones únicas
-6. Calcula la DURACIÓN ESTIMADA de cada secuencia (1 página = 1 minuto)
-7. Sé EXHAUSTIVO y PROFESIONAL en el análisis
-8. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
+6. ⚠️ CRÍTICO: Calcula CORRECTAMENTE los OCTAVOS de cada escena según la LEY DE OCTAVOS
+   - NO uses 1 para todas las escenas
+   - Mide el texto real: líneas de diálogo + descripciones + acciones
+   - Una escena larga de 2 páginas = 16 octavos
+   - Una escena corta de transición = 1-2 octavos
+7. El total_octavos debe ser coherente con paginas_totales (aprox. paginas × 8)
+8. Sé EXHAUSTIVO y PROFESIONAL en el análisis
+9. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
     // Modelos a intentar en orden de preferencia
     const modelos = [

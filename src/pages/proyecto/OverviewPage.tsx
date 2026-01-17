@@ -93,9 +93,45 @@ export default function OverviewPage() {
 
   const analysis = project.creative_analysis;
 
+  // Determine if project type is inconsistent with pages
+  const projectType = project.project_type || 'largometraje';
+  const isTypeInconsistent = duracionFromScript > 0 && (
+    (duracionFromScript < 60 && projectType === 'largometraje') ||
+    (duracionFromScript >= 60 && projectType === 'cortometraje')
+  );
+
+  const projectTypeLabel = {
+    cortometraje: '🎬 Cortometraje',
+    largometraje: '🎥 Largometraje',
+    documental: '📽️ Documental',
+    serie: '📺 Serie',
+  }[projectType] || '🎥 Largometraje';
+
   return (
     <CreativeLayout projectTitle={project.title} lastSaved={lastSaved} isSaving={isSaving}>
       <div className="space-y-6">
+        {/* Project Type Badge & Warning */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="outline" className="text-sm py-1 px-3">
+            {projectTypeLabel}
+          </Badge>
+          {duracionFromScript > 0 && (
+            <Badge variant="secondary" className="text-sm py-1 px-3">
+              ~{duracionFromScript} páginas
+            </Badge>
+          )}
+        </div>
+
+        {isTypeInconsistent && (
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              ⚠️ Este proyecto tiene ~{duracionFromScript} páginas, lo que sugiere 
+              {duracionFromScript < 60 ? ' un cortometraje' : ' un largometraje'}. 
+              Puedes cambiar el tipo en <strong>Financiación → Configuración</strong>.
+            </p>
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="card-cinematic">

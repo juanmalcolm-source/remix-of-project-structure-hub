@@ -74,6 +74,7 @@ export interface Secuencia {
   numero_escena: string;
   encabezado: string;
   localizacion: string;
+  set_type?: 'INT' | 'EXT';
   momento_dia: string;
   paginas_octavos: number;
   duracion_estimada_minutos?: number;
@@ -83,6 +84,12 @@ export interface Secuencia {
   vehiculos?: string[];
   efectos_especiales?: string[];
   complejidad_rodaje: 'Baja' | 'Media' | 'Alta';
+  // Campos profesionales de tiempo
+  complexity_factor?: number; // 1.0, 1.2, 2.0, 3.0
+  complexity_reason?: string;
+  setup_time_minutes?: number;
+  shooting_time_minutes?: number;
+  total_time_minutes?: number;
   notas_direccion?: string;
 }
 

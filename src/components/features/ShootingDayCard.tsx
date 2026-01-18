@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -24,9 +26,16 @@ import {
   MoreVertical,
   Edit2,
   Check,
+  Film,
+  Wrench,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ProposedShootingDay, calculateSceneShootingTime } from "@/services/shootingPlanService";
+import { 
+  ProposedShootingDay, 
+  calculateSceneShootingTimeDetailed,
+  calculateDayTimeWithLocationOptimization,
+  MAX_WORKDAY_HOURS,
+} from "@/services/shootingPlanService";
 import { useDragDrop, DraggedScene } from "@/contexts/DragDropContext";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +64,14 @@ const timeOfDayIcons: Record<string, React.ReactNode> = {
 
 const timeOptions = ['DÍA', 'NOCHE', 'ATARDECER', 'AMANECER'];
 
+// Colores para multiplicadores de complejidad
+const complexityColors: Record<number, string> = {
+  1.0: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  1.2: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  2.0: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  3.0: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+};
+
 // Formatear octavos en formato profesional de producción
 function formatEighths(eighths: number): string {
   if (!eighths || eighths <= 0) return '1/8';
@@ -67,6 +84,15 @@ function formatEighths(eighths: number): string {
     return `${pages} pág`;
   }
   return `${pages} ${remainder}/8`;
+}
+
+// Formatear minutos en formato legible
+function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
 }
 
 export function ShootingDayCard({
@@ -89,6 +115,11 @@ export function ShootingDayCard({
   const [editedLocation, setEditedLocation] = useState(day.location);
   
   const { draggedScene, startDrag, endDrag } = useDragDrop();
+  
+  // Calcular tiempos con optimización por localización
+  const dayTimeBreakdown = calculateDayTimeWithLocationOptimization(day.scenes);
+  const totalHours = dayTimeBreakdown.totalHours;
+  const isOverworked = totalHours > MAX_WORKDAY_HOURS;
   
   // Calcular carga en páginas
   const loadPercentage = Math.min((day.totalEighths / maxEighthsPerDay) * 100, 100);
@@ -161,11 +192,12 @@ export function ShootingDayCard({
   };
   
   return (
+    <TooltipProvider>
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card 
         className={cn(
           "transition-all",
-          isOverloaded && "border-destructive/50 bg-destructive/5",
+          (isOverloaded || isOverworked) && "border-destructive/50 bg-destructive/5",
           isDragOver && "ring-2 ring-primary ring-offset-2 bg-primary/5"
         )}
         onDragOver={handleDragOver}
@@ -234,10 +266,32 @@ export function ShootingDayCard({
                 </div>
                 
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {day.estimatedHours.toFixed(1)}h estimadas
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className={cn(
+                        "flex items-center gap-1 cursor-help",
+                        isOverworked && "text-destructive font-medium"
+                      )}>
+                        <Clock className="h-3 w-3" />
+                        {totalHours.toFixed(1)}h jornada
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-xs space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-3 w-3 text-blue-500" />
+                          <span>Setup: {formatMinutes(dayTimeBreakdown.totalSetupMinutes)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Film className="h-3 w-3 text-green-500" />
+                          <span>Rodaje: {formatMinutes(dayTimeBreakdown.totalShootingMinutes)}</span>
+                        </div>
+                        <div className="border-t pt-1 mt-1 font-medium">
+                          Total: {formatMinutes(dayTimeBreakdown.totalMinutes)}
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
                     {day.characters.length} personajes
@@ -307,8 +361,14 @@ export function ShootingDayCard({
           </div>
           
           {/* Warnings */}
-          {day.warnings.length > 0 && (
+          {(day.warnings.length > 0 || isOverworked) && (
             <div className="flex flex-wrap gap-2 mt-2">
+              {isOverworked && (
+                <Badge variant="destructive" className="text-xs">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  ¡Jornada de {totalHours.toFixed(1)}h! Máximo recomendado: {MAX_WORKDAY_HOURS}h
+                </Badge>
+              )}
               {day.warnings.map((warning, i) => (
                 <Badge key={i} variant="destructive" className="text-xs">
                   <AlertTriangle className="h-3 w-3 mr-1" />
@@ -368,10 +428,52 @@ export function ShootingDayCard({
                     <Badge variant="secondary" className="shrink-0 font-mono">
                       {formatEighths(scene.page_eighths || scene.effectiveEighths || 1)}
                     </Badge>
-                    <Badge variant="outline" className="shrink-0 text-xs">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {calculateSceneShootingTime(scene).toFixed(1)}h
-                    </Badge>
+                    
+                    {/* Tiempo desglosado */}
+                    {(() => {
+                      const breakdown = calculateSceneShootingTimeDetailed(scene);
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="shrink-0 text-xs cursor-help">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {formatMinutes(breakdown.totalMinutes)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs space-y-1">
+                              <div className="flex items-center gap-2">
+                                <Wrench className="h-3 w-3 text-blue-500" />
+                                <span>Setup: {breakdown.setupMinutes}m</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Film className="h-3 w-3 text-green-500" />
+                                <span>Rodaje: {breakdown.shootingMinutes}m</span>
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
+                    
+                    {/* Multiplicador de complejidad */}
+                    {(() => {
+                      const breakdown = calculateSceneShootingTimeDetailed(scene);
+                      const factor = breakdown.complexityFactor;
+                      const colorClass = complexityColors[factor] || complexityColors[1.2];
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className={cn("shrink-0 text-xs cursor-help", colorClass)}>
+                              ×{factor}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <span>{scene.complexity_reason || 'Complejidad estándar'}</span>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
                     
                     {/* Scene actions */}
                     <DropdownMenu>
@@ -446,5 +548,6 @@ export function ShootingDayCard({
         </CollapsibleContent>
       </Card>
     </Collapsible>
+    </TooltipProvider>
   );
 }

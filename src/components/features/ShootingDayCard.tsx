@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,8 @@ import {
   Check,
   Film,
   Wrench,
+  Timer,
+  CheckCircle2,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { 
@@ -116,10 +118,25 @@ export function ShootingDayCard({
   
   const { draggedScene, startDrag, endDrag } = useDragDrop();
   
+  // Extraer localizaciones únicas del día
+  const dayLocations = useMemo(() => {
+    if (day.locations && day.locations.length > 0) {
+      return day.locations;
+    }
+    const locs = new Set(day.scenes.map((s: any) => s.location_name).filter(Boolean));
+    return locs.size > 0 ? Array.from(locs) : [day.location || 'Sin localización'];
+  }, [day.scenes, day.locations, day.location]);
+  
   // Calcular tiempos con optimización por localización
   const dayTimeBreakdown = calculateDayTimeWithLocationOptimization(day.scenes);
   const totalHours = dayTimeBreakdown.totalHours;
   const isOverworked = totalHours > MAX_WORKDAY_HOURS;
+  
+  // Calcular tiempo restante/sobrante
+  const targetHours = day.targetHours || 10;
+  const remainingHours = targetHours - totalHours;
+  const isUnderTime = remainingHours > 1; // Más de 1h sin usar
+  const isOverTime = remainingHours < 0;
   
   // Calcular carga en páginas
   const loadPercentage = Math.min((day.totalEighths / maxEighthsPerDay) * 100, 100);
@@ -213,38 +230,21 @@ export function ShootingDayCard({
               </div>
               
               <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  
-                  {/* Editable location */}
-                  {isEditingLocation ? (
-                    <div className="flex items-center gap-1">
-                      <Input
-                        value={editedLocation}
-                        onChange={(e) => setEditedLocation(e.target.value)}
-                        onKeyDown={handleLocationKeyDown}
-                        onBlur={handleLocationSave}
-                        className="h-7 w-48 text-sm"
-                        autoFocus
-                      />
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7"
-                        onClick={handleLocationSave}
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <span 
-                      className="font-medium cursor-pointer hover:underline flex items-center gap-1 group"
-                      onClick={() => setIsEditingLocation(true)}
-                    >
-                      {day.location}
-                      <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </span>
-                  )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Multiple locations display */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                    {dayLocations.slice(0, 3).map((loc, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {loc}
+                      </Badge>
+                    ))}
+                    {dayLocations.length > 3 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{dayLocations.length - 3} más
+                      </Badge>
+                    )}
+                  </div>
                   
                   {/* Time of day selector */}
                   <Select value={day.timeOfDay} onValueChange={handleTimeOfDayChange}>
@@ -292,6 +292,32 @@ export function ShootingDayCard({
                       </div>
                     </TooltipContent>
                   </Tooltip>
+                  
+                  {/* Indicador de tiempo restante/sobrante */}
+                  <span className={cn(
+                    "flex items-center gap-1",
+                    isOverTime ? "text-destructive font-medium" : 
+                    isUnderTime ? "text-amber-600 dark:text-amber-400" : 
+                    "text-green-600 dark:text-green-400"
+                  )}>
+                    {isOverTime ? (
+                      <>
+                        <AlertTriangle className="h-3 w-3" />
+                        {Math.abs(remainingHours).toFixed(1)}h excedido
+                      </>
+                    ) : isUnderTime ? (
+                      <>
+                        <Timer className="h-3 w-3" />
+                        {remainingHours.toFixed(1)}h disponible
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-3 w-3" />
+                        Jornada óptima
+                      </>
+                    )}
+                  </span>
+                  
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
                     {day.characters.length} personajes

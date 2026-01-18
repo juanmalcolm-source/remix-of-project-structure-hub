@@ -11,8 +11,14 @@ import {
   calculateEffectiveEighths,
   parseTimeOfDay,
   recalculateDayTime,
+  calculateDayTimeWithLocationOptimization,
 } from "@/services/shootingPlanService";
 import { toast } from "sonner";
+
+// Helper to get unique locations from scenes
+function getUniqueLocations(scenes: any[]): string[] {
+  return [...new Set(scenes.map((s: any) => s.location_name).filter(Boolean))];
+}
 
 export function useShootingPlan(projectId: string) {
   const queryClient = useQueryClient();
@@ -212,6 +218,8 @@ export function useShootingPlan(projectId: string) {
       const newFromScenes = fromDay.scenes.filter((s: any) => s.id !== sceneId);
       const fromCharacters = [...new Set(newFromScenes.flatMap((s: any) => s.characters || []))];
       const fromTotalEighths = newFromScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+      const fromTimeResult = calculateDayTimeWithLocationOptimization(newFromScenes);
+      const fromLocations = getUniqueLocations(newFromScenes);
       
       await supabase
         .from('shooting_days')
@@ -219,7 +227,10 @@ export function useShootingPlan(projectId: string) {
           sequences: newFromScenes as unknown as null,
           characters: fromCharacters as unknown as null,
           total_eighths: fromTotalEighths,
-          estimated_hours: recalculateDayTime(newFromScenes),
+          estimated_hours: fromTimeResult.totalHours,
+          location_name: fromLocations.length > 0 
+            ? (fromLocations.length > 1 ? `${fromLocations[0]} + ${fromLocations.length - 1} más` : fromLocations[0])
+            : 'Sin localización',
         })
         .eq('project_id', projectId)
         .eq('day_number', fromDayNumber);
@@ -228,6 +239,8 @@ export function useShootingPlan(projectId: string) {
       const newToScenes = [...toDay.scenes, scene];
       const toCharacters = [...new Set(newToScenes.flatMap((s: any) => s.characters || []))];
       const toTotalEighths = newToScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+      const toTimeResult = calculateDayTimeWithLocationOptimization(newToScenes);
+      const toLocations = getUniqueLocations(newToScenes);
       
       await supabase
         .from('shooting_days')
@@ -235,7 +248,10 @@ export function useShootingPlan(projectId: string) {
           sequences: newToScenes as unknown as null,
           characters: toCharacters as unknown as null,
           total_eighths: toTotalEighths,
-          estimated_hours: recalculateDayTime(newToScenes),
+          estimated_hours: toTimeResult.totalHours,
+          location_name: toLocations.length > 0 
+            ? (toLocations.length > 1 ? `${toLocations[0]} + ${toLocations.length - 1} más` : toLocations[0])
+            : 'Sin localización',
         })
         .eq('project_id', projectId)
         .eq('day_number', toDayNumber);

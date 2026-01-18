@@ -448,6 +448,7 @@ export default function PresupuestoICAA() {
     
     setIsSaving(true);
     try {
+      // Exclude 'total' as it's a generated column in the database
       const lineData = {
         account_number: line.accountNumber,
         concept: line.concept,
@@ -455,7 +456,6 @@ export default function PresupuestoICAA() {
         quantity: line.quantity,
         unit_price: line.unitPrice,
         agency_percentage: line.agencyPercentage,
-        total: line.total,
         chapter: chapterId,
       };
 

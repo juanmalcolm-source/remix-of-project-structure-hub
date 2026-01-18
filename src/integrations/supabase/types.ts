@@ -303,6 +303,64 @@ export type Database = {
           },
         ]
       }
+      location_distances: {
+        Row: {
+          created_at: string
+          distance_km: number | null
+          duration_minutes: number | null
+          from_location_id: string
+          id: string
+          project_id: string
+          source: string | null
+          to_location_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          distance_km?: number | null
+          duration_minutes?: number | null
+          from_location_id: string
+          id?: string
+          project_id: string
+          source?: string | null
+          to_location_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          distance_km?: number | null
+          duration_minutes?: number | null
+          from_location_id?: string
+          id?: string
+          project_id?: string
+          source?: string | null
+          to_location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_distances_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_distances_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_distances_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null

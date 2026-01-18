@@ -10,10 +10,13 @@ import {
   FileSpreadsheet,
   Loader2,
   Sparkles,
-  FileUp
+  FileUp,
+  AlertTriangle,
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,9 +33,18 @@ import {
   type BudgetLine as DBBudgetLine
 } from '@/hooks/useBudgetLines';
 import { supabase } from '@/integrations/supabase/client';
-import { generarPresupuestoEstimado, checkDataAvailability, type BudgetEstimationInput, type DataAvailability } from '@/services/budgetEstimator';
+import { 
+  generarPresupuestoEstimado, 
+  generarPresupuestoConIA,
+  checkDataAvailability, 
+  type BudgetEstimationInput, 
+  type DataAvailability,
+  type BudgetLevel,
+  type AIBudgetResponse
+} from '@/services/budgetEstimator';
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface LocalBudgetLine {
   id: string;
@@ -205,9 +217,14 @@ export default function PresupuestoICAA() {
   const [isSaving, setIsSaving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showEmptyState, setShowEmptyState] = useState(false);
   const [dataAvailability, setDataAvailability] = useState<DataAvailability | null>(null);
   const [showDataCheck, setShowDataCheck] = useState(false);
+  const [budgetLevel, setBudgetLevel] = useState<BudgetLevel>('medio');
+  const [aiWarnings, setAiWarnings] = useState<string[]>([]);
+  const [aiRecommendations, setAiRecommendations] = useState<string[]>([]);
+  const [showAIPanel, setShowAIPanel] = useState(false);
 
   // Initialize chapters from DB
   useEffect(() => {
@@ -337,6 +354,86 @@ export default function PresupuestoICAA() {
         variant: 'destructive',
       });
       setIsGenerating(false);
+    }
+  };
+
+  // Generate budget using AI (edge function with Lovable AI)
+  const handleGenerateWithAI = async () => {
+    if (!projectId) return;
+    
+    setIsGeneratingAI(true);
+    setShowAIPanel(false);
+    setAiWarnings([]);
+    setAiRecommendations([]);
+    
+    try {
+      // Fetch all project data
+      const [charactersRes, locationsRes, sequencesRes, analysisRes] = await Promise.all([
+        supabase.from('characters').select('*').eq('project_id', projectId),
+        supabase.from('locations').select('*').eq('project_id', projectId),
+        supabase.from('sequences').select('*').eq('project_id', projectId),
+        supabase.from('creative_analysis').select('*').eq('project_id', projectId).single(),
+      ]);
+
+      const input: BudgetEstimationInput = {
+        characters: charactersRes.data || [],
+        locations: locationsRes.data || [],
+        sequences: sequencesRes.data || [],
+        creativeAnalysis: analysisRes.data || null,
+      };
+
+      const availability = checkDataAvailability(input);
+      
+      // Require at least characters for AI generation
+      if (!availability.hasCharacters) {
+        toast({
+          title: 'Sin datos suficientes',
+          description: 'Primero analiza el guión para generar un presupuesto con IA.',
+          variant: 'destructive',
+        });
+        setIsGeneratingAI(false);
+        return;
+      }
+
+      // Call the AI edge function
+      const aiResponse: AIBudgetResponse = await generarPresupuestoConIA(
+        projectId,
+        input,
+        budgetLevel
+      );
+
+      // Save the budget lines
+      if (aiResponse.budgetLines && aiResponse.budgetLines.length > 0) {
+        await bulkCreate.mutateAsync({ 
+          projectId, 
+          lines: aiResponse.budgetLines 
+        });
+        
+        setShowEmptyState(false);
+        
+        // Store warnings and recommendations
+        if (aiResponse.summary) {
+          setAiWarnings(aiResponse.summary.warnings || []);
+          setAiRecommendations(aiResponse.summary.recommendations || []);
+          if (aiResponse.summary.warnings?.length > 0 || aiResponse.summary.recommendations?.length > 0) {
+            setShowAIPanel(true);
+          }
+        }
+        
+        toast({
+          title: '✓ Presupuesto generado con IA',
+          description: `Se crearon ${aiResponse.budgetLines.length} partidas (nivel ${budgetLevel})`,
+        });
+      }
+    } catch (error) {
+      console.error('Error generating AI budget:', error);
+      toast({
+        title: 'Error al generar con IA',
+        description: error instanceof Error ? error.message : 'Error desconocido',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingAI(false);
     }
   };
 
@@ -804,9 +901,41 @@ export default function PresupuestoICAA() {
                   </p>
                 </div>
                 
-                <div className="grid gap-4 md:grid-cols-3 max-w-2xl mx-auto">
+                {/* Budget Level Selector for Empty State */}
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-sm text-muted-foreground">Nivel de presupuesto:</span>
+                  <Select value={budgetLevel} onValueChange={(v) => setBudgetLevel(v as BudgetLevel)}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bajo">🟢 Bajo</SelectItem>
+                      <SelectItem value="medio">🟠 Medio</SelectItem>
+                      <SelectItem value="alto">🔴 Alto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-4 max-w-3xl mx-auto">
+                  {/* AI Generation - Primary */}
                   <Button 
                     variant="default"
+                    className="h-auto py-4 flex-col gap-2 bg-gradient-to-r from-primary to-primary/80"
+                    onClick={handleGenerateWithAI}
+                    disabled={isGeneratingAI}
+                  >
+                    {isGeneratingAI ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <Zap className="w-6 h-6" />
+                    )}
+                    <span className="font-semibold">Generar con IA</span>
+                    <span className="text-xs opacity-80">Presupuesto inteligente</span>
+                  </Button>
+                  
+                  {/* Quick Estimation */}
+                  <Button 
+                    variant="outline"
                     className="h-auto py-4 flex-col gap-2"
                     onClick={handleCheckDataAndGenerate}
                     disabled={isGenerating}
@@ -816,10 +945,11 @@ export default function PresupuestoICAA() {
                     ) : (
                       <Sparkles className="w-6 h-6" />
                     )}
-                    <span className="font-semibold">Generar estimación</span>
-                    <span className="text-xs opacity-80">Desde el análisis del guión</span>
+                    <span className="font-semibold">Estimación rápida</span>
+                    <span className="text-xs opacity-80">Sin IA, datos locales</span>
                   </Button>
                   
+                  {/* Import Excel */}
                   <Button 
                     variant="outline"
                     className="h-auto py-4 flex-col gap-2"
@@ -832,17 +962,18 @@ export default function PresupuestoICAA() {
                       <FileUp className="w-6 h-6" />
                     )}
                     <span className="font-semibold">Importar Excel</span>
-                    <span className="text-xs opacity-80">Usa un proyecto de referencia</span>
+                    <span className="text-xs opacity-80">Proyecto de referencia</span>
                   </Button>
                   
+                  {/* Start from scratch */}
                   <Button 
                     variant="ghost"
                     className="h-auto py-4 flex-col gap-2"
                     onClick={() => setShowEmptyState(false)}
                   >
                     <Plus className="w-6 h-6" />
-                    <span className="font-semibold">Empezar desde cero</span>
-                    <span className="text-xs opacity-80">Añade partidas manualmente</span>
+                    <span className="font-semibold">Desde cero</span>
+                    <span className="text-xs opacity-80">Manual</span>
                   </Button>
                 </div>
               </div>
@@ -850,59 +981,175 @@ export default function PresupuestoICAA() {
           </Card>
         )}
 
+        {/* AI Warnings & Recommendations Panel */}
+        {showAIPanel && (aiWarnings.length > 0 || aiRecommendations.length > 0) && (
+          <Alert className="border-amber-500/50 bg-amber-500/5">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-700 font-semibold">
+              Avisos del análisis IA
+            </AlertTitle>
+            <AlertDescription>
+              <div className="mt-2 space-y-3">
+                {aiWarnings.length > 0 && (
+                  <div>
+                    <p className="font-medium text-sm mb-1">⚠️ Advertencias:</p>
+                    <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                      {aiWarnings.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {aiRecommendations.length > 0 && (
+                  <div>
+                    <p className="font-medium text-sm mb-1">💡 Recomendaciones:</p>
+                    <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                      {aiRecommendations.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="mt-3"
+                onClick={() => setShowAIPanel(false)}
+              >
+                Cerrar
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Summary & Actions - Always visible */}
         <Card className="border-2 border-primary/20">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-4">
-                <Calculator className="w-10 h-10 text-primary" />
-                <div>
-                  <h2 className="text-xl font-bold">Presupuesto ICAA</h2>
-                  <p className="text-sm text-muted-foreground">12 Capítulos oficiales</p>
+            <div className="flex flex-col gap-4">
+              {/* Header Row */}
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                  <Calculator className="w-10 h-10 text-primary" />
+                  <div>
+                    <h2 className="text-xl font-bold">Presupuesto ICAA</h2>
+                    <p className="text-sm text-muted-foreground">12 Capítulos oficiales</p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-4">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleImportExcel}
-                  className="hidden"
-                />
-                
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCheckDataAndGenerate}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 mr-2" />
-                  )}
-                  Generar estimación
-                </Button>
-                
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isImporting}
-                >
-                  {isImporting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  )}
-                  Importar Excel
-                </Button>
                 
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">TOTAL PRESUPUESTO</p>
                   <p className="text-3xl font-bold text-primary">{formatCurrency(grandTotal)}</p>
                 </div>
+              </div>
+              
+              {/* Actions Row */}
+              <div className="flex items-center justify-between flex-wrap gap-4 pt-4 border-t">
+                <div className="flex items-center gap-3">
+                  {/* Budget Level Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Nivel:</span>
+                    <Select value={budgetLevel} onValueChange={(v) => setBudgetLevel(v as BudgetLevel)}>
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bajo">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500" />
+                            Bajo
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="medio">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            Medio
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="alto">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                            Alto
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleImportExcel}
+                    className="hidden"
+                  />
+                  
+                  {/* AI Generation Button */}
+                  <Button 
+                    variant="default"
+                    size="sm"
+                    onClick={handleGenerateWithAI}
+                    disabled={isGeneratingAI}
+                    className="bg-gradient-to-r from-primary to-primary/80"
+                  >
+                    {isGeneratingAI ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Zap className="w-4 h-4 mr-2" />
+                    )}
+                    Generar con IA
+                  </Button>
+                  
+                  {/* Local Estimation Button */}
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCheckDataAndGenerate}
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 mr-2" />
+                    )}
+                    Estimación rápida
+                  </Button>
+                  
+                  {/* Import Excel Button */}
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    )}
+                    Importar
+                  </Button>
+                  
+                  {/* Regenerate Button - only when budget exists */}
+                  {!showEmptyState && dbLines.length > 0 && (
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleGenerateWithAI}
+                      disabled={isGeneratingAI}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${isGeneratingAI ? 'animate-spin' : ''}`} />
+                      Regenerar
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Budget Level Badge */}
+                <Badge variant="outline" className="text-sm">
+                  {budgetLevel === 'bajo' && '💚 Presupuesto Bajo'}
+                  {budgetLevel === 'medio' && '🧡 Presupuesto Medio'}
+                  {budgetLevel === 'alto' && '❤️ Presupuesto Alto'}
+                </Badge>
               </div>
             </div>
           </CardContent>

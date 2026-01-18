@@ -25,6 +25,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import ProductionLayout from '@/components/layout/ProductionLayout';
 import { useProject } from '@/hooks/useProject';
@@ -229,7 +231,7 @@ export default function PresupuestoICAA() {
   const [aiWarnings, setAiWarnings] = useState<string[]>([]);
   const [aiRecommendations, setAiRecommendations] = useState<string[]>([]);
   const [showAIPanel, setShowAIPanel] = useState(false);
-
+  const [activeChapter, setActiveChapter] = useState<string>("1");
   // Initialize chapters from DB
   useEffect(() => {
     if (!linesLoading) {
@@ -1263,132 +1265,178 @@ export default function PresupuestoICAA() {
           </CardContent>
         </Card>
 
-        {/* Chapters - Hide when showing empty state */}
-        {!showEmptyState && chapters.map((chapter) => (
-          <Collapsible 
-            key={chapter.id} 
-            open={chapter.isOpen}
-            onOpenChange={() => toggleChapter(chapter.id)}
-          >
-            <Card>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors">
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      {chapter.isOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                      {chapter.name}
-                      <Badge variant="secondary">{chapter.lines.length} partidas</Badge>
-                    </span>
-                    <span className="font-bold">{formatCurrency(getChapterTotal(chapter))}</span>
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              
-              <CollapsibleContent>
-                <CardContent className="pt-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-24">Núm.</TableHead>
-                        <TableHead>Concepto</TableHead>
-                        <TableHead className="w-20 text-right">UD</TableHead>
-                        <TableHead className="w-20 text-right">X</TableHead>
-                        <TableHead className="w-28 text-right">€/Ud</TableHead>
-                        <TableHead className="w-20 text-right">AG%</TableHead>
-                        <TableHead className="w-28 text-right">TOTAL</TableHead>
-                        <TableHead className="w-10"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {chapter.lines.map((line) => (
-                        <TableRow key={line.id}>
-                          <TableCell>
-                            <Input
-                              value={line.accountNumber}
-                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'accountNumber', e.target.value)}
-                              onBlur={() => handleLineBlur(chapter.id, line)}
-                              className="w-20 font-mono text-sm"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={line.concept}
-                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'concept', e.target.value)}
-                              onBlur={() => handleLineBlur(chapter.id, line)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              value={line.units}
-                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'units', parseFloat(e.target.value) || 0)}
-                              onBlur={() => handleLineBlur(chapter.id, line)}
-                              className="w-16 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              value={line.quantity}
-                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'quantity', parseFloat(e.target.value) || 0)}
-                              onBlur={() => handleLineBlur(chapter.id, line)}
-                              className="w-16 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              value={line.unitPrice}
-                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                              onBlur={() => handleLineBlur(chapter.id, line)}
-                              className="w-24 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              value={line.agencyPercentage}
-                              onChange={(e) => handleUpdateLine(chapter.id, line.id, 'agencyPercentage', parseFloat(e.target.value) || 0)}
-                              onBlur={() => handleLineBlur(chapter.id, line)}
-                              className="w-16 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {formatCurrency(line.total)}
-                          </TableCell>
-                          <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => handleDeleteLine(chapter.id, line.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-
-                  <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => addLine(chapter.id)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Añadir partida
-                    </Button>
-                    <div className="text-right">
-                      <span className="text-sm text-muted-foreground mr-4">Subtotal {chapter.name.split(' - ')[0]}:</span>
-                      <span className="text-lg font-bold">{formatCurrency(getChapterTotal(chapter))}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
+        {/* Chapters with Tabs Navigation */}
+        {!showEmptyState && (
+          <Tabs value={activeChapter} onValueChange={setActiveChapter} className="w-full">
+            {/* Scrollable Tab Bar */}
+            <Card className="mb-4">
+              <CardContent className="p-2">
+                <ScrollArea className="w-full whitespace-nowrap">
+                  <TabsList className="inline-flex h-auto p-1 bg-muted/50 w-max">
+                    {chapters.map((chapter) => {
+                      const chapterTotal = getChapterTotal(chapter);
+                      const hasData = chapterTotal > 0;
+                      return (
+                        <TabsTrigger
+                          key={chapter.id}
+                          value={chapter.id.toString()}
+                          className="flex flex-col items-center gap-1 px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm min-w-[100px]"
+                        >
+                          <span className="text-xs font-medium">CAP. {chapter.id.toString().padStart(2, '0')}</span>
+                          <span className={`text-xs ${hasData ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
+                            {chapterTotal > 0 ? formatCurrency(chapterTotal) : '—'}
+                          </span>
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </CardContent>
             </Card>
-          </Collapsible>
-        ))}
+
+            {/* Tab Content for each chapter */}
+            {chapters.map((chapter) => (
+              <TabsContent key={chapter.id} value={chapter.id.toString()} className="mt-0">
+                <Card>
+                  <CardHeader className="bg-primary/5">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        {chapter.name}
+                        <Badge variant="secondary">{chapter.lines.length} partidas</Badge>
+                      </span>
+                      <span className="font-bold text-primary">{formatCurrency(getChapterTotal(chapter))}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  
+                  <CardContent className="pt-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-24">Núm.</TableHead>
+                          <TableHead>Concepto</TableHead>
+                          <TableHead className="w-20 text-right">UD</TableHead>
+                          <TableHead className="w-20 text-right">X</TableHead>
+                          <TableHead className="w-28 text-right">€/Ud</TableHead>
+                          <TableHead className="w-20 text-right">AG%</TableHead>
+                          <TableHead className="w-28 text-right">TOTAL</TableHead>
+                          <TableHead className="w-10"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {chapter.lines.map((line) => (
+                          <TableRow key={line.id}>
+                            <TableCell>
+                              <Input
+                                value={line.accountNumber}
+                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'accountNumber', e.target.value)}
+                                onBlur={() => handleLineBlur(chapter.id, line)}
+                                className="w-20 font-mono text-sm"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={line.concept}
+                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'concept', e.target.value)}
+                                onBlur={() => handleLineBlur(chapter.id, line)}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                value={line.units}
+                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'units', parseFloat(e.target.value) || 0)}
+                                onBlur={() => handleLineBlur(chapter.id, line)}
+                                className="w-16 text-right"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                value={line.quantity}
+                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                onBlur={() => handleLineBlur(chapter.id, line)}
+                                className="w-16 text-right"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                value={line.unitPrice}
+                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                onBlur={() => handleLineBlur(chapter.id, line)}
+                                className="w-24 text-right"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                value={line.agencyPercentage}
+                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'agencyPercentage', parseFloat(e.target.value) || 0)}
+                                onBlur={() => handleLineBlur(chapter.id, line)}
+                                className="w-16 text-right"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              {formatCurrency(line.total)}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => handleDeleteLine(chapter.id, line.id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => addLine(chapter.id)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Añadir partida
+                      </Button>
+                      <div className="flex items-center gap-4">
+                        {/* Navigation buttons */}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={chapter.id === 1}
+                            onClick={() => setActiveChapter((chapter.id - 1).toString())}
+                          >
+                            <ChevronRight className="w-4 h-4 rotate-180" />
+                            Anterior
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={chapter.id === 12}
+                            onClick={() => setActiveChapter((chapter.id + 1).toString())}
+                          >
+                            Siguiente
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm text-muted-foreground mr-4">Subtotal {chapter.name.split(' - ')[0]}:</span>
+                          <span className="text-lg font-bold">{formatCurrency(getChapterTotal(chapter))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            ))}
+          </Tabs>
+        )}
 
         {/* Grand Total - Hide when showing empty state */}
         {!showEmptyState && (

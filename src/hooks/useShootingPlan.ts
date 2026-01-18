@@ -74,6 +74,17 @@ export function useShootingPlan(projectId: string) {
   // Mutation to generate and save plan
   const generatePlanMutation = useMutation({
     mutationFn: async (options: PlanGenerationOptions) => {
+      // If grouping by zone, add location zones to options
+      if (options.groupBy === 'zone') {
+        const locationZones = new Map<string, string>();
+        for (const loc of locations) {
+          if (loc.zone) {
+            locationZones.set(loc.id, loc.zone);
+          }
+        }
+        options.locationZones = locationZones;
+      }
+      
       const plan = generateSmartShootingPlan(sequences, locations, options);
       const result = await saveShootingPlan(projectId, plan);
       

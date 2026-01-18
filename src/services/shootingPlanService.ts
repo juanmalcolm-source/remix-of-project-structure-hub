@@ -86,11 +86,14 @@ export interface ProposedShootingDay {
 }
 
 export interface PlanGenerationOptions {
-  groupBy: 'location' | 'time_of_day' | 'proximity';
+  groupBy: 'location' | 'time_of_day' | 'proximity' | 'zone';
   maxEighthsPerDay: number;
   separateDayNight: boolean;
   optimizeByProximity: boolean;
-  targetHoursPerDay?: number;    // NUEVO: Horas objetivo por jornada
+  targetHoursPerDay?: number;
+  // Datos de zona/distancia para optimización geográfica
+  locationZones?: Map<string, string>; // location_id -> zone
+  distanceMatrix?: Map<string, { distance_km: number; duration_minutes: number }>; // "fromId-toId" -> distance
 }
 
 // Detectar si es INT o EXT desde el encabezado de escena
@@ -587,6 +590,184 @@ function groupAndDistributeByCharacters(
   return distributeIntoDaysFlexible(sortedScenes, { ...options, targetHoursPerDay: targetHours }, 1);
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// AGRUPACIÓN POR ZONA GEOGRÁFICA (NUEVO)
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Group and distribute by GEOGRAPHIC ZONE
+ * Uses location zones and distance matrix for optimal grouping
+ */
+function groupAndDistributeByZone(
+  scenes: SceneForPlanning[],
+  locations: any[],
+  options: PlanGenerationOptions
+): ProposedShootingDay[] {
+  const targetHours = options.targetHoursPerDay || 10;
+  const locationZones = options.locationZones || new Map<string, string>();
+  const distanceMatrix = options.distanceMatrix || new Map<string, { distance_km: number; duration_minutes: number }>();
+  
+  // Create a map of location name to zone
+  const locationNameToZone = new Map<string, string>();
+  for (const loc of locations) {
+    if (loc.zone) {
+      locationNameToZone.set(loc.name.toLowerCase(), loc.zone);
+    }
+    if (loc.id && locationZones.has(loc.id)) {
+      locationNameToZone.set(loc.name.toLowerCase(), locationZones.get(loc.id)!);
+    }
+  }
+  
+  // Sort scenes by zone first, then by location within zone, then by time of day
+  const sortedScenes = [...scenes].sort((a, b) => {
+    // Primary sort: zone
+    const zoneA = locationNameToZone.get(a.location_name.toLowerCase()) || 'zzz-sin-zona';
+    const zoneB = locationNameToZone.get(b.location_name.toLowerCase()) || 'zzz-sin-zona';
+    const zoneCompare = zoneA.localeCompare(zoneB);
+    if (zoneCompare !== 0) return zoneCompare;
+    
+    // Secondary: location within same zone
+    const locCompare = a.location_name.localeCompare(b.location_name);
+    if (locCompare !== 0) return locCompare;
+    
+    // Tertiary: time of day (DÍA first)
+    if (options.separateDayNight) {
+      const timeOrder: Record<string, number> = { 'DÍA': 0, 'AMANECER': 1, 'ATARDECER': 2, 'NOCHE': 3 };
+      const timeA = timeOrder[a.time_of_day] ?? 0;
+      const timeB = timeOrder[b.time_of_day] ?? 0;
+      if (timeA !== timeB) return timeA - timeB;
+    }
+    
+    // Quaternary: sequence number
+    return a.sequence_number - b.sequence_number;
+  });
+  
+  // Distribute into days with zone-aware optimization
+  const days = distributeIntoDaysFlexibleWithZones(sortedScenes, options, locationNameToZone, distanceMatrix, 1);
+  
+  // Add zone information to warnings/notes
+  for (const day of days) {
+    const dayZones = new Set<string>();
+    for (const scene of day.scenes) {
+      const zone = locationNameToZone.get(scene.location_name.toLowerCase());
+      if (zone) dayZones.add(zone);
+    }
+    if (dayZones.size > 1) {
+      day.warnings.push(`${dayZones.size} zonas: desplazamientos`);
+    }
+  }
+  
+  return days;
+}
+
+/**
+ * Distribute scenes with zone-aware optimization
+ * Adds travel time between different zones/locations
+ */
+function distributeIntoDaysFlexibleWithZones(
+  scenes: SceneForPlanning[],
+  options: PlanGenerationOptions,
+  locationZones: Map<string, string>,
+  distanceMatrix: Map<string, { distance_km: number; duration_minutes: number }>,
+  startingDayNumber: number
+): ProposedShootingDay[] {
+  const days: ProposedShootingDay[] = [];
+  const targetHours = options.targetHoursPerDay || 10;
+  const targetMinutes = targetHours * 60;
+  let dayNumber = startingDayNumber;
+  
+  const remainingScenes = [...scenes];
+  
+  // Average travel time between different zones (in minutes)
+  const INTER_ZONE_TRAVEL_MINUTES = 45;
+  const INTRA_ZONE_TRAVEL_MINUTES = 15;
+  
+  while (remainingScenes.length > 0) {
+    const dayScenes: SceneForPlanning[] = [];
+    let currentMinutes = 0;
+    let previousLocation: string | null = null;
+    let previousZone: string | null = null;
+    
+    while (remainingScenes.length > 0) {
+      const candidateScene = remainingScenes[0];
+      const sceneBreakdown = calculateSceneShootingTimeDetailed(candidateScene);
+      
+      const currentZone = locationZones.get(candidateScene.location_name.toLowerCase()) || null;
+      
+      // Calculate effective time (considering location and zone)
+      let sceneMinutes = sceneBreakdown.shootingMinutes;
+      
+      if (previousLocation === candidateScene.location_name) {
+        // Same location = mini setup
+        sceneMinutes += MINI_SETUP_MINUTES;
+      } else {
+        // Different location = full setup
+        sceneMinutes += sceneBreakdown.setupMinutes;
+        
+        // Add travel time if changing zones or locations
+        if (previousZone && currentZone && previousZone !== currentZone) {
+          sceneMinutes += INTER_ZONE_TRAVEL_MINUTES;
+        } else if (previousLocation && previousLocation !== candidateScene.location_name) {
+          sceneMinutes += INTRA_ZONE_TRAVEL_MINUTES;
+        }
+      }
+      
+      // Check if this scene fits in the day
+      if (currentMinutes + sceneMinutes > targetMinutes && dayScenes.length > 0) {
+        break; // Day is full
+      }
+      
+      // Add scene to day
+      const scene = remainingScenes.shift()!;
+      dayScenes.push(scene);
+      currentMinutes += sceneMinutes;
+      previousLocation = scene.location_name;
+      previousZone = currentZone;
+    }
+    
+    // Create day
+    const dayLocations = [...new Set(dayScenes.map(s => s.location_name))];
+    const primaryLocation = dayLocations[0] || 'Sin localización';
+    const allCharacters = [...new Set(dayScenes.flatMap(s => s.characters || []))];
+    const totalEighths = dayScenes.reduce((sum, s) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+    const dayTimeResult = calculateDayTimeWithLocationOptimization(dayScenes);
+    const estimatedHours = currentMinutes / 60;
+    
+    const newDay: ProposedShootingDay = {
+      dayNumber: dayNumber++,
+      locations: dayLocations,
+      location: dayLocations.length > 1 ? `${primaryLocation} + ${dayLocations.length - 1} más` : primaryLocation,
+      locationId: dayScenes[0]?.location_id || null,
+      timeOfDay: getMostCommonTimeOfDay(dayScenes),
+      scenes: dayScenes,
+      totalEighths,
+      estimatedHours,
+      targetHours,
+      remainingHours: targetHours - estimatedHours,
+      characters: allCharacters,
+      warnings: [],
+      totalSetupMinutes: dayTimeResult.totalSetupMinutes,
+      totalShootingMinutes: dayTimeResult.totalShootingMinutes,
+      totalMinutes: currentMinutes,
+    };
+    
+    // Add warnings
+    if (estimatedHours > MAX_WORKDAY_HOURS) {
+      newDay.warnings.push(`¡Jornada de ${estimatedHours.toFixed(1)}h excede ${MAX_WORKDAY_HOURS}h!`);
+    }
+    if (allCharacters.length > 10) {
+      newDay.warnings.push(`Muchos personajes: ${allCharacters.length}`);
+    }
+    if (dayLocations.length > 3) {
+      newDay.warnings.push(`${dayLocations.length} localizaciones en un día`);
+    }
+    
+    days.push(newDay);
+  }
+  
+  return days;
+}
+
 // Main function: Generate smart shooting plan
 export function generateSmartShootingPlan(
   sequences: any[],
@@ -639,6 +820,11 @@ export function generateSmartShootingPlan(
     case 'proximity':
       console.log('[ShootingPlan] Grouping by CHARACTERS/PROXIMITY');
       allDays = groupAndDistributeByCharacters(scenes, options);
+      break;
+    
+    case 'zone':
+      console.log('[ShootingPlan] Grouping by GEOGRAPHIC ZONE');
+      allDays = groupAndDistributeByZone(scenes, locations, options);
       break;
       
     case 'location':

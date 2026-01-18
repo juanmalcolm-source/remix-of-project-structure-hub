@@ -68,15 +68,18 @@ export interface SceneTimeBreakdown {
 
 export interface ProposedShootingDay {
   dayNumber: number;
-  location: string;
+  locations: string[];           // CAMBIO: Array de localizaciones
+  location: string;              // Localización principal (para compatibilidad)
   locationId: string | null;
   timeOfDay: string;
   scenes: SceneForPlanning[];
   totalEighths: number;
   estimatedHours: number;
+  targetHours: number;           // NUEVO: Objetivo de horas (ej. 10h)
+  remainingHours: number;        // NUEVO: Horas restantes/sobrantes
   characters: string[];
   warnings: string[];
-  // Nuevos campos de tiempo
+  // Campos de tiempo desglosados
   totalSetupMinutes?: number;
   totalShootingMinutes?: number;
   totalMinutes?: number;
@@ -87,6 +90,7 @@ export interface PlanGenerationOptions {
   maxEighthsPerDay: number;
   separateDayNight: boolean;
   optimizeByProximity: boolean;
+  targetHoursPerDay?: number;    // NUEVO: Horas objetivo por jornada
 }
 
 // Detectar si es INT o EXT desde el encabezado de escena
@@ -298,14 +302,114 @@ function groupByCharacters(scenes: SceneForPlanning[]): Map<string, SceneForPlan
   return groups;
 }
 
-// Distribute scenes into days respecting the eighths limit
+// Distribute scenes into days respecting TIME limit (not just eighths)
+function distributeIntoDaysFlexible(
+  scenes: SceneForPlanning[],
+  options: PlanGenerationOptions,
+  startingDayNumber: number
+): ProposedShootingDay[] {
+  const days: ProposedShootingDay[] = [];
+  const targetHours = options.targetHoursPerDay || 10;
+  const targetMinutes = targetHours * 60;
+  let dayNumber = startingDayNumber;
+  
+  // Sort scenes by sequence number
+  const sortedScenes = [...scenes].sort((a, b) => a.sequence_number - b.sequence_number);
+  const remainingScenes = [...sortedScenes];
+  
+  while (remainingScenes.length > 0) {
+    const dayScenes: SceneForPlanning[] = [];
+    let currentMinutes = 0;
+    let previousLocation: string | null = null;
+    
+    // Fill day until we reach target time
+    while (remainingScenes.length > 0) {
+      const candidateScene = remainingScenes[0];
+      const sceneBreakdown = calculateSceneShootingTimeDetailed(candidateScene);
+      
+      // Calculate effective time (considering location optimization)
+      let sceneMinutes = sceneBreakdown.shootingMinutes;
+      if (previousLocation === candidateScene.location_name) {
+        sceneMinutes += MINI_SETUP_MINUTES; // Same location = mini setup
+      } else {
+        sceneMinutes += sceneBreakdown.setupMinutes; // New location = full setup
+      }
+      
+      // Check if this scene fits in the day
+      if (currentMinutes + sceneMinutes > targetMinutes && dayScenes.length > 0) {
+        break; // Day is full
+      }
+      
+      // Add scene to day
+      const scene = remainingScenes.shift()!;
+      dayScenes.push(scene);
+      currentMinutes += sceneMinutes;
+      previousLocation = scene.location_name;
+    }
+    
+    // Create day with multiple locations
+    const dayLocations = [...new Set(dayScenes.map(s => s.location_name))];
+    const primaryLocation = dayLocations[0] || 'Sin localización';
+    const allCharacters = [...new Set(dayScenes.flatMap(s => s.characters || []))];
+    const totalEighths = dayScenes.reduce((sum, s) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+    const dayTimeResult = calculateDayTimeWithLocationOptimization(dayScenes);
+    const estimatedHours = dayTimeResult.totalHours;
+    
+    const newDay: ProposedShootingDay = {
+      dayNumber: dayNumber++,
+      locations: dayLocations,
+      location: dayLocations.length > 1 ? `${primaryLocation} + ${dayLocations.length - 1} más` : primaryLocation,
+      locationId: dayScenes[0]?.location_id || null,
+      timeOfDay: getMostCommonTimeOfDay(dayScenes),
+      scenes: dayScenes,
+      totalEighths,
+      estimatedHours,
+      targetHours,
+      remainingHours: targetHours - estimatedHours,
+      characters: allCharacters,
+      warnings: [],
+      totalSetupMinutes: dayTimeResult.totalSetupMinutes,
+      totalShootingMinutes: dayTimeResult.totalShootingMinutes,
+      totalMinutes: dayTimeResult.totalMinutes,
+    };
+    
+    // Add warnings
+    if (estimatedHours > MAX_WORKDAY_HOURS) {
+      newDay.warnings.push(`¡Jornada de ${estimatedHours.toFixed(1)}h excede ${MAX_WORKDAY_HOURS}h!`);
+    }
+    if (allCharacters.length > 10) {
+      newDay.warnings.push(`Muchos personajes: ${allCharacters.length}`);
+    }
+    if (dayLocations.length > 3) {
+      newDay.warnings.push(`${dayLocations.length} localizaciones en un día`);
+    }
+    
+    days.push(newDay);
+  }
+  
+  return days;
+}
+
+// Helper to get most common time of day
+function getMostCommonTimeOfDay(scenes: SceneForPlanning[]): string {
+  const counts: Record<string, number> = {};
+  for (const scene of scenes) {
+    const tod = scene.time_of_day || 'DÍA';
+    counts[tod] = (counts[tod] || 0) + 1;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return sorted[0]?.[0] || 'DÍA';
+}
+
+// LEGACY: Distribute scenes into days respecting the eighths limit (for compatibility)
 function distributeIntoDays(
   scenes: SceneForPlanning[],
   location: string,
   locationId: string | null,
   timeOfDay: string,
   maxEighthsPerDay: number,
-  startingDayNumber: number
+  startingDayNumber: number,
+  targetHoursPerDay: number = 10
 ): ProposedShootingDay[] {
   const days: ProposedShootingDay[] = [];
   let currentDay: ProposedShootingDay | null = null;
@@ -318,17 +422,28 @@ function distributeIntoDays(
     // If no current day or adding this scene would exceed limit, create new day
     if (!currentDay || currentDay.totalEighths + scene.effectiveEighths > maxEighthsPerDay) {
       if (currentDay) {
+        // Update remaining hours before pushing
+        const timeResult = calculateDayTimeWithLocationOptimization(currentDay.scenes);
+        currentDay.estimatedHours = timeResult.totalHours;
+        currentDay.remainingHours = currentDay.targetHours - timeResult.totalHours;
+        currentDay.totalSetupMinutes = timeResult.totalSetupMinutes;
+        currentDay.totalShootingMinutes = timeResult.totalShootingMinutes;
+        currentDay.totalMinutes = timeResult.totalMinutes;
+        currentDay.locations = [...new Set(currentDay.scenes.map(s => s.location_name))];
         days.push(currentDay);
       }
       
       currentDay = {
         dayNumber: dayNumber++,
+        locations: [location],
         location,
         locationId,
         timeOfDay,
         scenes: [],
         totalEighths: 0,
         estimatedHours: 0,
+        targetHours: targetHoursPerDay,
+        remainingHours: targetHoursPerDay,
         characters: [],
         warnings: [],
       };
@@ -337,8 +452,19 @@ function distributeIntoDays(
     // Add scene to current day
     currentDay.scenes.push(scene);
     currentDay.totalEighths += scene.effectiveEighths;
+    
+    // Update locations array
+    if (!currentDay.locations.includes(scene.location_name)) {
+      currentDay.locations.push(scene.location_name);
+      if (currentDay.locations.length > 1) {
+        currentDay.location = `${currentDay.locations[0]} + ${currentDay.locations.length - 1} más`;
+      }
+    }
+    
     // Recalcular tiempo estimado basado en escenas individuales
-    currentDay.estimatedHours = recalculateDayTime(currentDay.scenes);
+    const timeResult = calculateDayTimeWithLocationOptimization(currentDay.scenes);
+    currentDay.estimatedHours = timeResult.totalHours;
+    currentDay.remainingHours = currentDay.targetHours - timeResult.totalHours;
     
     // Merge characters
     for (const char of scene.characters) {
@@ -350,6 +476,13 @@ function distributeIntoDays(
   
   // Don't forget the last day
   if (currentDay && currentDay.scenes.length > 0) {
+    const timeResult = calculateDayTimeWithLocationOptimization(currentDay.scenes);
+    currentDay.estimatedHours = timeResult.totalHours;
+    currentDay.remainingHours = currentDay.targetHours - timeResult.totalHours;
+    currentDay.totalSetupMinutes = timeResult.totalSetupMinutes;
+    currentDay.totalShootingMinutes = timeResult.totalShootingMinutes;
+    currentDay.totalMinutes = timeResult.totalMinutes;
+    currentDay.locations = [...new Set(currentDay.scenes.map(s => s.location_name))];
     days.push(currentDay);
   }
   
@@ -357,6 +490,9 @@ function distributeIntoDays(
   for (const day of days) {
     if (day.totalEighths > maxEighthsPerDay) {
       day.warnings.push(`Día sobrecargado: ${day.totalEighths.toFixed(1)}/8 octavos`);
+    }
+    if (day.estimatedHours > MAX_WORKDAY_HOURS) {
+      day.warnings.push(`¡Jornada de ${day.estimatedHours.toFixed(1)}h!`);
     }
     if (day.characters.length > 10) {
       day.warnings.push(`Muchos personajes: ${day.characters.length}`);
@@ -366,124 +502,89 @@ function distributeIntoDays(
   return days;
 }
 
-// Group and distribute by LOCATION
+// Group and distribute by LOCATION (mejorado: permite múltiples localizaciones por día)
 function groupAndDistributeByLocation(
   scenes: SceneForPlanning[],
   options: PlanGenerationOptions
 ): ProposedShootingDay[] {
-  const allDays: ProposedShootingDay[] = [];
-  let dayNumber = 1;
+  const targetHours = options.targetHoursPerDay || 10;
   
-  const locationGroups = groupByLocation(scenes);
-  
-  for (const [locationName, locationScenes] of locationGroups) {
-    const locationId = locationScenes[0]?.location_id || null;
+  // Sort scenes by location first, then by time of day, then by sequence
+  const sortedScenes = [...scenes].sort((a, b) => {
+    // Primary sort: location
+    const locCompare = a.location_name.localeCompare(b.location_name);
+    if (locCompare !== 0) return locCompare;
     
+    // Secondary: time of day (DÍA first)
     if (options.separateDayNight) {
-      const timeGroups = groupByTimeOfDay(locationScenes);
-      const timeOrder = ['DÍA', 'AMANECER', 'ATARDECER', 'NOCHE'];
-      
-      for (const time of timeOrder) {
-        const timeScenes = timeGroups.get(time);
-        if (timeScenes && timeScenes.length > 0) {
-          const days = distributeIntoDays(timeScenes, locationName, locationId, time, options.maxEighthsPerDay, dayNumber);
-          for (const day of days) {
-            day.dayNumber = dayNumber++;
-            allDays.push(day);
-          }
-        }
-      }
-    } else {
-      const days = distributeIntoDays(locationScenes, locationName, locationId, 'MIXTO', options.maxEighthsPerDay, dayNumber);
-      for (const day of days) {
-        day.dayNumber = dayNumber++;
-        allDays.push(day);
-      }
+      const timeOrder: Record<string, number> = { 'DÍA': 0, 'AMANECER': 1, 'ATARDECER': 2, 'NOCHE': 3 };
+      const timeA = timeOrder[a.time_of_day] ?? 0;
+      const timeB = timeOrder[b.time_of_day] ?? 0;
+      if (timeA !== timeB) return timeA - timeB;
     }
-  }
+    
+    // Tertiary: sequence number
+    return a.sequence_number - b.sequence_number;
+  });
   
-  return allDays;
+  // Use flexible distribution that respects time limits
+  return distributeIntoDaysFlexible(sortedScenes, { ...options, targetHoursPerDay: targetHours }, 1);
 }
 
-// Group and distribute by TIME OF DAY first
+// Group and distribute by TIME OF DAY first (mejorado: permite múltiples localizaciones)
 function groupAndDistributeByTimeOfDay(
   scenes: SceneForPlanning[],
   options: PlanGenerationOptions
 ): ProposedShootingDay[] {
-  const allDays: ProposedShootingDay[] = [];
-  let dayNumber = 1;
+  const targetHours = options.targetHoursPerDay || 10;
   
-  const timeGroups = groupByTimeOfDay(scenes);
-  const timeOrder = ['DÍA', 'AMANECER', 'ATARDECER', 'NOCHE'];
-  
-  for (const time of timeOrder) {
-    const timeScenes = timeGroups.get(time);
-    if (!timeScenes || timeScenes.length === 0) continue;
+  // Sort by time of day first, then by location, then by sequence
+  const sortedScenes = [...scenes].sort((a, b) => {
+    // Primary: time of day (DÍA first, NOCHE last)
+    const timeOrder: Record<string, number> = { 'DÍA': 0, 'AMANECER': 1, 'ATARDECER': 2, 'NOCHE': 3 };
+    const timeA = timeOrder[a.time_of_day] ?? 0;
+    const timeB = timeOrder[b.time_of_day] ?? 0;
+    if (timeA !== timeB) return timeA - timeB;
     
-    if (options.separateDayNight) {
-      // Sub-group by location within each time period
-      const locationGroups = groupByLocation(timeScenes);
-      
-      for (const [locationName, locScenes] of locationGroups) {
-        const locationId = locScenes[0]?.location_id || null;
-        const days = distributeIntoDays(locScenes, locationName, locationId, time, options.maxEighthsPerDay, dayNumber);
-        for (const day of days) {
-          day.dayNumber = dayNumber++;
-          allDays.push(day);
-        }
-      }
-    } else {
-      // All scenes from this time period together
-      const days = distributeIntoDays(timeScenes, 'VARIAS LOCALIZACIONES', null, time, options.maxEighthsPerDay, dayNumber);
-      for (const day of days) {
-        day.dayNumber = dayNumber++;
-        allDays.push(day);
-      }
-    }
-  }
+    // Secondary: location (to group same locations together)
+    const locCompare = a.location_name.localeCompare(b.location_name);
+    if (locCompare !== 0) return locCompare;
+    
+    // Tertiary: sequence number
+    return a.sequence_number - b.sequence_number;
+  });
   
-  return allDays;
+  return distributeIntoDaysFlexible(sortedScenes, { ...options, targetHoursPerDay: targetHours }, 1);
 }
 
-// Group and distribute by CHARACTERS (proximity)
+// Group and distribute by CHARACTERS (proximity) - mejorado
 function groupAndDistributeByCharacters(
   scenes: SceneForPlanning[],
   options: PlanGenerationOptions
 ): ProposedShootingDay[] {
-  const allDays: ProposedShootingDay[] = [];
-  let dayNumber = 1;
+  const targetHours = options.targetHoursPerDay || 10;
   
-  const charGroups = groupByCharacters(scenes);
-  
-  for (const [charKey, charScenes] of charGroups) {
+  // Sort by main characters (first 2), then by time of day, then by sequence
+  const sortedScenes = [...scenes].sort((a, b) => {
+    // Primary: main characters
+    const aChars = (a.characters || []).slice(0, 2).sort().join(',');
+    const bChars = (b.characters || []).slice(0, 2).sort().join(',');
+    const charCompare = aChars.localeCompare(bChars);
+    if (charCompare !== 0) return charCompare;
+    
+    // Secondary: time of day
     if (options.separateDayNight) {
-      const timeGroups = groupByTimeOfDay(charScenes);
-      const timeOrder = ['DÍA', 'AMANECER', 'ATARDECER', 'NOCHE'];
-      
-      for (const time of timeOrder) {
-        const timeScenes = timeGroups.get(time);
-        if (timeScenes && timeScenes.length > 0) {
-          const primaryLocation = timeScenes[0]?.location_name || 'VARIAS';
-          const days = distributeIntoDays(timeScenes, primaryLocation, null, time, options.maxEighthsPerDay, dayNumber);
-          for (const day of days) {
-            day.dayNumber = dayNumber++;
-            day.warnings.push(`Personajes: ${charKey}`);
-            allDays.push(day);
-          }
-        }
-      }
-    } else {
-      const primaryLocation = charScenes[0]?.location_name || 'VARIAS';
-      const days = distributeIntoDays(charScenes, primaryLocation, null, 'MIXTO', options.maxEighthsPerDay, dayNumber);
-      for (const day of days) {
-        day.dayNumber = dayNumber++;
-        day.warnings.push(`Personajes: ${charKey}`);
-        allDays.push(day);
-      }
+      const timeOrder: Record<string, number> = { 'DÍA': 0, 'AMANECER': 1, 'ATARDECER': 2, 'NOCHE': 3 };
+      const timeA = timeOrder[a.time_of_day] ?? 0;
+      const timeB = timeOrder[b.time_of_day] ?? 0;
+      if (timeA !== timeB) return timeA - timeB;
     }
-  }
+    
+    // Tertiary: sequence number
+    return a.sequence_number - b.sequence_number;
+  });
   
-  return allDays;
+  return distributeIntoDaysFlexible(sortedScenes, { ...options, targetHoursPerDay: targetHours }, 1);
 }
 
 // Main function: Generate smart shooting plan
@@ -623,17 +724,31 @@ export async function loadShootingPlan(projectId: string): Promise<ProposedShoot
     return [];
   }
   
-  return (data || []).map((row) => ({
-    dayNumber: row.day_number,
-    location: row.location_name || '',
-    locationId: row.location_id,
-    timeOfDay: row.time_of_day || 'DÍA',
-    scenes: (row.sequences as any[]) || [],
-    totalEighths: Number(row.total_eighths) || 0,
-    estimatedHours: Number(row.estimated_hours) || 0,
-    characters: (row.characters as string[]) || [],
-    warnings: row.notes ? row.notes.split('; ') : [],
-  }));
+  return (data || []).map((row) => {
+    const scenes = (row.sequences as any[]) || [];
+    const estimatedHours = Number(row.estimated_hours) || 0;
+    const targetHours = 10; // Default target
+    
+    // Extract unique locations from scenes
+    const sceneLocations = scenes.map((s: any) => s.location_name).filter(Boolean);
+    const uniqueLocations = [...new Set(sceneLocations)];
+    const locations = uniqueLocations.length > 0 ? uniqueLocations : [row.location_name || 'Sin localización'];
+    
+    return {
+      dayNumber: row.day_number,
+      locations: locations as string[],
+      location: row.location_name || '',
+      locationId: row.location_id,
+      timeOfDay: row.time_of_day || 'DÍA',
+      scenes,
+      totalEighths: Number(row.total_eighths) || 0,
+      estimatedHours,
+      targetHours,
+      remainingHours: targetHours - estimatedHours,
+      characters: (row.characters as string[]) || [],
+      warnings: row.notes ? row.notes.split('; ') : [],
+    };
+  });
 }
 
 // Calculate total statistics

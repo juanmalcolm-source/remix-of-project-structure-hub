@@ -100,6 +100,7 @@ export function ShootingPlanGenerator({
       maxEighthsPerDay: eighthsPerDay,
       separateDayNight: hasNightScenes,
       optimizeByProximity: prioritizeBy === 'proximity',
+      targetHoursPerDay: hoursPerDay, // NUEVO: pasar horas objetivo
     };
     console.log('[ShootingPlanGenerator] Generating with options:', options);
     onGenerate(options);

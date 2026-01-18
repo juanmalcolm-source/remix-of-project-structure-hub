@@ -14,52 +14,197 @@ export type Database = {
   }
   public: {
     Tables: {
+      budget_history: {
+        Row: {
+          actual_deviation_percent: number | null
+          budget_json: Json | null
+          complexity_score: number | null
+          created_at: string
+          duration_minutes: number | null
+          has_action: boolean | null
+          has_animals: boolean | null
+          has_children: boolean | null
+          has_vfx: boolean | null
+          id: string
+          learning_notes: string | null
+          production_year: number | null
+          project_id: string | null
+          project_title: string
+          project_type: string | null
+          shooting_days: number | null
+          total_budget: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          actual_deviation_percent?: number | null
+          budget_json?: Json | null
+          complexity_score?: number | null
+          created_at?: string
+          duration_minutes?: number | null
+          has_action?: boolean | null
+          has_animals?: boolean | null
+          has_children?: boolean | null
+          has_vfx?: boolean | null
+          id?: string
+          learning_notes?: string | null
+          production_year?: number | null
+          project_id?: string | null
+          project_title: string
+          project_type?: string | null
+          shooting_days?: number | null
+          total_budget?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          actual_deviation_percent?: number | null
+          budget_json?: Json | null
+          complexity_score?: number | null
+          created_at?: string
+          duration_minutes?: number | null
+          has_action?: boolean | null
+          has_animals?: boolean | null
+          has_children?: boolean | null
+          has_vfx?: boolean | null
+          id?: string
+          learning_notes?: string | null
+          production_year?: number | null
+          project_id?: string | null
+          project_title?: string
+          project_type?: string | null
+          shooting_days?: number | null
+          total_budget?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_lines: {
         Row: {
           account_number: string | null
+          agency_cost: number | null
           agency_percentage: number | null
+          base_before_taxes: number | null
+          budget_level: string | null
           chapter: number
           concept: string
           created_at: string
           id: string
+          notes: string | null
           project_id: string
           quantity: number | null
+          social_security_cost: number | null
+          social_security_percentage: number | null
+          tariff_source: string | null
           total: number | null
           unit_price: number | null
           units: number | null
           updated_at: string
+          vat_amount: number | null
+          vat_percentage: number | null
         }
         Insert: {
           account_number?: string | null
+          agency_cost?: number | null
           agency_percentage?: number | null
+          base_before_taxes?: number | null
+          budget_level?: string | null
           chapter: number
           concept: string
           created_at?: string
           id?: string
+          notes?: string | null
           project_id: string
           quantity?: number | null
+          social_security_cost?: number | null
+          social_security_percentage?: number | null
+          tariff_source?: string | null
           total?: number | null
           unit_price?: number | null
           units?: number | null
           updated_at?: string
+          vat_amount?: number | null
+          vat_percentage?: number | null
         }
         Update: {
           account_number?: string | null
+          agency_cost?: number | null
           agency_percentage?: number | null
+          base_before_taxes?: number | null
+          budget_level?: string | null
           chapter?: number
           concept?: string
           created_at?: string
           id?: string
+          notes?: string | null
           project_id?: string
           quantity?: number | null
+          social_security_cost?: number | null
+          social_security_percentage?: number | null
+          tariff_source?: string | null
           total?: number | null
           unit_price?: number | null
           units?: number | null
           updated_at?: string
+          vat_amount?: number | null
+          vat_percentage?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "budget_lines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_versions: {
+        Row: {
+          budget_json: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          total_amount: number | null
+          version_name: string | null
+          version_number: number
+        }
+        Insert: {
+          budget_json: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          total_amount?: number | null
+          version_name?: string | null
+          version_number: number
+        }
+        Update: {
+          budget_json?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          total_amount?: number | null
+          version_name?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_versions_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

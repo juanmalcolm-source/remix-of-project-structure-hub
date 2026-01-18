@@ -25,6 +25,7 @@ import MoodBoardPage from "./pages/proyecto/MoodBoardPage";
 // Produccion Pages
 import DesglosePersonajesPage from "./pages/produccion/DesglosePersonajesPage";
 import DesgloseLocalizacionesPage from "./pages/produccion/DesgloseLocalizacionesPage";
+import LugaresFisicosPage from "./pages/produccion/LugaresFisicosPage";
 import PlanRodajePage from "./pages/produccion/PlanRodajePage";
 import PresupuestoICAA from "./pages/produccion/PresupuestoICAA";
 import ExportExcelPage from "./pages/produccion/ExportExcelPage";
@@ -70,6 +71,7 @@ const App = () => (
               {/* Produccion - with projectId */}
               <Route path="/produccion/:projectId/personajes" element={<ProtectedRoute><DesglosePersonajesPage /></ProtectedRoute>} />
               <Route path="/produccion/:projectId/localizaciones" element={<ProtectedRoute><DesgloseLocalizacionesPage /></ProtectedRoute>} />
+              <Route path="/produccion/:projectId/lugares" element={<ProtectedRoute><LugaresFisicosPage /></ProtectedRoute>} />
               <Route path="/produccion/:projectId/rodaje" element={<ProtectedRoute><PlanRodajePage /></ProtectedRoute>} />
               <Route path="/produccion/:projectId/presupuesto" element={<ProtectedRoute><PresupuestoICAA /></ProtectedRoute>} />
               <Route path="/produccion/:projectId/export" element={<ProtectedRoute><ExportExcelPage /></ProtectedRoute>} />

@@ -19,7 +19,8 @@ import {
   MapPin,
   Users,
   Zap,
-  Calendar
+  Calendar,
+  Map
 } from "lucide-react";
 import { PlanGenerationOptions } from "@/services/shootingPlanService";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ interface ShootingPlanGeneratorProps {
   totalScenes: number;
   totalLocations: number;
   totalPages?: number;
+  hasZoneData?: boolean; // True if locations have zone assignments
 }
 
 type ProductionType = 'cortometraje' | 'largometraje' | 'serie' | 'bajo_presupuesto';
@@ -74,12 +76,13 @@ export function ShootingPlanGenerator({
   totalScenes,
   totalLocations,
   totalPages = 0,
+  hasZoneData = false,
 }: ShootingPlanGeneratorProps) {
   const [step, setStep] = useState(1);
   const [productionType, setProductionType] = useState<ProductionType>('largometraje');
   const [hoursPerDay, setHoursPerDay] = useState(10);
   const [hasNightScenes, setHasNightScenes] = useState(true);
-  const [prioritizeBy, setPrioritizeBy] = useState<'location' | 'time_of_day' | 'proximity'>('location');
+  const [prioritizeBy, setPrioritizeBy] = useState<'location' | 'time_of_day' | 'proximity' | 'zone'>('location');
   const [customPagesPerDay, setCustomPagesPerDay] = useState<number | null>(null);
   
   const eighthsPerDay = customPagesPerDay || productionPresets[productionType].pagesPerDay;
@@ -276,7 +279,7 @@ export function ShootingPlanGenerator({
             
             <RadioGroup 
               value={prioritizeBy} 
-              onValueChange={(v) => setPrioritizeBy(v as 'location' | 'time_of_day' | 'proximity')}
+              onValueChange={(v) => setPrioritizeBy(v as 'location' | 'time_of_day' | 'proximity' | 'zone')}
               className="grid gap-3"
             >
               <label
@@ -321,6 +324,36 @@ export function ShootingPlanGenerator({
                   <div className="font-medium">Por momento del día</div>
                   <div className="text-sm text-muted-foreground">
                     Agrupa escenas de DÍA/NOCHE/ATARDECER juntas
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={cn(
+                  "flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                  prioritizeBy === 'zone' 
+                    ? "border-primary bg-primary/5" 
+                    : "border-muted hover:border-primary/50",
+                  !hasZoneData && "opacity-50"
+                )}
+              >
+                <RadioGroupItem value="zone" className="sr-only" disabled={!hasZoneData} />
+                <div className={cn(
+                  "p-2 rounded-lg",
+                  prioritizeBy === 'zone' ? "bg-primary text-primary-foreground" : "bg-muted"
+                )}>
+                  <Map className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium flex items-center gap-2">
+                    Por zona geográfica
+                    {hasZoneData && <span className="text-xs bg-green-500/20 text-green-600 px-2 py-0.5 rounded-full">Recomendado</span>}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {hasZoneData 
+                      ? "Agrupa escenas de zonas cercanas (minimiza desplazamientos)"
+                      : "Configura zonas en 'Lugares Físicos' para habilitar"
+                    }
                   </div>
                 </div>
               </label>

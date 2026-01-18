@@ -52,6 +52,9 @@ export default function PlanRodajePage() {
     clearPlan,
   } = useShootingPlan(projectId || '');
 
+  // Check if we have zone data for locations
+  const hasZoneData = locations.some((loc: any) => loc.zone);
+
   const isLoading = projectLoading || planLoading;
   
   const stats = calculatePlanStats(shootingDays);
@@ -250,6 +253,7 @@ export default function PlanRodajePage() {
                     isGenerating={isGenerating}
                     totalScenes={sequences.length}
                     totalLocations={locations.length}
+                    hasZoneData={hasZoneData}
                   />
                 </TabsContent>
 

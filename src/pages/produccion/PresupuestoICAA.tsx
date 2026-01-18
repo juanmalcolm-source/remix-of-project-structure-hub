@@ -13,7 +13,11 @@ import {
   FileUp,
   AlertTriangle,
   Zap,
-  RefreshCw
+  RefreshCw,
+  DollarSign,
+  Film,
+  CalendarDays,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -802,7 +806,50 @@ export default function PresupuestoICAA() {
 
   const grandTotal = chapters.reduce((sum, ch) => sum + getChapterTotal(ch), 0);
 
+  // Calculate executive summary stats
+  const shootingDays = (() => {
+    // Try to find shooting days from chapter 3 (technical team) or chapter 7 (travel/hotels)
+    const chapter3 = chapters.find(ch => ch.id === 3);
+    const chapter7 = chapters.find(ch => ch.id === 7);
+    
+    // Look for lines with "días" pattern in concept or use units
+    const techLines = chapter3?.lines.filter(l => l.total > 0) || [];
+    const travelLines = chapter7?.lines.filter(l => l.total > 0) || [];
+    
+    // Use maximum units from technical team as shooting days estimate
+    const maxTechDays = Math.max(...techLines.map(l => l.units), 0);
+    const maxTravelDays = Math.max(...travelLines.map(l => l.quantity), 0);
+    
+    return Math.max(maxTechDays, maxTravelDays, 1);
+  })();
+
+  const costPerDay = shootingDays > 0 ? grandTotal / shootingDays : 0;
+
+  const postProductionWeeks = (() => {
+    // Estimate from chapter 9 (lab/post) and chapter 3 (editor)
+    const chapter9 = chapters.find(ch => ch.id === 9);
+    const chapter3 = chapters.find(ch => ch.id === 3);
+    
+    const postLines = chapter9?.lines.filter(l => l.total > 0) || [];
+    const editorLine = chapter3?.lines.find(l => 
+      l.concept.toLowerCase().includes('montador') || 
+      l.concept.toLowerCase().includes('editor')
+    );
+    
+    // Use editor days/5 or estimate from post budget
+    if (editorLine && editorLine.units > 0) {
+      return Math.ceil(editorLine.units / 5);
+    }
+    
+    // Fallback: estimate based on total post budget
+    const postTotal = postLines.reduce((sum, l) => sum + l.total, 0);
+    return Math.max(Math.ceil(postTotal / 15000), 4); // Assume ~15k/week or minimum 4 weeks
+  })();
+
   const projectTitle = project?.title || 'Mi Proyecto';
+  
+  // Check if we have any real budget data
+  const hasRealBudgetData = dbLines.length > 0 && grandTotal > 0;
 
   if (projectLoading || linesLoading) {
     return (
@@ -884,6 +931,67 @@ export default function PresupuestoICAA() {
               </div>
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Executive Summary Panel - Show when we have budget data */}
+        {hasRealBudgetData && !showEmptyState && (
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Presupuesto</p>
+                    <p className="text-2xl font-bold text-primary mt-1">{formatCurrency(grandTotal)}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Días de Rodaje</p>
+                    <p className="text-2xl font-bold text-amber-600 mt-1">{shootingDays}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <Film className="w-5 h-5 text-amber-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Coste / Día</p>
+                    <p className="text-2xl font-bold text-emerald-600 mt-1">{formatCurrency(costPerDay)}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <CalendarDays className="w-5 h-5 text-emerald-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-violet-500/10 to-violet-500/5 border-violet-500/20">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Semanas Postpro.</p>
+                    <p className="text-2xl font-bold text-violet-600 mt-1">{postProductionWeeks}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-violet-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Empty State - Show options when no budget lines exist */}

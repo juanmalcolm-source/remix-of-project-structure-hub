@@ -1,9 +1,42 @@
 // Shooting Plan Service - Intelligent scheduling using the Law of Eighths
+// Implements professional 1st AD time estimation formulas
 
 import { supabase } from "@/integrations/supabase/client";
 
-// Constants for the Law of Eighths
-const STANDARD_EIGHTHS_PER_DAY = 8; // 1 page = 8 eighths, standard day = 8 eighths
+// ═══════════════════════════════════════════════════════════════════════
+// FÓRMULA PROFESIONAL DE TIEMPO DE RODAJE (1st AD Standard)
+// ═══════════════════════════════════════════════════════════════════════
+
+// Base: 1 página (8/8) = 90 minutos de rodaje en condiciones normales
+const BASE_MINUTES_PER_PAGE = 90;
+const BASE_MINUTES_PER_EIGHTH = BASE_MINUTES_PER_PAGE / 8; // 11.25 min/octavo
+
+// Tiempos de setup por tipo de set
+const SETUP_TIMES = {
+  INT: 45,  // Interior: 45 min setup
+  EXT: 60,  // Exterior: 60 min setup
+  NIGHT_BONUS: 15, // Bonus nocturno: +15 min
+};
+
+// Multiplicadores de complejidad profesionales
+const COMPLEXITY_MULTIPLIERS: Record<string, number> = {
+  bajo: 1.0,     // Diálogo estático, 2 personas, interior día
+  media: 1.2,    // Walk and talk, comida, >3 personajes
+  alto: 2.0,     // Peleas, persecuciones, niños, animales, lluvia, VFX
+  extremo: 3.0,  // Escenas de masas, stunts complejos
+  // Alias en español
+  baja: 1.0,
+  alta: 2.0,
+};
+
+// Mini-setup para escenas en misma localización (reposición de cámara)
+const MINI_SETUP_MINUTES = 10;
+
+// Jornada máxima recomendada
+export const MAX_WORKDAY_HOURS = 12;
+export const MAX_WORKDAY_MINUTES = MAX_WORKDAY_HOURS * 60;
+
+// ═══════════════════════════════════════════════════════════════════════
 
 export interface SceneForPlanning {
   id: string;
@@ -17,6 +50,20 @@ export interface SceneForPlanning {
   scene_complexity: string;
   characters: string[];
   effectiveEighths: number; // Adjusted by complexity
+  // Campos profesionales de tiempo
+  set_type?: 'INT' | 'EXT';
+  complexity_factor?: number;
+  complexity_reason?: string;
+  setup_time_minutes?: number;
+  shooting_time_minutes?: number;
+  total_time_minutes?: number;
+}
+
+export interface SceneTimeBreakdown {
+  setupMinutes: number;
+  shootingMinutes: number;
+  totalMinutes: number;
+  complexityFactor: number;
 }
 
 export interface ProposedShootingDay {
@@ -29,6 +76,10 @@ export interface ProposedShootingDay {
   estimatedHours: number;
   characters: string[];
   warnings: string[];
+  // Nuevos campos de tiempo
+  totalSetupMinutes?: number;
+  totalShootingMinutes?: number;
+  totalMinutes?: number;
 }
 
 export interface PlanGenerationOptions {
@@ -38,6 +89,19 @@ export interface PlanGenerationOptions {
   optimizeByProximity: boolean;
 }
 
+// Detectar si es INT o EXT desde el encabezado de escena
+export function detectSetType(title: string): 'INT' | 'EXT' {
+  const titleUpper = title?.toUpperCase() || '';
+  if (titleUpper.startsWith('EXT')) return 'EXT';
+  return 'INT';
+}
+
+// Detectar si es escena nocturna
+export function isNightScene(timeOfDay: string): boolean {
+  const tod = timeOfDay?.toUpperCase() || '';
+  return tod.includes('NOCHE') || tod.includes('NIGHT');
+}
+
 // Normalizar octavos según la Ley de los Octavos profesional
 // El valor debe ser un entero de 1 a 16+ (nunca 0, nunca fracciones)
 export function normalizeEighths(rawValue: number | null | undefined): number {
@@ -45,73 +109,132 @@ export function normalizeEighths(rawValue: number | null | undefined): number {
   
   // Si viene como decimal pequeño (0.125, 0.5, 0.875), convertir de páginas a octavos
   if (rawValue > 0 && rawValue < 1) {
-    // Formato de páginas decimales (ej: 0.5 = 4/8 = 4 octavos)
     return Math.max(1, Math.round(rawValue * 8));
   }
   
-  // Si está entre 1 y 3 con decimales, podría ser páginas (ej: 1.25 = 1 página y 2 octavos = 10 octavos)
+  // Si está entre 1 y 3 con decimales, podría ser páginas
   if (rawValue >= 1 && rawValue < 3 && rawValue !== Math.floor(rawValue)) {
-    // Tiene decimales, convertir de páginas a octavos
     return Math.max(1, Math.round(rawValue * 8));
   }
   
-  // Ya son octavos directos (1, 2, 3, 4, 5, 6, 7, 8, 9, ...)
   return Math.max(1, Math.round(rawValue));
 }
 
 // Calculate effective eighths based on complexity
 export function calculateEffectiveEighths(pageEighths: number, complexity: string): number {
   const normalizedEighths = normalizeEighths(pageEighths);
-  
-  switch (complexity?.toLowerCase()) {
-    case 'alta':
-      return normalizedEighths * 1.5; // High complexity = 50% more time
-    case 'baja':
-      return normalizedEighths * 0.75; // Low complexity = 25% less time
-    default:
-      return normalizedEighths; // Medium = standard time
-  }
+  const multiplier = COMPLEXITY_MULTIPLIERS[complexity?.toLowerCase()] || 1.0;
+  return normalizedEighths * multiplier;
 }
 
-// Estimar tiempo de rodaje por escena (en horas)
-// Basado en: octavos efectivos, complejidad, y número de personajes
+// ═══════════════════════════════════════════════════════════════════════
+// CÁLCULO PROFESIONAL DE TIEMPO POR ESCENA
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Calcular tiempo de rodaje por escena con desglose profesional
+ * Fórmula: (Octavos × 11.25 min) × Multiplicador de Complejidad + Setup
+ */
+export function calculateSceneShootingTimeDetailed(scene: SceneForPlanning | any): SceneTimeBreakdown {
+  // Determinar tipo INT/EXT
+  const setType = scene.set_type || detectSetType(scene.title || '');
+  const isNight = isNightScene(scene.time_of_day);
+  
+  // Calcular setup time
+  let setupMinutes = setType === 'EXT' ? SETUP_TIMES.EXT : SETUP_TIMES.INT;
+  if (isNight) setupMinutes += SETUP_TIMES.NIGHT_BONUS;
+  
+  // Usar setup precalculado si existe
+  if (scene.setup_time_minutes) {
+    setupMinutes = scene.setup_time_minutes;
+  }
+  
+  // Calcular shooting time
+  const eighths = scene.page_eighths || scene.effectiveEighths || 1;
+  const normalizedEighths = normalizeEighths(eighths);
+  
+  // Determinar multiplicador de complejidad
+  let complexityFactor = scene.complexity_factor || 1.0;
+  if (!scene.complexity_factor) {
+    const complexity = scene.scene_complexity?.toLowerCase() || 'media';
+    complexityFactor = COMPLEXITY_MULTIPLIERS[complexity] || 1.2;
+  }
+  
+  // Usar shooting time precalculado si existe
+  let shootingMinutes = scene.shooting_time_minutes;
+  if (!shootingMinutes) {
+    shootingMinutes = Math.round(normalizedEighths * BASE_MINUTES_PER_EIGHTH * complexityFactor);
+  }
+  
+  return {
+    setupMinutes,
+    shootingMinutes,
+    totalMinutes: setupMinutes + shootingMinutes,
+    complexityFactor,
+  };
+}
+
+/**
+ * Versión simplificada que devuelve horas (para compatibilidad)
+ */
 export function calculateSceneShootingTime(scene: SceneForPlanning | any): number {
-  const baseTimePerEighth = 0.25; // 15 minutos base por octavo
-  
-  // Obtener octavos de la escena
-  const eighths = scene.effectiveEighths || scene.page_eighths || 1;
-  
-  // Ajuste por complejidad (ya incluido en effectiveEighths si existe)
-  let complexityMultiplier = 1.0;
-  if (!scene.effectiveEighths) {
-    switch (scene.scene_complexity?.toLowerCase()) {
-      case 'alta': complexityMultiplier = 1.5; break;
-      case 'baja': complexityMultiplier = 0.75; break;
-      default: complexityMultiplier = 1.0;
-    }
-  }
-  
-  // Ajuste por número de personajes (más personajes = más setup)
-  const characters = scene.characters || scene.characters_in_scene || [];
-  const charactersBonus = Math.min(characters.length * 0.1, 0.5); // Max +0.5h
-  
-  // Tiempo base en horas
-  const baseTime = eighths * baseTimePerEighth * complexityMultiplier;
-  
-  return baseTime + charactersBonus;
+  const breakdown = calculateSceneShootingTimeDetailed(scene);
+  return breakdown.totalMinutes / 60;
 }
 
-// Recalcular tiempo total de un día basado en sus escenas
+// ═══════════════════════════════════════════════════════════════════════
+// OPTIMIZACIÓN POR LOCALIZACIÓN COMPARTIDA
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Calcular tiempo total del día con optimización por localización
+ * Escenas consecutivas en la misma localización ahorran tiempo de setup
+ */
+export function calculateDayTimeWithLocationOptimization(scenes: SceneForPlanning[]): {
+  totalHours: number;
+  totalSetupMinutes: number;
+  totalShootingMinutes: number;
+  totalMinutes: number;
+} {
+  if (!scenes || scenes.length === 0) {
+    return { totalHours: 0, totalSetupMinutes: 0, totalShootingMinutes: 0, totalMinutes: 0 };
+  }
+  
+  let totalSetupMinutes = 0;
+  let totalShootingMinutes = 0;
+  let previousLocation: string | null = null;
+  
+  for (const scene of scenes) {
+    const breakdown = calculateSceneShootingTimeDetailed(scene);
+    const currentLocation = scene.location_name || 'UNKNOWN';
+    
+    // Si es la misma localización que la escena anterior, solo mini-setup
+    if (previousLocation === currentLocation) {
+      totalSetupMinutes += MINI_SETUP_MINUTES;
+    } else {
+      totalSetupMinutes += breakdown.setupMinutes;
+    }
+    
+    totalShootingMinutes += breakdown.shootingMinutes;
+    previousLocation = currentLocation;
+  }
+  
+  const totalMinutes = totalSetupMinutes + totalShootingMinutes;
+  
+  return {
+    totalHours: totalMinutes / 60,
+    totalSetupMinutes,
+    totalShootingMinutes,
+    totalMinutes,
+  };
+}
+
+/**
+ * Recalcular tiempo total de un día (versión simplificada para compatibilidad)
+ */
 export function recalculateDayTime(scenes: (SceneForPlanning | any)[]): number {
-  if (!scenes || scenes.length === 0) return 0;
-  
-  const sceneTimes = scenes.map(calculateSceneShootingTime);
-  const totalSceneTime = sceneTimes.reduce((sum, t) => sum + t, 0);
-  
-  // Añadir tiempo de setup entre escenas (15 min por escena adicional)
-  const setupTime = Math.max(0, (scenes.length - 1) * 0.25);
-  
-  return totalSceneTime + setupTime;
+  const result = calculateDayTimeWithLocationOptimization(scenes);
+  return result.totalHours;
 }
 
 // Parse time of day from scene header

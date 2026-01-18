@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.generar-memoria]
 verify_jwt = false
+
+[functions.generar-presupuesto]
+verify_jwt = false

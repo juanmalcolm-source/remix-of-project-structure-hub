@@ -305,40 +305,58 @@ export type Database = {
       }
       locations: {
         Row: {
+          address: string | null
           complexity: string | null
           created_at: string
           estimated_days: number | null
+          formatted_address: string | null
           id: string
+          latitude: number | null
           location_type: string | null
+          longitude: number | null
           name: string
+          place_id: string | null
           production_notes: string | null
           project_id: string
           special_needs: string | null
           updated_at: string
+          zone: string | null
         }
         Insert: {
+          address?: string | null
           complexity?: string | null
           created_at?: string
           estimated_days?: number | null
+          formatted_address?: string | null
           id?: string
+          latitude?: number | null
           location_type?: string | null
+          longitude?: number | null
           name: string
+          place_id?: string | null
           production_notes?: string | null
           project_id: string
           special_needs?: string | null
           updated_at?: string
+          zone?: string | null
         }
         Update: {
+          address?: string | null
           complexity?: string | null
           created_at?: string
           estimated_days?: number | null
+          formatted_address?: string | null
           id?: string
+          latitude?: number | null
           location_type?: string | null
+          longitude?: number | null
           name?: string
+          place_id?: string | null
           production_notes?: string | null
           project_id?: string
           special_needs?: string | null
           updated_at?: string
+          zone?: string | null
         }
         Relationships: [
           {

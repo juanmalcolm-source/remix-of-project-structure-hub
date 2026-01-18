@@ -13,7 +13,8 @@ import {
   Save,
   Palette,
   Wallet,
-  Clapperboard
+  Clapperboard,
+  Navigation
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,7 @@ export default function ProductionLayout({
   const productionTabs = [
     { id: 'personajes', label: 'Desglose Personajes', icon: Users, path: `/produccion/${projectId}/personajes` },
     { id: 'localizaciones', label: 'Desglose Localizaciones', icon: MapPin, path: `/produccion/${projectId}/localizaciones` },
+    { id: 'lugares', label: 'Lugares Físicos', icon: Navigation, path: `/produccion/${projectId}/lugares` },
     { id: 'rodaje', label: 'Plan de Rodaje', icon: Calendar, path: `/produccion/${projectId}/rodaje` },
     { id: 'presupuesto', label: 'Presupuesto ICAA', icon: Calculator, path: `/produccion/${projectId}/presupuesto` },
     { id: 'memoria', label: 'Memoria', icon: FileText, path: `/produccion/${projectId}/memoria` },

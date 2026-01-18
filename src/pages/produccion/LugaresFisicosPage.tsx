@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { DistanceMatrix } from '@/components/features/DistanceMatrix';
 import { 
   MapPin, 
   Navigation, 
@@ -26,7 +28,8 @@ import {
   Warehouse,
   AlertCircle,
   CheckCircle2,
-  Search
+  Search,
+  Route
 } from 'lucide-react';
 
 interface Location {
@@ -244,145 +247,167 @@ export default function LugaresFisicosPage() {
           </Card>
         </div>
 
-        {/* Google Maps Integration Notice */}
-        <Card className="border-dashed border-2 border-blue-300 bg-blue-50/50 dark:bg-blue-950/20">
-          <CardContent className="pt-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                <Map className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-700 dark:text-blue-400">
-                  Integración con Google Maps (Próximamente)
-                </h3>
-                <p className="text-sm text-blue-600/80 dark:text-blue-400/80 mt-1">
-                  Cuando configures la API Key de Google Maps, podrás buscar direcciones con autocompletado, 
-                  obtener coordenadas automáticamente y calcular distancias entre localizaciones.
-                </p>
-                <div className="flex gap-2 mt-3">
-                  <Badge variant="outline" className="text-blue-600 border-blue-300">
-                    Places Autocomplete
-                  </Badge>
-                  <Badge variant="outline" className="text-blue-600 border-blue-300">
-                    Geocoding
-                  </Badge>
-                  <Badge variant="outline" className="text-blue-600 border-blue-300">
-                    Distance Matrix
-                  </Badge>
+        {/* Tabs for Locations and Distances */}
+        <Tabs defaultValue="locations" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="locations" className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Lugares Físicos
+            </TabsTrigger>
+            <TabsTrigger value="distances" className="flex items-center gap-2">
+              <Route className="w-4 h-4" />
+              Matriz de Distancias
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Locations Tab */}
+          <TabsContent value="locations" className="space-y-4">
+            {/* Google Maps Integration Notice */}
+            <Card className="border-dashed border-2 border-blue-300 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardContent className="pt-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                    <Map className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-700 dark:text-blue-400">
+                      Integración con Google Maps (Próximamente)
+                    </h3>
+                    <p className="text-sm text-blue-600/80 dark:text-blue-400/80 mt-1">
+                      Cuando configures la API Key de Google Maps, podrás buscar direcciones con autocompletado, 
+                      obtener coordenadas automáticamente y calcular distancias entre localizaciones.
+                    </p>
+                    <div className="flex gap-2 mt-3">
+                      <Badge variant="outline" className="text-blue-600 border-blue-300">
+                        Places Autocomplete
+                      </Badge>
+                      <Badge variant="outline" className="text-blue-600 border-blue-300">
+                        Geocoding
+                      </Badge>
+                      <Badge variant="outline" className="text-blue-600 border-blue-300">
+                        Distance Matrix
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre, dirección o zona..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre, dirección o zona..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+            {/* Locations by Zone */}
+            {isLoading ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Cargando localizaciones...
+              </div>
+            ) : !locations?.length ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <MapPin className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="font-semibold mb-2">No hay localizaciones</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Primero analiza un guion para extraer las localizaciones
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {Object.entries(groupedByZone || {}).map(([zone, locs]) => {
+                  const zoneInfo = getZoneInfo(zone);
+                  return (
+                    <Card key={zone}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-3">
+                          {zoneInfo ? (
+                            <div className={`w-3 h-3 rounded-full ${zoneInfo.color}`} />
+                          ) : (
+                            <div className="w-3 h-3 rounded-full bg-gray-400" />
+                          )}
+                          <CardTitle className="text-lg">
+                            {zoneInfo?.label || 'Sin zona asignada'}
+                          </CardTitle>
+                          <Badge variant="secondary">{locs.length}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {locs.map((location) => {
+                            const status = getLocationCompletionStatus(location);
+                            return (
+                              <div 
+                                key={location.id}
+                                className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                              >
+                                {/* Status indicator */}
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  status === 'complete' ? 'bg-green-500' :
+                                  status === 'partial' ? 'bg-amber-500' : 'bg-red-500'
+                                }`} />
+                                
+                                {/* Icon */}
+                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                  {LOCATION_ICONS[location.location_type || ''] || <MapPin className="w-5 h-5" />}
+                                </div>
+                                
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-medium truncate">{location.name}</h4>
+                                    <Badge variant="outline" className="text-xs">
+                                      {location.location_type || 'Sin tipo'}
+                                    </Badge>
+                                  </div>
+                                  {location.address ? (
+                                    <p className="text-sm text-muted-foreground truncate mt-1">
+                                      📍 {location.address}
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-amber-600 mt-1">
+                                      ⚠️ Sin dirección definida
+                                    </p>
+                                  )}
+                                  {location.latitude && location.longitude && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      GPS: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                    </p>
+                                  )}
+                                </div>
 
-        {/* Locations by Zone */}
-        {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">
-            Cargando localizaciones...
-          </div>
-        ) : !locations?.length ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <MapPin className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="font-semibold mb-2">No hay localizaciones</h3>
-              <p className="text-sm text-muted-foreground">
-                Primero analiza un guion para extraer las localizaciones
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {Object.entries(groupedByZone || {}).map(([zone, locs]) => {
-              const zoneInfo = getZoneInfo(zone);
-              return (
-                <Card key={zone}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-3">
-                      {zoneInfo ? (
-                        <div className={`w-3 h-3 rounded-full ${zoneInfo.color}`} />
-                      ) : (
-                        <div className="w-3 h-3 rounded-full bg-gray-400" />
-                      )}
-                      <CardTitle className="text-lg">
-                        {zoneInfo?.label || 'Sin zona asignada'}
-                      </CardTitle>
-                      <Badge variant="secondary">{locs.length}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {locs.map((location) => {
-                        const status = getLocationCompletionStatus(location);
-                        return (
-                          <div 
-                            key={location.id}
-                            className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                          >
-                            {/* Status indicator */}
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              status === 'complete' ? 'bg-green-500' :
-                              status === 'partial' ? 'bg-amber-500' : 'bg-red-500'
-                            }`} />
-                            
-                            {/* Icon */}
-                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                              {LOCATION_ICONS[location.location_type || ''] || <MapPin className="w-5 h-5" />}
-                            </div>
-                            
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium truncate">{location.name}</h4>
-                                <Badge variant="outline" className="text-xs">
-                                  {location.location_type || 'Sin tipo'}
-                                </Badge>
+                                {/* Actions */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditLocation(location)}
+                                >
+                                  <Edit2 className="w-4 h-4 mr-1" />
+                                  Editar
+                                </Button>
                               </div>
-                              {location.address ? (
-                                <p className="text-sm text-muted-foreground truncate mt-1">
-                                  📍 {location.address}
-                                </p>
-                              ) : (
-                                <p className="text-sm text-amber-600 mt-1">
-                                  ⚠️ Sin dirección definida
-                                </p>
-                              )}
-                              {location.latitude && location.longitude && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  GPS: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                                </p>
-                              )}
-                            </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
 
-                            {/* Actions */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditLocation(location)}
-                            >
-                              <Edit2 className="w-4 h-4 mr-1" />
-                              Editar
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+          {/* Distances Tab */}
+          <TabsContent value="distances">
+            <DistanceMatrix projectId={projectId!} />
+          </TabsContent>
+        </Tabs>
 
         {/* Edit Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

@@ -96,11 +96,15 @@ export function useBulkCreateBudgetLines() {
         .delete()
         .eq('project_id', projectId);
       
-      // Then insert new lines
-      const linesToInsert = lines.map(line => ({
-        ...line,
-        project_id: projectId,
-      }));
+      // Then insert new lines - exclude 'total' as it's a generated column
+      const linesToInsert = lines.map(line => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { total, ...lineWithoutTotal } = line as any;
+        return {
+          ...lineWithoutTotal,
+          project_id: projectId,
+        };
+      });
       
       const { data, error } = await supabase
         .from('budget_lines')

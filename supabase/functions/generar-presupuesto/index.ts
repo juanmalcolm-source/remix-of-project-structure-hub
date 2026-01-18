@@ -59,155 +59,38 @@ interface BudgetLine {
   budget_level: string;
 }
 
-const SYSTEM_PROMPT = `Eres un experto en presupuestos audiovisuales españoles con 20 años de experiencia en producción cinematográfica y conocimiento detallado de las tarifas del sector audiovisual español 2024-2025.
+const SYSTEM_PROMPT = `Eres un experto en presupuestos audiovisuales españoles. Genera presupuestos ICAA concisos.
 
-Tu tarea es generar un presupuesto ICAA completo y realista basado en el análisis del guión proporcionado.
+## ESTRUCTURA ICAA (12 Capítulos)
+CAP. 01 - GUIÓN Y MÚSICA
+CAP. 02 - PERSONAL ARTÍSTICO  
+CAP. 03 - EQUIPO TÉCNICO
+CAP. 04 - ESCENOGRAFÍA
+CAP. 05 - ESTUDIOS Y SONORIZACIÓN
+CAP. 06 - MAQUINARIA Y TRANSPORTES
+CAP. 07 - VIAJES, HOTELES Y COMIDAS
+CAP. 08 - MATERIAL DIGITAL
+CAP. 09 - POSTPRODUCCIÓN
+CAP. 10 - SEGUROS
+CAP. 11 - GASTOS GENERALES
+CAP. 12 - GASTOS DE EXPLOTACIÓN
 
-## ESTRUCTURA ICAA OBLIGATORIA (12 Capítulos)
+## TARIFAS 2025 (nivel medio, ajustar según nivel)
+- Protagonista: 2.500-4.000€/día
+- Principal: 1.200-2.000€/día
+- Director: 6.000-10.000€/semana
+- DOP: 4.000-6.000€/semana
+- Jefes dpto: 1.800-2.500€/semana
+- Pack cámara: 1.500-3.000€/día
 
-**CAP. 01 - GUIÓN Y MÚSICA**
-- 01.01 Guión: derechos de autor, adaptaciones
-- 01.02 Música original: compositor, orquesta, grabación
-- 01.03 Derechos musicales: sincronización, licencias
+## REGLAS
+- Genera 30-50 líneas máximo (partidas principales)
+- Agrupa conceptos similares
+- Incluye agencia 15-20% para artístico
+- IVA 21%
 
-**CAP. 02 - PERSONAL ARTÍSTICO**
-- 02.01-02.03 Protagonistas (cat. 1-3): tarifas según convenio + agencia 15-20%
-- 02.04-02.06 Principales (cat. 1-3)
-- 02.07-02.09 Secundarios (cat. 1-3)  
-- 02.10 Figuración especial
-- 02.11 Dobladores y locutores
-
-**CAP. 03 - EQUIPO TÉCNICO**
-Incluir todos los departamentos con jefes y auxiliares:
-- Dirección (director, ayudante 1º, 2º, script)
-- Producción (productor ejecutivo, director producción, jefe producción, auxiliares)
-- Fotografía (DOP, operador, foquista, auxiliares)
-- Sonido (jefe, microfonista, auxiliar)
-- Arte (director arte, ambientador, attrezzista, construcción)
-- Maquillaje y peluquería
-- Vestuario
-- Montaje y postproducción
-
-**CAP. 04 - ESCENOGRAFÍA**
-- Decorados: construcción, ambientación, pintura
-- Attrezzo: alquiler, compra, efectos
-- Vestuario: diseño, confección, alquiler
-- Maquillaje y peluquería: materiales
-
-**CAP. 05 - ESTUDIOS Y SONORIZACIÓN**
-- Platós: alquiler, electricidad, infraestructura
-- Localizaciones: permisos, tasas, compensaciones
-- Sonorización: doblaje, foley, mezclas
-
-**CAP. 06 - MAQUINARIA Y TRANSPORTES**
-- Cámara: cuerpos, ópticas, accesorios
-- Iluminación: focos, grip, consumibles
-- Sonido: micrófonos, grabadoras, inalámbricos
-- Transportes: camiones, furgonetas, grúas
-
-**CAP. 07 - VIAJES, HOTELES Y COMIDAS**
-- Viajes: desplazamientos equipo y reparto
-- Hoteles: alojamiento equipo
-- Dietas: catering, per diem
-
-**CAP. 08 - PELÍCULA VIRGEN / MATERIAL DIGITAL**
-- Almacenamiento: tarjetas, discos, backup
-- Material fungible: baterías, consumibles
-
-**CAP. 09 - LABORATORIO / POSTPRODUCCIÓN**
-- Etalonaje y corrección de color
-- VFX y efectos visuales
-- Grafismo y títulos
-- DCPs y copias
-
-**CAP. 10 - SEGUROS**
-- Responsabilidad civil (1-1.5% del subtotal)
-- Negativo/material (0.5-1%)
-- Accidentes y buen fin
-
-**CAP. 11 - GASTOS GENERALES**
-- Oficina y administración
-- Asesoría legal y fiscal
-- Imprevistos (3-5% del subtotal)
-
-**CAP. 12 - GASTOS DE EXPLOTACIÓN**
-- Copias promocionales
-- Marketing y publicidad
-- Festivales y mercados
-
-## TARIFAS DE REFERENCIA 2025 (nivel medio)
-
-### Personal Artístico (por día)
-- Protagonista: 2.500-4.000€
-- Principal: 1.200-2.000€
-- Secundario: 600-1.000€
-- Figuración especial: 150-300€
-- Agencia: 15-20%
-
-### Equipo Técnico (por semana)
-- Director: 6.000-10.000€
-- Productor ejecutivo: 5.000-8.000€
-- Director de fotografía: 4.000-6.000€
-- Operador de cámara: 2.000-3.000€
-- Jefe de sonido: 2.000-3.000€
-- Director de arte: 2.500-4.000€
-- Montador: 2.500-4.000€
-- Jefes departamento: 1.800-2.500€
-- Auxiliares: 800-1.200€
-
-### Equipamiento (por día)
-- Pack cámara digital: 1.500-3.000€
-- Iluminación completa: 1.000-2.000€
-- Sonido: 500-1.000€
-- Transportes: 800-1.500€
-
-## REGLAS DE CÁLCULO
-
-1. **Preparación**: 20-25% de días de rodaje
-2. **Rodaje**: Días indicados o estimados
-3. **Desmontaje**: 10% de días de rodaje
-4. **Postproducción**: 8-12 semanas según complejidad
-
-## FACTORES DE AJUSTE
-
-Detecta y ajusta por:
-- **Escenas de acción**: +15-25% en maquinaria y seguros
-- **Escenas nocturnas**: +10-20% en iluminación y dietas
-- **Efectos VFX**: Capítulo 09 según complejidad
-- **Niños**: +10% coordinación y tiempos
-- **Animales**: +5-15% según tipo
-- **Localizaciones especiales**: Permisos adicionales
-
-## FORMATO DE RESPUESTA
-
-Responde ÚNICAMENTE con un JSON válido con esta estructura:
-{
-  "budgetLines": [
-    {
-      "chapter": 1,
-      "account_number": "01.01",
-      "concept": "Guión original - Derechos de autor",
-      "units": 1,
-      "quantity": 1,
-      "unit_price": 15000,
-      "agency_percentage": 0,
-      "social_security_percentage": 0,
-      "vat_percentage": 21,
-      "tariff_source": "Convenio DAMA 2024",
-      "notes": "Estimación basada en guión original de largometraje"
-    }
-  ],
-  "summary": {
-    "totalShootingDays": 25,
-    "prepDays": 5,
-    "postWeeks": 10,
-    "totalBudget": 1500000,
-    "warnings": ["El proyecto incluye escenas de acción que requieren coordinación de especialistas"],
-    "recommendations": ["Considerar seguro de buen fin dado el presupuesto"]
-  }
-}
-
-NO incluyas texto adicional, solo el JSON.`;
+## FORMATO JSON (obligatorio, sin markdown)
+{"budgetLines":[{"chapter":1,"account_number":"01.01","concept":"Guión","units":1,"quantity":1,"unit_price":15000,"agency_percentage":0,"social_security_percentage":0,"vat_percentage":21,"tariff_source":"Convenio 2024","notes":""}],"summary":{"totalShootingDays":25,"prepDays":5,"postWeeks":10,"totalBudget":1500000,"warnings":[],"recommendations":[]}}`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -233,13 +116,13 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt }
+          { role: "user", content: userPrompt + "\n\nIMPORTANTE: Responde SOLO con JSON válido, sin markdown ni explicaciones. Máximo 40 líneas de presupuesto." }
         ],
-        temperature: 0.3,
-        max_tokens: 16000,
+        temperature: 0.2,
+        max_tokens: 32000,
       }),
     });
 

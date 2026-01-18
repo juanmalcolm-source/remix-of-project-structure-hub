@@ -84,20 +84,41 @@ CÓMO CALCULAR OCTAVOS (valores que debes usar):
 │   9+    │ Más de una página (suma octavos)│ 56+ líneas      │
 └─────────────────────────────────────────────────────────────┘
 
-REGLAS CRÍTICAS:
-1. El MÍNIMO siempre es 1 octavo (nunca 0, ni fracciones como 0.5)
-2. Si una escena continúa en otra página, SUMA los octavos:
-   - Ejemplo: 6 octavos en pág.1 + 3 octavos en pág.2 = 9 octavos totales
-3. NO cuentes espacios en blanco entre escenas
-4. Mide desde el encabezado (INT./EXT.) hasta donde termina el texto
-5. Escenas de ACCIÓN con mucha descripción = más octavos
-6. Diálogos cortos y rápidos = menos octavos
-
-REFERENCIA DE DÍAS DE RODAJE:
-- Un día estándar de rodaje: 24-40 octavos (3-5 páginas)
-- Corto independiente: 24-32 octavos/día (3-4 páginas)
-- Producción con recursos: 40-48 octavos/día (5-6 páginas)
 ═══════════════════════════════════════════════════════════════════════
+ANÁLISIS DE COMPLEJIDAD DETALLADO - 15 FACTORES
+═══════════════════════════════════════════════════════════════════════
+Para cada escena, analiza los siguientes FACTORES DE COMPLEJIDAD:
+
+1. TIPO DE ESCENA (tipo_escena):
+   - dialogo_estatico: Solo diálogos, cámara estática
+   - movimiento: Personajes en movimiento, seguimiento
+   - accion: Peleas ligeras, carreras, coordinación
+   - intimista: Escenas íntimas, actuación sutil
+   - accion_compleja: Stunts, efectos especiales, vehículos
+
+2. FACTORES ESPECÍFICOS (true/false o number):
+   - num_personajes: Número de personajes en la escena (+1 punto por cada uno después de 2)
+   - movimiento_camara: ¿La cámara se mueve activamente? (+2 puntos)
+   - accion_fisica: ¿Hay acción física (correr, empujar, luchar)? (+3 puntos)
+   - stunts: ¿Requiere coordinador de stunts? (+10 puntos)
+   - efectos_especiales: ¿Efectos especiales/VFX? (+5 puntos)
+   - ninos: ¿Participan niños menores de 16? (+3 puntos)
+   - animales: ¿Hay animales? (+3 puntos)
+   - vehiculos_movimiento: ¿Vehículos en movimiento durante el rodaje? (+5 puntos)
+   - coordinacion_extras: Número de extras (+1 punto por cada 5)
+   - iluminacion_compleja: ¿Iluminación compleja? (+2 puntos)
+   - escena_noche: ¿Es escena nocturna? (+2 puntos)
+   - exteriores_clima: ¿Es exterior dependiente del clima? (+2 puntos)
+   - dialogo_extenso: ¿Diálogos extensos (>1 página)? (+1 punto)
+   - requiere_grua: ¿Requiere grúa? (+3 puntos)
+   - planos_especiales: ¿Planos especiales (steadicam, drone, underwater)? (+2 puntos)
+
+3. CÁLCULO DE SCORE:
+   - Suma los puntos de cada factor presente
+   - score_complejidad: Total (0-100)
+   - categoria: <10 = "Baja", 10-25 = "Media", >25 = "Alta"
+   - tiempo_setup_estimado_minutos: 45 (INT), 60 (EXT), +15 si NOCHE
+   - paginas_por_dia_sugerido: Baja=5-6, Media=3-4, Alta=1-2
 
 Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta estructura COMPLETA:
 
@@ -191,7 +212,31 @@ Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta es
       "vehiculos": ["strings"],
       "efectos_especiales": ["strings"],
       "complejidad_rodaje": "Baja|Media|Alta",
-      "notas_direccion": "string (sugerencias para la dirección)"
+      "notas_direccion": "string (sugerencias para la dirección)",
+      "analisis_complejidad": {
+        "tipo_escena": "dialogo_estatico|movimiento|accion|intimista|accion_compleja",
+        "factores": {
+          "num_personajes": number,
+          "movimiento_camara": boolean,
+          "accion_fisica": boolean,
+          "stunts": boolean,
+          "efectos_especiales": boolean,
+          "ninos": boolean,
+          "animales": boolean,
+          "vehiculos_movimiento": boolean,
+          "coordinacion_extras": number,
+          "iluminacion_compleja": boolean,
+          "escena_noche": boolean,
+          "exteriores_clima": boolean,
+          "dialogo_extenso": boolean,
+          "requiere_grua": boolean,
+          "planos_especiales": boolean
+        },
+        "score_complejidad": number (0-100),
+        "categoria": "Baja|Media|Alta",
+        "tiempo_setup_estimado_minutos": number,
+        "paginas_por_dia_sugerido": number
+      }
     }
   ],
   "viabilidad": {
@@ -224,7 +269,8 @@ INSTRUCCIONES CRÍTICAS:
    - Una escena corta de transición = 1-2 octavos
 7. El total_octavos debe ser coherente con paginas_totales (aprox. paginas × 8)
 8. Sé EXHAUSTIVO y PROFESIONAL en el análisis
-9. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
+9. ⚠️ CRÍTICO: Incluye el análisis_complejidad COMPLETO para CADA escena con los 15 factores
+10. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
     // Modelos a intentar en orden de preferencia
     const modelos = [

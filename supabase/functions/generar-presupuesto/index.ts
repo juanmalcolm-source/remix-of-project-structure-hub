@@ -273,21 +273,36 @@ serve(async (req) => {
     try {
       // Clean up the response - remove markdown code blocks if present
       let cleanContent = content.trim();
-      if (cleanContent.startsWith("```json")) {
-        cleanContent = cleanContent.slice(7);
-      }
-      if (cleanContent.startsWith("```")) {
-        cleanContent = cleanContent.slice(3);
-      }
-      if (cleanContent.endsWith("```")) {
-        cleanContent = cleanContent.slice(0, -3);
-      }
+      
+      // Remove markdown code fences more robustly
+      cleanContent = cleanContent.replace(/^```json\s*/i, '');
+      cleanContent = cleanContent.replace(/^```\s*/i, '');
+      cleanContent = cleanContent.replace(/\s*```$/i, '');
       cleanContent = cleanContent.trim();
+      
+      // Try to find JSON object boundaries if there's extra text
+      const jsonStart = cleanContent.indexOf('{');
+      const jsonEnd = cleanContent.lastIndexOf('}');
+      
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        cleanContent = cleanContent.slice(jsonStart, jsonEnd + 1);
+      }
       
       budgetData = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
-      throw new Error("Failed to parse AI response as JSON");
+      console.error("Failed to parse AI response:", content.substring(0, 500));
+      
+      // Try a more aggressive extraction
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*"budgetLines"[\s\S]*\}/);
+        if (jsonMatch) {
+          budgetData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("Could not find valid JSON in response");
+        }
+      } catch (retryError) {
+        throw new Error("Failed to parse AI response as JSON");
+      }
     }
 
     // Validate and enrich budget lines

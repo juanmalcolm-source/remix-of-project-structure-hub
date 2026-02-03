@@ -9,6 +9,7 @@ import ProtectedRoute from "@/components/layout/ProtectedRoute";
 
 // Pages
 import Auth from "./pages/Auth";
+import Index from "./pages/Index";
 import Upload from "./pages/Upload";
 import Proyectos from "./pages/Proyectos";
 import Perfil from "./pages/Perfil";
@@ -54,7 +55,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<Navigate to="/proyectos" replace />} />
+              <Route path="/" element={<Index />} />
               <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
               <Route path="/proyectos" element={<ProtectedRoute><Proyectos /></ProtectedRoute>} />
               <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />

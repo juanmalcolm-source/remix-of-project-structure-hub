@@ -8,7 +8,7 @@ const corsHeaders = {
 interface BudgetGenerationRequest {
   projectId: string;
   projectTitle: string;
-  projectType: string; // 'largometraje' | 'cortometraje' | 'serie' | 'documental'
+  projectType: string;
   budgetLevel: 'bajo' | 'medio' | 'alto';
   estimatedShootingDays: number;
   characters: Array<{
@@ -59,38 +59,90 @@ interface BudgetLine {
   budget_level: string;
 }
 
-const SYSTEM_PROMPT = `Eres un experto en presupuestos audiovisuales españoles. Genera presupuestos ICAA concisos.
+const SYSTEM_PROMPT = `Eres un experto en presupuestos audiovisuales españoles formato ICAA. Responde ÚNICAMENTE con un objeto JSON válido.
 
-## ESTRUCTURA ICAA (12 Capítulos)
-CAP. 01 - GUIÓN Y MÚSICA
-CAP. 02 - PERSONAL ARTÍSTICO  
-CAP. 03 - EQUIPO TÉCNICO
-CAP. 04 - ESCENOGRAFÍA
-CAP. 05 - ESTUDIOS Y SONORIZACIÓN
-CAP. 06 - MAQUINARIA Y TRANSPORTES
-CAP. 07 - VIAJES, HOTELES Y COMIDAS
-CAP. 08 - MATERIAL DIGITAL
-CAP. 09 - POSTPRODUCCIÓN
-CAP. 10 - SEGUROS
-CAP. 11 - GASTOS GENERALES
-CAP. 12 - GASTOS DE EXPLOTACIÓN
+ESTRUCTURA: 12 capítulos ICAA (01-Guión/Música, 02-Personal Artístico, 03-Equipo Técnico, 04-Escenografía, 05-Estudios/Sonorización, 06-Maquinaria/Transportes, 07-Viajes/Hoteles/Comidas, 08-Material Digital, 09-Postproducción, 10-Seguros, 11-Gastos Generales, 12-Gastos Explotación).
 
-## TARIFAS 2025 (nivel medio, ajustar según nivel)
-- Protagonista: 2.500-4.000€/día
-- Principal: 1.200-2.000€/día
-- Director: 6.000-10.000€/semana
-- DOP: 4.000-6.000€/semana
-- Jefes dpto: 1.800-2.500€/semana
-- Pack cámara: 1.500-3.000€/día
+REGLAS: Genera 30-40 líneas principales. Agencia 15-20% para artístico. IVA 21%.
 
-## REGLAS
-- Genera 30-50 líneas máximo (partidas principales)
-- Agrupa conceptos similares
-- Incluye agencia 15-20% para artístico
-- IVA 21%
-
-## FORMATO JSON (obligatorio, sin markdown)
+FORMATO OBLIGATORIO:
 {"budgetLines":[{"chapter":1,"account_number":"01.01","concept":"Guión","units":1,"quantity":1,"unit_price":15000,"agency_percentage":0,"social_security_percentage":0,"vat_percentage":21,"tariff_source":"Convenio 2024","notes":""}],"summary":{"totalShootingDays":25,"prepDays":5,"postWeeks":10,"totalBudget":1500000,"warnings":[],"recommendations":[]}}`;
+
+async function callAI(apiKey: string, userPrompt: string): Promise<any> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.1,
+      max_tokens: 32000,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw { status: 429, message: "Rate limits exceeded, please try again later." };
+    }
+    if (response.status === 402) {
+      throw { status: 402, message: "Payment required, please add funds to your Lovable AI workspace." };
+    }
+    const errorText = await response.text();
+    console.error("AI gateway error:", response.status, errorText);
+    throw { status: 500, message: `AI gateway error: ${response.status}` };
+  }
+
+  const aiResponse = await response.json();
+  const content = aiResponse.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw { status: 500, message: "No content in AI response" };
+  }
+
+  return parseAIContent(content);
+}
+
+function parseAIContent(content: string): any {
+  // Try direct parse first
+  try {
+    return JSON.parse(content.trim());
+  } catch (_) { /* continue */ }
+
+  // Clean markdown fences
+  let clean = content.trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  try {
+    return JSON.parse(clean);
+  } catch (_) { /* continue */ }
+
+  // Extract JSON object boundaries
+  const jsonStart = clean.indexOf('{');
+  const jsonEnd = clean.lastIndexOf('}');
+  if (jsonStart !== -1 && jsonEnd > jsonStart) {
+    try {
+      return JSON.parse(clean.slice(jsonStart, jsonEnd + 1));
+    } catch (_) { /* continue */ }
+  }
+
+  // Last resort: regex match
+  const match = content.match(/\{[\s\S]*"budgetLines"[\s\S]*\}/);
+  if (match) {
+    return JSON.parse(match[0]);
+  }
+
+  throw new Error("Could not parse AI response as JSON");
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -106,85 +158,34 @@ serve(async (req) => {
     const requestData: BudgetGenerationRequest = await req.json();
     console.log("Generating budget for project:", requestData.projectId, "Level:", requestData.budgetLevel);
 
-    // Build the user prompt with all project data
-    const userPrompt = buildUserPrompt(requestData);
+    const userPrompt = buildUserPrompt(requestData) + "\n\nResponde SOLO con JSON válido. Máximo 40 líneas.";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt + "\n\nIMPORTANTE: Responde SOLO con JSON válido, sin markdown ni explicaciones. Máximo 40 líneas de presupuesto." }
-        ],
-        temperature: 0.2,
-        max_tokens: 32000,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No content in AI response");
-    }
-
-    // Parse the JSON response
-    let budgetData;
+    // Attempt 1
+    let budgetData: any;
     try {
-      // Clean up the response - remove markdown code blocks if present
-      let cleanContent = content.trim();
-      
-      // Remove markdown code fences more robustly
-      cleanContent = cleanContent.replace(/^```json\s*/i, '');
-      cleanContent = cleanContent.replace(/^```\s*/i, '');
-      cleanContent = cleanContent.replace(/\s*```$/i, '');
-      cleanContent = cleanContent.trim();
-      
-      // Try to find JSON object boundaries if there's extra text
-      const jsonStart = cleanContent.indexOf('{');
-      const jsonEnd = cleanContent.lastIndexOf('}');
-      
-      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-        cleanContent = cleanContent.slice(jsonStart, jsonEnd + 1);
+      budgetData = await callAI(LOVABLE_API_KEY, userPrompt);
+    } catch (err: any) {
+      // If it's a rate limit or payment error, propagate immediately
+      if (err.status === 429 || err.status === 402) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: err.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-      
-      budgetData = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", content.substring(0, 500));
-      
-      // Try a more aggressive extraction
+
+      // Retry once on parse failure
+      console.warn("First attempt failed, retrying...", err.message || err);
       try {
-        const jsonMatch = content.match(/\{[\s\S]*"budgetLines"[\s\S]*\}/);
-        if (jsonMatch) {
-          budgetData = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error("Could not find valid JSON in response");
+        budgetData = await callAI(LOVABLE_API_KEY, userPrompt);
+      } catch (retryErr: any) {
+        if (retryErr.status === 429 || retryErr.status === 402) {
+          return new Response(JSON.stringify({ error: retryErr.message }), {
+            status: retryErr.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
-      } catch (retryError) {
-        throw new Error("Failed to parse AI response as JSON");
+        console.error("Retry also failed:", retryErr.message || retryErr);
+        throw new Error("Failed to generate budget after 2 attempts. Please try again.");
       }
     }
 
@@ -192,7 +193,6 @@ serve(async (req) => {
     const enrichedLines = budgetData.budgetLines.map((line: BudgetLine) => ({
       ...line,
       budget_level: requestData.budgetLevel,
-      // Calculate derived fields
       base_before_taxes: line.units * line.quantity * line.unit_price,
       agency_cost: line.units * line.quantity * line.unit_price * (line.agency_percentage / 100),
       social_security_cost: line.units * line.quantity * line.unit_price * (line.social_security_percentage / 100),
@@ -232,7 +232,6 @@ function buildUserPrompt(data: BudgetGenerationRequest): string {
     creativeAnalysis,
   } = data;
 
-  // Analyze sequences for special requirements
   const nightScenes = sequences.filter(s => s.timeOfDay?.toLowerCase().includes('noche')).length;
   const complexScenes = sequences.filter(s => s.sceneComplexity === 'alta').length;
   const vfxScenes = sequences.filter(s => s.hasVFX).length;
@@ -240,16 +239,13 @@ function buildUserPrompt(data: BudgetGenerationRequest): string {
   const childrenScenes = sequences.filter(s => s.hasChildren).length;
   const animalScenes = sequences.filter(s => s.hasAnimals).length;
 
-  // Calculate page eighths for duration estimate
   const totalEighths = sequences.reduce((sum, s) => sum + (s.pageEighths || 1), 0);
   const estimatedPages = totalEighths / 8;
 
-  // Group characters by category
   const protagonists = characters.filter(c => c.category?.toLowerCase() === 'protagonista');
   const principals = characters.filter(c => c.category?.toLowerCase() === 'principal');
   const supporting = characters.filter(c => c.category?.toLowerCase() === 'secundario');
 
-  // Location analysis
   const complexLocations = locations.filter(l => l.complexity?.toLowerCase() === 'alta');
   const exteriorLocations = locations.filter(l => l.locationType?.toLowerCase().includes('ext'));
 

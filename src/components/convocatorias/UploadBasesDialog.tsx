@@ -74,21 +74,23 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
   };
 
   const handleSubmit = async () => {
+    console.log('1. Iniciando submit...');
     if (!nombre.trim() || !organismo.trim()) {
-      toast({ title: 'Campos obligatorios', description: 'Nombre y organismo son requeridos.', variant: 'destructive' });
+      toast({ title: 'Campos obligatorios', description: 'Rellena nombre y organismo', variant: 'destructive' });
       return;
     }
 
     setSaving(true);
     let extractedText = '';
 
-    // Extract text from PDF in the browser
     if (tab === 'pdf' && file) {
       try {
+        console.log('2. Extrayendo texto del PDF...');
         extractedText = await extractPdfText(file);
+        console.log('2b. Texto extraído:', extractedText.substring(0, 200));
       } catch (err: any) {
         console.error('Error extrayendo texto del PDF:', err);
-        toast({ title: 'No se pudo extraer texto del PDF', description: 'La convocatoria se creará sin texto extraído. Puedes pegarlo manualmente después.', variant: 'default' });
+        toast({ title: 'No se pudo extraer texto del PDF', description: 'La convocatoria se creará sin texto extraído.', variant: 'default' });
       }
     } else if (tab === 'text' && pastedText.trim()) {
       extractedText = pastedText.trim();
@@ -96,8 +98,15 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('3. Usuario:', user?.id ?? 'NO AUTENTICADO');
 
-      const { error: insertError } = await supabase.from('convocatorias').insert({
+      if (!user) {
+        toast({ title: 'Debes iniciar sesión', description: 'Inicia sesión para crear convocatorias.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      const payload = {
         nombre: nombre.trim(),
         organismo: organismo.trim(),
         ambito,
@@ -108,8 +117,12 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
         url: url || null,
         activa: true,
         bases_texto_extraido: extractedText || null,
-        created_by: user?.id || null,
-      } as any);
+        created_by: user.id,
+      };
+      console.log('3b. Datos del formulario:', payload);
+
+      const { error: insertError } = await supabase.from('convocatorias').insert(payload as any);
+      console.log('4. Resultado:', insertError ? insertError.message : 'OK');
 
       if (insertError) throw new Error(insertError.message);
 
@@ -119,13 +132,14 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
       onOpenChange(false);
     } catch (err: any) {
       console.error('Error guardando convocatoria:', err);
-      toast({ title: 'Error al guardar', description: err.message, variant: 'destructive' });
+      const msg = err.message?.includes('row-level security')
+        ? 'Debes iniciar sesión para crear convocatorias'
+        : err.message;
+      toast({ title: 'Error al guardar', description: msg, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   };
-
-  const canSubmit = nombre.trim() && organismo.trim();
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!saving) { onOpenChange(v); if (!v) resetForm(); } }}>
@@ -170,6 +184,9 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
                           return;
                         }
                         setFile(f);
+                        if (!nombre.trim()) {
+                          setNombre(f.name.replace(/\.pdf$/i, ''));
+                        }
                       }
                     }}
                   />
@@ -247,7 +264,7 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => { onOpenChange(false); resetForm(); }} disabled={saving}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || saving}>
+          <Button onClick={handleSubmit} disabled={saving}>
             {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Guardando...</> : 'Crear Convocatoria'}
           </Button>
         </div>

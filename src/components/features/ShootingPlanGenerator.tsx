@@ -82,7 +82,7 @@ export function ShootingPlanGenerator({
   const [productionType, setProductionType] = useState<ProductionType>('largometraje');
   const [hoursPerDay, setHoursPerDay] = useState(10);
   const [hasNightScenes, setHasNightScenes] = useState(true);
-  const [prioritizeBy, setPrioritizeBy] = useState<'location' | 'time_of_day' | 'proximity' | 'zone'>('location');
+  const [prioritizeBy, setPrioritizeBy] = useState<'location' | 'time_of_day' | 'proximity' | 'zone' | 'balanced'>('location');
   const [customPagesPerDay, setCustomPagesPerDay] = useState<number | null>(null);
   
   const eighthsPerDay = customPagesPerDay || productionPresets[productionType].pagesPerDay;
@@ -279,7 +279,7 @@ export function ShootingPlanGenerator({
             
             <RadioGroup 
               value={prioritizeBy} 
-              onValueChange={(v) => setPrioritizeBy(v as 'location' | 'time_of_day' | 'proximity' | 'zone')}
+              onValueChange={(v) => setPrioritizeBy(v as typeof prioritizeBy)}
               className="grid gap-3"
             >
               <label
@@ -374,9 +374,32 @@ export function ShootingPlanGenerator({
                   <Users className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium">Por disponibilidad de actores</div>
+                  <div className="font-medium">Por actores</div>
                   <div className="text-sm text-muted-foreground">
-                    Agrupa escenas con los mismos personajes
+                    Minimiza días de espera entre apariciones de actores
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={cn(
+                  "flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all",
+                  prioritizeBy === 'balanced' 
+                    ? "border-primary bg-primary/5" 
+                    : "border-muted hover:border-primary/50"
+                )}
+              >
+                <RadioGroupItem value="balanced" className="sr-only" />
+                <div className={cn(
+                  "p-2 rounded-lg",
+                  prioritizeBy === 'balanced' ? "bg-primary text-primary-foreground" : "bg-muted"
+                )}>
+                  <Zap className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">Equilibrada (multi-criterio)</div>
+                  <div className="text-sm text-muted-foreground">
+                    Balancea localización, actores y complejidad por día
                   </div>
                 </div>
               </label>

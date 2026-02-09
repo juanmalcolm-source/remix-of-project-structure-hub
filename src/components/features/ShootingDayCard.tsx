@@ -37,6 +37,7 @@ import {
   calculateSceneShootingTimeDetailed,
   calculateDayTimeWithLocationOptimization,
   MAX_WORKDAY_HOURS,
+  WARNING_WORKDAY_HOURS,
 } from "@/services/shootingPlanService";
 import { useDragDrop, DraggedScene } from "@/contexts/DragDropContext";
 import { cn } from "@/lib/utils";
@@ -131,7 +132,7 @@ export function ShootingDayCard({
   const dayTimeBreakdown = calculateDayTimeWithLocationOptimization(day.scenes);
   const totalHours = dayTimeBreakdown.totalHours;
   const isOverworked = totalHours > MAX_WORKDAY_HOURS;
-  
+  const isWarningHours = totalHours > WARNING_WORKDAY_HOURS && !isOverworked;
   // Calcular tiempo restante/sobrante
   const targetHours = day.targetHours || 10;
   const remainingHours = targetHours - totalHours;
@@ -214,7 +215,8 @@ export function ShootingDayCard({
       <Card 
         className={cn(
           "transition-all",
-          (isOverloaded || isOverworked) && "border-destructive/50 bg-destructive/5",
+          isOverworked && "border-destructive/50 bg-destructive/5",
+          isWarningHours && !isOverworked && "border-amber-500/50 bg-amber-50/50 dark:bg-amber-900/10",
           isDragOver && "ring-2 ring-primary ring-offset-2 bg-primary/5"
         )}
         onDragOver={handleDragOver}

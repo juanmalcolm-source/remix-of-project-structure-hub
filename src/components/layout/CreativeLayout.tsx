@@ -32,7 +32,8 @@ export default function CreativeLayout({
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const creativeTabs = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: `/proyecto/${projectId}/overview` },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: `/proyecto/${projectId}/dashboard` },
+    { id: 'overview', label: 'Overview', icon: BookOpen, path: `/proyecto/${projectId}/overview` },
     { id: 'narrativo', label: 'Análisis Narrativo', icon: BookOpen, path: `/proyecto/${projectId}/narrativo` },
     { id: 'personajes', label: 'Personajes', icon: Users, path: `/proyecto/${projectId}/personajes` },
     { id: 'ventajas', label: 'Ventajas/Desventajas', icon: Scale, path: `/proyecto/${projectId}/ventajas` },
@@ -54,7 +55,7 @@ export default function CreativeLayout({
   const renderSidebarContent = () => (
     <>
       <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
+        <button onClick={() => navigateTo(`/proyecto/${projectId}/dashboard`)} className="flex items-center gap-3 w-full text-left">
           <div className="w-10 h-10 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
             <Film className="w-5 h-5 text-sidebar-primary" />
           </div>
@@ -62,7 +63,7 @@ export default function CreativeLayout({
             <h1 className="font-display font-bold text-sidebar-foreground text-lg bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">Fractal Kit</h1>
             <p className="text-xs text-sidebar-foreground/60">Script Analysis</p>
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="px-4 py-4 border-b border-sidebar-border">
@@ -94,6 +95,9 @@ export default function CreativeLayout({
             </Button>
           );
         })}
+        <Button variant="ghost" size="sm" onClick={() => navigateTo(`/proyecto/${projectId}/configuracion`)} className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
+          <Settings className="w-4 h-4 mr-2" />Configuración
+        </Button>
       </div>
 
       <div className="p-4 border-t border-sidebar-border">
@@ -139,7 +143,9 @@ export default function CreativeLayout({
             <BreadcrumbList>
               <BreadcrumbItem><BreadcrumbLink className="cursor-pointer" onClick={() => navigate('/proyectos')}>Proyectos</BreadcrumbLink></BreadcrumbItem>
               <BreadcrumbSeparator />
-              <BreadcrumbItem><BreadcrumbPage>{projectTitle}</BreadcrumbPage></BreadcrumbItem>
+              <BreadcrumbItem><BreadcrumbLink className="cursor-pointer" onClick={() => navigate(`/proyecto/${projectId}/dashboard`)}>{projectTitle}</BreadcrumbLink></BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem><BreadcrumbPage>Creativa</BreadcrumbPage></BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
           <div className="flex items-center gap-4">

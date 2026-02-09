@@ -1,19 +1,18 @@
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { 
-  Settings, 
-  Percent, 
-  Map, 
-  Wallet,
-  FlaskConical,
-  Calendar,
+import {
+  BarChart3,
+  Users,
+  UserCircle,
+  Film,
+  Megaphone,
   LogOut,
   ChevronRight,
   Save,
+  Settings,
   Palette,
   Clapperboard,
-  TrendingUp,
-  Megaphone
+  Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,32 +20,28 @@ import { useAuth } from '@/hooks/useAuth';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { cn } from '@/lib/utils';
 
-interface FinancingLayoutProps {
+interface AudienciasLayoutProps {
   children: ReactNode;
   projectTitle?: string;
   lastSaved?: Date | null;
   isSaving?: boolean;
 }
 
-export default function FinancingLayout({ 
-  children, 
+export default function AudienciasLayout({
+  children,
   projectTitle = 'Mi Proyecto',
   lastSaved,
-  isSaving 
-}: FinancingLayoutProps) {
+  isSaving,
+}: AudienciasLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId } = useParams();
   const { user, profile, signOut } = useAuth();
 
-  const financingTabs = [
-    { id: 'resumen', label: 'Resumen', icon: TrendingUp, path: `/financiacion/${projectId}/resumen` },
-    { id: 'configuracion', label: 'Configuración', icon: Settings, path: `/financiacion/${projectId}/configuracion` },
-    { id: 'intensidad', label: 'Intensidad Pública', icon: Percent, path: `/financiacion/${projectId}/intensidad` },
-    { id: 'territorios', label: 'Comparador Territorios', icon: Map, path: `/financiacion/${projectId}/territorios` },
-    { id: 'fuentes', label: 'Fuentes Financiación', icon: Wallet, path: `/financiacion/${projectId}/fuentes` },
-    { id: 'simulador', label: 'Simulador "What If"', icon: FlaskConical, path: `/financiacion/${projectId}/simulador` },
-    { id: 'timeline', label: 'Timeline Cobros', icon: Calendar, path: `/financiacion/${projectId}/timeline` },
+  const tabs = [
+    { id: 'analisis', label: 'Análisis', icon: BarChart3, path: `/audiencias/${projectId}/analisis` },
+    { id: 'segmentos', label: 'Segmentos', icon: Users, path: `/audiencias/${projectId}/segmentos` },
+    { id: 'buyer-personas', label: 'Buyer Personas', icon: UserCircle, path: `/audiencias/${projectId}/buyer-personas` },
   ];
 
   const handleSignOut = async () => {
@@ -58,24 +53,22 @@ export default function FinancingLayout({
     <div className="min-h-screen bg-background">
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border z-50 hidden lg:flex flex-col">
-        {/* Logo */}
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-green-500" />
+            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+              <Megaphone className="w-5 h-5 text-purple-500" />
             </div>
             <div>
               <h1 className="font-display font-bold text-sidebar-foreground text-lg">Fractal Kit</h1>
-              <p className="text-xs text-sidebar-foreground/60">Financiación</p>
+              <p className="text-xs text-sidebar-foreground/60">Audiencias</p>
             </div>
           </div>
         </div>
 
-        {/* Project Title */}
         <div className="px-4 py-4 border-b border-sidebar-border">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate('/proyectos')}
             className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent mb-2 -ml-2"
           >
@@ -84,22 +77,20 @@ export default function FinancingLayout({
           <h2 className="font-display font-semibold text-sidebar-foreground truncate" title={projectTitle}>
             {projectTitle}
           </h2>
-          <Badge className="mt-2 bg-green-500/20 text-green-600 border-green-500/30 text-xs">Financiación</Badge>
+          <Badge className="mt-2 bg-purple-500/20 text-purple-600 border-purple-500/30 text-xs">Audiencias</Badge>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {financingTabs.map((tab) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname.includes(tab.id);
-            
             return (
               <button
                 key={tab.id}
                 onClick={() => navigate(tab.path)}
                 className={cn(
                   'sidebar-link w-full text-left',
-                  isActive && 'sidebar-link-active bg-green-500/10 text-green-600'
+                  isActive && 'sidebar-link-active bg-purple-500/10 text-purple-600'
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -112,32 +103,17 @@ export default function FinancingLayout({
         {/* Section Switcher */}
         <div className="p-4 border-t border-sidebar-border space-y-2">
           <p className="text-xs text-sidebar-foreground/50 uppercase tracking-wider px-2 mb-2">Secciones</p>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => navigate(`/proyecto/${projectId}/overview`)}
-            className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/proyecto/${projectId}/overview`)} className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
             <Palette className="w-4 h-4 mr-2" />
             Creativa
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => navigate(`/produccion/${projectId}/personajes`)}
-            className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/produccion/${projectId}/personajes`)} className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
             <Clapperboard className="w-4 h-4 mr-2" />
             Producción
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => navigate(`/audiencias/${projectId}/analisis`)}
-            className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <Megaphone className="w-4 h-4 mr-2" />
-            Audiencias
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/financiacion/${projectId}/resumen`)} className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
+            <Wallet className="w-4 h-4 mr-2" />
+            Financiación
           </Button>
         </div>
 
@@ -167,7 +143,7 @@ export default function FinancingLayout({
       <header className="lg:hidden border-b bg-card/95 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-green-500" />
+            <Megaphone className="w-5 h-5 text-purple-500" />
             <span className="font-display font-semibold">{projectTitle}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -178,7 +154,7 @@ export default function FinancingLayout({
           </div>
         </div>
         <nav className="flex gap-1 px-4 pb-2 overflow-x-auto">
-          {financingTabs.map((tab) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname.includes(tab.id);
             return (
@@ -187,7 +163,7 @@ export default function FinancingLayout({
                 variant={isActive ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => navigate(tab.path)}
-                className={cn('flex items-center gap-2 whitespace-nowrap', isActive && 'bg-green-500/10 text-green-600')}
+                className={cn('flex items-center gap-2 whitespace-nowrap', isActive && 'bg-purple-500/10 text-purple-600')}
               >
                 <Icon className="w-4 h-4" />
                 <span className="text-xs">{tab.label}</span>
@@ -199,7 +175,6 @@ export default function FinancingLayout({
 
       {/* Main Content */}
       <main className="lg:ml-64">
-        {/* Desktop Top Bar */}
         <div className="hidden lg:flex items-center justify-between px-8 py-4 border-b bg-card/50">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Proyectos</span>
@@ -220,11 +195,7 @@ export default function FinancingLayout({
             )}
           </div>
         </div>
-
-        {/* Content */}
-        <div className="p-6 lg:p-8 animate-fade-in">
-          {children}
-        </div>
+        <div className="p-6 lg:p-8 animate-fade-in">{children}</div>
       </main>
     </div>
   );

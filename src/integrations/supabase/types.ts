@@ -14,6 +14,106 @@ export type Database = {
   }
   public: {
     Tables: {
+      audience_designs: {
+        Row: {
+          created_at: string
+          id: string
+          oportunidades: Json | null
+          project_id: string
+          recomendaciones: string | null
+          resumen_mercado: string | null
+          riesgos: Json | null
+          segmentos_principales: Json | null
+          tamano_mercado_estimado: number | null
+          tendencias: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          oportunidades?: Json | null
+          project_id: string
+          recomendaciones?: string | null
+          resumen_mercado?: string | null
+          riesgos?: Json | null
+          segmentos_principales?: Json | null
+          tamano_mercado_estimado?: number | null
+          tendencias?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          oportunidades?: Json | null
+          project_id?: string
+          recomendaciones?: string | null
+          resumen_mercado?: string | null
+          riesgos?: Json | null
+          segmentos_principales?: Json | null
+          tamano_mercado_estimado?: number | null
+          tendencias?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audience_designs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiences: {
+        Row: {
+          created_at: string
+          descripcion: string | null
+          genero: string | null
+          id: string
+          intereses: string[] | null
+          nombre: string
+          prioridad: string | null
+          project_id: string
+          rango_edad: string | null
+          tamano_estimado: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion?: string | null
+          genero?: string | null
+          id?: string
+          intereses?: string[] | null
+          nombre: string
+          prioridad?: string | null
+          project_id: string
+          rango_edad?: string | null
+          tamano_estimado?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string | null
+          genero?: string | null
+          id?: string
+          intereses?: string[] | null
+          nombre?: string
+          prioridad?: string | null
+          project_id?: string
+          rango_edad?: string | null
+          tamano_estimado?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audiences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_history: {
         Row: {
           actual_deviation_percent: number | null
@@ -205,6 +305,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "budget_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      buyer_personas: {
+        Row: {
+          biografia: string | null
+          created_at: string
+          edad: number | null
+          frustraciones: string[] | null
+          id: string
+          medios: string[] | null
+          motivaciones: string[] | null
+          nombre: string
+          objetivos: string[] | null
+          ocupacion: string | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          biografia?: string | null
+          created_at?: string
+          edad?: number | null
+          frustraciones?: string[] | null
+          id?: string
+          medios?: string[] | null
+          motivaciones?: string[] | null
+          nombre: string
+          objetivos?: string[] | null
+          ocupacion?: string | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          biografia?: string | null
+          created_at?: string
+          edad?: number | null
+          frustraciones?: string[] | null
+          id?: string
+          medios?: string[] | null
+          motivaciones?: string[] | null
+          nombre?: string
+          objetivos?: string[] | null
+          ocupacion?: string | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_personas_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

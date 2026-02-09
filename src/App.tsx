@@ -43,6 +43,11 @@ import SimuladorPage from "./pages/financiacion/SimuladorPage";
 import TimelinePage from "./pages/financiacion/TimelinePage";
 import ResumenPage from "./pages/financiacion/ResumenPage";
 
+// Audiencias Pages
+import AnalisisAudienciasPage from "./pages/audiencias/AnalisisAudienciasPage";
+import AudienciasPage from "./pages/audiencias/AudienciasPage";
+import BuyerPersonasPage from "./pages/audiencias/BuyerPersonasPage";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +96,11 @@ const App = () => (
               <Route path="/financiacion/:projectId/simulador" element={<ProtectedRoute><SimuladorPage /></ProtectedRoute>} />
               <Route path="/financiacion/:projectId/timeline" element={<ProtectedRoute><TimelinePage /></ProtectedRoute>} />
               
+              {/* Audiencias - with projectId */}
+              <Route path="/audiencias/:projectId/analisis" element={<ProtectedRoute><AnalisisAudienciasPage /></ProtectedRoute>} />
+              <Route path="/audiencias/:projectId/segmentos" element={<ProtectedRoute><AudienciasPage /></ProtectedRoute>} />
+              <Route path="/audiencias/:projectId/buyer-personas" element={<ProtectedRoute><BuyerPersonasPage /></ProtectedRoute>} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

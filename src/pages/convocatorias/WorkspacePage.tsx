@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { FileText, Sparkles, ChevronDown, ChevronUp, ListChecks, AlertCircle } from 'lucide-react';
+import { FileText, Sparkles, ChevronDown, ChevronUp, ListChecks, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { useSolicitudDocumentos } from '@/hooks/useSolicitudDocumentos';
 import { useAnalisisSolicitud } from '@/hooks/useAnalisisSolicitud';
 import { useTareasSolicitud } from '@/hooks/useTareasSolicitud';
 import { useProject } from '@/hooks/useProject';
+import { generateWithAI, extractJson } from '@/services/aiService';
+import { useToast } from '@/hooks/use-toast';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
@@ -48,24 +50,55 @@ const DOCUMENT_TYPES = [
   { tipo: 'plan_distribucion', nombre: 'Plan de Distribución' },
 ];
 
-function SolicitudCard({ solicitud, onUpdateEstado }: { solicitud: any; onUpdateEstado: (id: string, estado: string) => void }) {
+function SolicitudCard({ solicitud, onUpdateEstado, projectTitle }: { solicitud: any; onUpdateEstado: (id: string, estado: string) => void; projectTitle?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const { toast } = useToast();
   const { documentos, isLoading: docsLoading, createDocumento } = useSolicitudDocumentos(solicitud.id);
   const { analisis, isLoading: analisisLoading, createAnalisis } = useAnalisisSolicitud(solicitud.id);
   const { tareas, isLoading: tareasLoading } = useTareasSolicitud(solicitud.id);
 
   const convName = solicitud.convocatorias?.nombre || 'Convocatoria';
 
-  const handleGenerateAnalysis = () => {
-    createAnalisis({
-      tipo: 'elegibilidad',
-      resultado: {
-        puntuacion: Math.floor(Math.random() * 40) + 60,
-        fortalezas: ['Proyecto alineado con objetivos', 'Equipo con experiencia'],
-        debilidades: ['Presupuesto ajustado'],
-        recomendaciones: ['Reforzar plan de distribución', 'Ampliar referencias internacionales'],
-      },
-    });
+  const handleGenerateAnalysis = async () => {
+    setAiLoading(true);
+    try {
+      const convInfo = solicitud.convocatorias;
+      const prompt = `Analiza la compatibilidad entre este proyecto y esta convocatoria:
+
+Proyecto: "${projectTitle || 'Sin título'}"
+Convocatoria: "${convName}"
+Organismo: ${convInfo?.organismo || 'No especificado'}
+Ámbito: ${convInfo?.ambito || 'No especificado'}
+Descripción: ${convInfo?.descripcion || 'No disponible'}
+Requisitos: ${convInfo?.requisitos || 'No especificados'}
+Dotación: ${convInfo?.dotacion ? convInfo.dotacion + '€' : 'No especificada'}`;
+
+      const text = await generateWithAI({
+        prompt,
+        systemPrompt: 'Eres un experto en convocatorias de ayudas al cine en España y Europa. Analiza la compatibilidad entre un proyecto cinematográfico y una convocatoria. Devuelve SOLO un JSON (sin texto adicional) con: puntuacion (number 0-100), fortalezas (string[], 3-4 puntos fuertes), debilidades (string[], 2-3 áreas de mejora), recomendaciones (string[], 3-4 recomendaciones específicas), probabilidad_exito (string: "alta"|"media"|"baja").',
+        maxTokens: 1500,
+      });
+
+      const result = extractJson<{
+        puntuacion?: number;
+        fortalezas?: string[];
+        debilidades?: string[];
+        recomendaciones?: string[];
+        probabilidad_exito?: string;
+      }>(text);
+
+      createAnalisis({
+        tipo: 'elegibilidad',
+        resultado: result as any,
+      });
+
+      toast({ title: 'IA completada', description: 'Análisis de elegibilidad generado' });
+    } catch (err: any) {
+      toast({ title: 'Error de IA', description: err.message, variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleGenerateDoc = (tipo: string, nombre: string) => {
@@ -96,7 +129,6 @@ function SolicitudCard({ solicitud, onUpdateEstado }: { solicitud: any; onUpdate
 
       {expanded && (
         <CardContent className="space-y-6">
-          {/* Estado */}
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">Cambiar estado:</span>
             <Select value={solicitud.estado || 'borrador'} onValueChange={(v) => onUpdateEstado(solicitud.id, v)}>
@@ -114,16 +146,27 @@ function SolicitudCard({ solicitud, onUpdateEstado }: { solicitud: any; onUpdate
             <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Análisis de Elegibilidad</h4>
             {analisisLoading ? <Skeleton className="h-16 w-full" /> : lastAnalysis ? (
               <Card className="bg-muted/50">
-                <CardContent className="p-4 text-sm space-y-1">
-                  <p><strong>Puntuación:</strong> {(lastAnalysis.resultado as any)?.puntuacion}/100</p>
+                <CardContent className="p-4 text-sm space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">Puntuación:</span>
+                    <span className="text-lg font-bold">{(lastAnalysis.resultado as any)?.puntuacion}/100</span>
+                    {(lastAnalysis.resultado as any)?.probabilidad_exito && (
+                      <Badge variant={
+                        (lastAnalysis.resultado as any).probabilidad_exito === 'alta' ? 'default' :
+                        (lastAnalysis.resultado as any).probabilidad_exito === 'media' ? 'secondary' : 'outline'
+                      }>
+                        Probabilidad {(lastAnalysis.resultado as any).probabilidad_exito}
+                      </Badge>
+                    )}
+                  </div>
                   <p><strong>Fortalezas:</strong> {((lastAnalysis.resultado as any)?.fortalezas || []).join(', ')}</p>
                   <p><strong>Debilidades:</strong> {((lastAnalysis.resultado as any)?.debilidades || []).join(', ')}</p>
                   <p><strong>Recomendaciones:</strong> {((lastAnalysis.resultado as any)?.recomendaciones || []).join(', ')}</p>
                 </CardContent>
               </Card>
             ) : (
-              <Button variant="outline" size="sm" onClick={handleGenerateAnalysis}>
-                <Sparkles className="w-4 h-4 mr-2" /> Generar Análisis con IA
+              <Button variant="outline" size="sm" onClick={handleGenerateAnalysis} disabled={aiLoading}>
+                {aiLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analizando...</> : <><Sparkles className="w-4 h-4 mr-2" /> Generar Análisis con IA</>}
               </Button>
             )}
           </div>
@@ -155,7 +198,7 @@ function SolicitudCard({ solicitud, onUpdateEstado }: { solicitud: any; onUpdate
             )}
           </div>
 
-          {/* Tareas preview */}
+          {/* Tareas */}
           <div>
             <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><ListChecks className="w-4 h-4" /> Tareas</h4>
             {tareasLoading ? <Skeleton className="h-12 w-full" /> : proximasTareas.length > 0 ? (
@@ -210,7 +253,7 @@ export default function WorkspacePage() {
         ) : (
           <div className="space-y-4">
             {solicitudes.map((s) => (
-              <SolicitudCard key={s.id} solicitud={s} onUpdateEstado={handleUpdateEstado} />
+              <SolicitudCard key={s.id} solicitud={s} onUpdateEstado={handleUpdateEstado} projectTitle={project?.title} />
             ))}
           </div>
         )}

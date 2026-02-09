@@ -756,11 +756,14 @@ export type Database = {
         Row: {
           attrezzo: Json | null
           characters_in_scene: Json | null
+          complejidad_factores: Json | null
           created_at: string
           description: string | null
+          dia_ficcion: number | null
           effects: Json | null
           estimated_duration_minutes: number | null
           id: string
+          int_ext: string | null
           location_id: string | null
           page_eighths: number | null
           project_id: string
@@ -774,11 +777,14 @@ export type Database = {
         Insert: {
           attrezzo?: Json | null
           characters_in_scene?: Json | null
+          complejidad_factores?: Json | null
           created_at?: string
           description?: string | null
+          dia_ficcion?: number | null
           effects?: Json | null
           estimated_duration_minutes?: number | null
           id?: string
+          int_ext?: string | null
           location_id?: string | null
           page_eighths?: number | null
           project_id: string
@@ -792,11 +798,14 @@ export type Database = {
         Update: {
           attrezzo?: Json | null
           characters_in_scene?: Json | null
+          complejidad_factores?: Json | null
           created_at?: string
           description?: string | null
+          dia_ficcion?: number | null
           effects?: Json | null
           estimated_duration_minutes?: number | null
           id?: string
+          int_ext?: string | null
           location_id?: string | null
           page_eighths?: number | null
           project_id?: string

@@ -1,0 +1,5 @@
+
+ALTER TABLE public.sequences
+  ADD COLUMN IF NOT EXISTS int_ext TEXT DEFAULT 'INT',
+  ADD COLUMN IF NOT EXISTS dia_ficcion INT,
+  ADD COLUMN IF NOT EXISTS complejidad_factores JSONB DEFAULT '{}';

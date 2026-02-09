@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useBuyerPersonas } from '@/hooks/useBuyerPersonas';
 import { useProject } from '@/hooks/useProject';
+import { generateWithAI, extractJson } from '@/services/aiService';
+import { useToast } from '@/hooks/use-toast';
 import AudienciasLayout from '@/components/layout/AudienciasLayout';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
@@ -14,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Plus, Trash2, Sparkles, UserCircle } from 'lucide-react';
+import { Plus, Trash2, Sparkles, UserCircle, Loader2 } from 'lucide-react';
 
 interface PersonaForm {
   nombre: string;
@@ -52,11 +54,17 @@ function TagField({ label, tags, onAdd, onRemove }: { label: string; tags: strin
 export default function BuyerPersonasPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { data: project } = useProject(projectId);
+  const { toast } = useToast();
   const { personas, isLoading, createPersona, updatePersona, deletePersona, isCreating, isUpdating } = useBuyerPersonas(projectId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PersonaForm>(emptyForm);
+
+  // AI generation state
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
   const openNew = () => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); };
   const openEdit = (p: typeof personas[0]) => {
@@ -91,17 +99,52 @@ export default function BuyerPersonasPage() {
     setDialogOpen(false);
   };
 
-  const handleGenerarMock = () => {
-    createPersona({
-      nombre: 'María García',
-      edad: 34,
-      ocupacion: 'Profesora universitaria',
-      biografia: 'Cinéfila empedernida que busca películas con mensaje social. Asiste a festivales y sigue blogs de cine independiente.',
-      motivaciones: ['Historias auténticas', 'Cine comprometido', 'Descubrir nuevos directores'],
-      frustraciones: ['Falta de oferta en salas', 'Marketing engañoso', 'Subtítulos de mala calidad'],
-      medios: ['Instagram', 'Letterboxd', 'Podcasts de cine', 'Festivales'],
-      objetivos: ['Encontrar películas que inspiren', 'Apoyar cine independiente'],
-    });
+  const handleOpenAiDialog = () => {
+    setAiPrompt(project?.title ? `Película: "${project.title}"${project.logline ? `. ${project.logline}` : ''}` : '');
+    setAiDialogOpen(true);
+  };
+
+  const handleGenerateAI = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    try {
+      const text = await generateWithAI({
+        prompt: `Genera 3 buyer personas para este proyecto cinematográfico:\n\n${aiPrompt}`,
+        systemPrompt: 'Eres un experto en marketing cinematográfico y análisis de audiencias. Genera 3 buyer personas detallados para una película. Devuelve SOLO un JSON array (sin texto adicional) con objetos que tengan: nombre (string), edad (number), ocupacion (string), biografia (string, 2-3 frases), motivaciones (string[]), frustraciones (string[]), medios (string[]), objetivos (string[]).',
+        maxTokens: 2048,
+      });
+
+      const generated = extractJson<Array<{
+        nombre: string;
+        edad?: number;
+        ocupacion?: string;
+        biografia?: string;
+        motivaciones?: string[];
+        frustraciones?: string[];
+        medios?: string[];
+        objetivos?: string[];
+      }>>(text);
+
+      for (const p of generated) {
+        createPersona({
+          nombre: p.nombre,
+          edad: p.edad ?? null,
+          ocupacion: p.ocupacion ?? null,
+          biografia: p.biografia ?? null,
+          motivaciones: p.motivaciones ?? [],
+          frustraciones: p.frustraciones ?? [],
+          medios: p.medios ?? [],
+          objetivos: p.objetivos ?? [],
+        });
+      }
+
+      toast({ title: 'IA completada', description: `${generated.length} buyer personas generadas con IA` });
+      setAiDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: 'Error de IA', description: err.message, variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const updateTags = (field: keyof PersonaForm, tags: string[]) => setForm({ ...form, [field]: tags });
@@ -114,11 +157,9 @@ export default function BuyerPersonasPage() {
           description="Perfiles detallados de tu público objetivo."
           actions={
             <div className="flex gap-2">
-              {personas.length === 0 && !isLoading && (
-                <Button variant="outline" onClick={handleGenerarMock} disabled={isCreating}>
-                  <Sparkles className="w-4 h-4 mr-2" />Generar con IA
-                </Button>
-              )}
+              <Button variant="outline" onClick={handleOpenAiDialog}>
+                <Sparkles className="w-4 h-4 mr-2" />Generar con IA
+              </Button>
               <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nueva Persona</Button>
             </div>
           }
@@ -135,8 +176,8 @@ export default function BuyerPersonasPage() {
             icon={UserCircle}
             title="Sin buyer personas"
             description="Crea perfiles de buyer persona para entender mejor a tu audiencia."
-            actionLabel="Nueva Persona"
-            onAction={openNew}
+            actionLabel="Generar con IA"
+            onAction={handleOpenAiDialog}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -190,6 +231,7 @@ export default function BuyerPersonasPage() {
           </div>
         )}
 
+        {/* Manual create/edit dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
@@ -211,6 +253,36 @@ export default function BuyerPersonasPage() {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
               <Button onClick={handleSave} disabled={!form.nombre.trim() || isCreating || isUpdating}>
                 {editingId ? 'Guardar' : 'Crear'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI generation dialog */}
+        <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Generar Buyer Personas con IA
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Describe brevemente tu proyecto/película</Label>
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  rows={4}
+                  placeholder="Ej: Drama social sobre inmigración en el sur de España, dirigido a público adulto cinéfilo..."
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Se generarán 3 buyer personas basados en la descripción del proyecto.</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>Cancelar</Button>
+              <Button onClick={handleGenerateAI} disabled={!aiPrompt.trim() || aiLoading}>
+                {aiLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generando...</> : 'Generar'}
               </Button>
             </DialogFooter>
           </DialogContent>

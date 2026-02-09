@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.generar-presupuesto]
 verify_jwt = false
+
+[functions.ai-generate]
+verify_jwt = false

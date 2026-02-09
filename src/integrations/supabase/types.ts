@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      analisis_solicitud: {
+        Row: {
+          created_at: string | null
+          id: string
+          resultado: Json
+          solicitud_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          resultado: Json
+          solicitud_id: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          resultado?: Json
+          solicitud_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analisis_solicitud_solicitud_id_fkey"
+            columns: ["solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audience_designs: {
         Row: {
           created_at: string
@@ -1250,6 +1282,47 @@ export type Database = {
           },
         ]
       }
+      solicitud_documentos: {
+        Row: {
+          created_at: string | null
+          estado: string | null
+          id: string
+          nombre: string
+          solicitud_id: string
+          tipo: string
+          updated_at: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          estado?: string | null
+          id?: string
+          nombre: string
+          solicitud_id: string
+          tipo: string
+          updated_at?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          estado?: string | null
+          id?: string
+          nombre?: string
+          solicitud_id?: string
+          tipo?: string
+          updated_at?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitud_documentos_solicitud_id_fkey"
+            columns: ["solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solicitudes: {
         Row: {
           convocatoria_id: string
@@ -1294,6 +1367,50 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tareas_solicitud: {
+        Row: {
+          created_at: string | null
+          descripcion: string | null
+          estado: string | null
+          fecha_limite: string | null
+          id: string
+          prioridad: string | null
+          solicitud_id: string
+          titulo: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          descripcion?: string | null
+          estado?: string | null
+          fecha_limite?: string | null
+          id?: string
+          prioridad?: string | null
+          solicitud_id: string
+          titulo: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          descripcion?: string | null
+          estado?: string | null
+          fecha_limite?: string | null
+          id?: string
+          prioridad?: string | null
+          solicitud_id?: string
+          titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tareas_solicitud_solicitud_id_fkey"
+            columns: ["solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes"
             referencedColumns: ["id"]
           },
         ]

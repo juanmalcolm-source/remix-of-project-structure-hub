@@ -15,6 +15,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import ProductionLayout from '@/components/layout/ProductionLayout';
 import { useProject } from '@/hooks/useProject';
 import { useShootingPlan } from '@/hooks/useShootingPlan';
@@ -33,6 +37,8 @@ export default function PlanRodajePage() {
   const { data: project, isLoading: projectLoading } = useProject(projectId);
   const [activeTab, setActiveTab] = useState('plan');
   const [showUnassigned, setShowUnassigned] = useState(true);
+  const [confirmDeleteDay, setConfirmDeleteDay] = useState<number | null>(null);
+  const [confirmClearPlan, setConfirmClearPlan] = useState(false);
 
   const {
     sequences,
@@ -66,15 +72,11 @@ export default function PlanRodajePage() {
   };
 
   const handleDeleteDay = (dayNumber: number) => {
-    if (confirm('¿Eliminar este día del plan?')) {
-      deleteDay(dayNumber);
-    }
+    setConfirmDeleteDay(dayNumber);
   };
 
   const handleClearPlan = () => {
-    if (confirm('¿Eliminar todo el plan de rodaje? Esta acción no se puede deshacer.')) {
-      clearPlan();
-    }
+    setConfirmClearPlan(true);
   };
 
   const handleAddDay = (dayData: { location: string; locationId?: string; timeOfDay: string; notes?: string }) => {
@@ -383,6 +385,48 @@ export default function PlanRodajePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Delete Day Confirmation */}
+        <AlertDialog open={confirmDeleteDay !== null} onOpenChange={() => setConfirmDeleteDay(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar día {confirmDeleteDay}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Las escenas asignadas volverán al panel de escenas sin asignar.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => { if (confirmDeleteDay !== null) { deleteDay(confirmDeleteDay); setConfirmDeleteDay(null); } }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Clear Plan Confirmation */}
+        <AlertDialog open={confirmClearPlan} onOpenChange={setConfirmClearPlan}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar todo el plan de rodaje?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Todos los días y asignaciones serán eliminados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => { clearPlan(); setConfirmClearPlan(false); }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Eliminar todo
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DragDropProvider>
     </ProductionLayout>
   );

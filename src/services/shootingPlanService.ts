@@ -4,37 +4,69 @@
 import { supabase } from "@/integrations/supabase/client";
 
 // ═══════════════════════════════════════════════════════════════════════
-// FÓRMULA PROFESIONAL DE TIEMPO DE RODAJE (1st AD Standard)
+// FÓRMULA PROFESIONAL DE TIEMPO DE RODAJE (PRD v3.0)
 // ═══════════════════════════════════════════════════════════════════════
 
-// Base: 1 página (8/8) = 90 minutos de rodaje en condiciones normales
-const BASE_MINUTES_PER_PAGE = 90;
-const BASE_MINUTES_PER_EIGHTH = BASE_MINUTES_PER_PAGE / 8; // 11.25 min/octavo
+// PRD v3: Rodaje base = octavos × 8 × 13min (= 104 min/página)
+const BASE_MINUTES_PER_EIGHTH = 13; // 13 min/octavo
 
-// Tiempos de setup por tipo de set
+// PRD v3: Tiempos de setup
 const SETUP_TIMES = {
-  INT: 45,  // Interior: 45 min setup
-  EXT: 60,  // Exterior: 60 min setup
+  INT: 30,  // Interior: 30 min setup
+  EXT: 45,  // Exterior: 45 min setup
   NIGHT_BONUS: 15, // Bonus nocturno: +15 min
 };
 
-// Multiplicadores de complejidad profesionales
+// PRD v3: Transición base entre escenas
+const TRANSITION_BASE_MINUTES = 5;
+
+// Multiplicadores de complejidad (legacy, para compatibilidad)
 const COMPLEXITY_MULTIPLIERS: Record<string, number> = {
-  bajo: 1.0,     // Diálogo estático, 2 personas, interior día
-  media: 1.2,    // Walk and talk, comida, >3 personajes
-  alto: 2.0,     // Peleas, persecuciones, niños, animales, lluvia, VFX
-  extremo: 3.0,  // Escenas de masas, stunts complejos
-  // Alias en español
+  bajo: 1.0,
+  media: 1.2,
+  alto: 2.0,
+  extremo: 3.0,
   baja: 1.0,
   alta: 2.0,
+};
+
+// PRD v3: 15 pesos de complejidad (minutos extra)
+const COMPLEXITY_WEIGHTS: Record<string, number> = {
+  movimiento_camara: 15,
+  accion_fisica: 20,
+  stunts: 40,
+  efectos_especiales: 30,
+  ninos: 15,
+  animales: 25,
+  vehiculos_movimiento: 30,
+  iluminacion_compleja: 20,
+  escena_noche: 10,
+  exteriores_clima: 8,
+  dialogo_extenso: 10,
+  requiere_grua: 20,
+  planos_especiales: 15,
+  // num_personajes > 2: +5min/personaje extra (handled in code)
+  // num_extras: +5min por cada 5 extras (handled in code)
 };
 
 // Mini-setup para escenas en misma localización (reposición de cámara)
 const MINI_SETUP_MINUTES = 10;
 
-// Jornada máxima recomendada
+// Jornada laboral
+export const WARNING_WORKDAY_HOURS = 10;
 export const MAX_WORKDAY_HOURS = 12;
 export const MAX_WORKDAY_MINUTES = MAX_WORKDAY_HOURS * 60;
+
+// PRD v3: Restricciones laborales
+export const RESTRICTIONS = {
+  REST_BETWEEN_SHIFTS_HOURS: 12,
+  MAX_CONSECUTIVE_NIGHTS: 5,
+  WARN_CONSECUTIVE_NIGHTS: 3,
+  REST_DAY_EVERY: 6,
+  MAX_ACTOR_WAIT_DAYS: 7,
+  CHILDREN_MAX_HOURS: 8,
+  CHILDREN_NO_NIGHT: true,
+};
 
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -86,7 +118,7 @@ export interface ProposedShootingDay {
 }
 
 export interface PlanGenerationOptions {
-  groupBy: 'location' | 'time_of_day' | 'proximity' | 'zone';
+  groupBy: 'location' | 'time_of_day' | 'proximity' | 'zone' | 'balanced';
   maxEighthsPerDay: number;
   separateDayNight: boolean;
   optimizeByProximity: boolean;
@@ -139,15 +171,65 @@ export function calculateEffectiveEighths(pageEighths: number, complexity: strin
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
- * Calcular tiempo de rodaje por escena con desglose profesional
- * Fórmula: (Octavos × 11.25 min) × Multiplicador de Complejidad + Setup
+ * Calcular tiempo extra por factores de complejidad (PRD v3: 15 factores)
+ */
+function calculateComplexityExtraMinutes(scene: SceneForPlanning | any): number {
+  const factores = scene.complejidad_factores || (scene as any).complejidad_factores;
+  if (!factores || typeof factores !== 'object') return 0;
+
+  let extra = 0;
+
+  // Boolean factors
+  for (const [key, weight] of Object.entries(COMPLEXITY_WEIGHTS)) {
+    if (factores[key] === true) {
+      extra += weight;
+    }
+  }
+
+  // num_personajes > 2: +5min/personaje extra
+  const numPersonajes = Number(factores.num_personajes) || 0;
+  if (numPersonajes > 2) {
+    extra += (numPersonajes - 2) * 5;
+  }
+
+  // num_extras: +5min por cada 5 extras
+  const numExtras = Number(factores.num_extras) || 0;
+  extra += Math.floor(numExtras / 5) * 5;
+
+  return extra;
+}
+
+/**
+ * Calcular cobertura extra (PRD v3)
+ * +50% del rodaje base si acción/stunts, +30% si diálogo extenso
+ */
+function calculateCoverageMinutes(scene: SceneForPlanning | any, baseShootingMinutes: number): number {
+  const factores = scene.complejidad_factores || (scene as any).complejidad_factores;
+  if (!factores || typeof factores !== 'object') return 0;
+
+  if (factores.accion_fisica || factores.stunts) {
+    return Math.round(baseShootingMinutes * 0.5);
+  }
+  if (factores.dialogo_extenso) {
+    return Math.round(baseShootingMinutes * 0.3);
+  }
+  return 0;
+}
+
+/**
+ * Calcular tiempo de rodaje por escena con desglose profesional (PRD v3)
+ * Setup: 30min (INT) o 45min (EXT), +15 si NOCHE
+ * Rodaje: octavos × 13min
+ * Cobertura: +50% si acción/stunts, +30% si diálogo extenso
+ * Complejidad: 15 factores con pesos específicos
+ * Transición: 5min base
  */
 export function calculateSceneShootingTimeDetailed(scene: SceneForPlanning | any): SceneTimeBreakdown {
   // Determinar tipo INT/EXT
-  const setType = scene.set_type || detectSetType(scene.title || '');
+  const setType = scene.set_type || scene.int_ext || detectSetType(scene.title || '');
   const isNight = isNightScene(scene.time_of_day);
   
-  // Calcular setup time
+  // PRD v3: Setup = 30min (INT) o 45min (EXT), +15 si NOCHE
   let setupMinutes = setType === 'EXT' ? SETUP_TIMES.EXT : SETUP_TIMES.INT;
   if (isNight) setupMinutes += SETUP_TIMES.NIGHT_BONUS;
   
@@ -156,27 +238,37 @@ export function calculateSceneShootingTimeDetailed(scene: SceneForPlanning | any
     setupMinutes = scene.setup_time_minutes;
   }
   
-  // Calcular shooting time
+  // PRD v3: Rodaje = octavos × 13min
   const eighths = scene.page_eighths || scene.effectiveEighths || 1;
   const normalizedEighths = normalizeEighths(eighths);
   
-  // Determinar multiplicador de complejidad
+  let shootingMinutes = scene.shooting_time_minutes;
+  if (!shootingMinutes) {
+    shootingMinutes = Math.round(normalizedEighths * BASE_MINUTES_PER_EIGHTH);
+  }
+
+  // PRD v3: Cobertura extra
+  const coverageMinutes = calculateCoverageMinutes(scene, shootingMinutes);
+
+  // PRD v3: Tiempo extra por 15 factores de complejidad
+  const complexityExtraMinutes = calculateComplexityExtraMinutes(scene);
+
+  // PRD v3: Transición base
+  const transitionMinutes = TRANSITION_BASE_MINUTES;
+
+  // Determinar multiplicador de complejidad (legacy compatibility)
   let complexityFactor = scene.complexity_factor || 1.0;
   if (!scene.complexity_factor) {
     const complexity = scene.scene_complexity?.toLowerCase() || 'media';
     complexityFactor = COMPLEXITY_MULTIPLIERS[complexity] || 1.2;
   }
   
-  // Usar shooting time precalculado si existe
-  let shootingMinutes = scene.shooting_time_minutes;
-  if (!shootingMinutes) {
-    shootingMinutes = Math.round(normalizedEighths * BASE_MINUTES_PER_EIGHTH * complexityFactor);
-  }
+  const totalShootingWithExtras = shootingMinutes + coverageMinutes + complexityExtraMinutes + transitionMinutes;
   
   return {
     setupMinutes,
-    shootingMinutes,
-    totalMinutes: setupMinutes + shootingMinutes,
+    shootingMinutes: totalShootingWithExtras,
+    totalMinutes: setupMinutes + totalShootingWithExtras,
     complexityFactor,
   };
 }
@@ -376,9 +468,11 @@ function distributeIntoDaysFlexible(
       totalMinutes: dayTimeResult.totalMinutes,
     };
     
-    // Add warnings
+    // Add warnings (PRD v3)
     if (estimatedHours > MAX_WORKDAY_HOURS) {
-      newDay.warnings.push(`¡Jornada de ${estimatedHours.toFixed(1)}h excede ${MAX_WORKDAY_HOURS}h!`);
+      newDay.warnings.push(`🔴 Jornada de ${estimatedHours.toFixed(1)}h excede máximo ${MAX_WORKDAY_HOURS}h`);
+    } else if (estimatedHours > WARNING_WORKDAY_HOURS) {
+      newDay.warnings.push(`⚠️ Jornada de ${estimatedHours.toFixed(1)}h supera las ${WARNING_WORKDAY_HOURS}h recomendadas`);
     }
     if (allCharacters.length > 10) {
       newDay.warnings.push(`Muchos personajes: ${allCharacters.length}`);
@@ -390,7 +484,85 @@ function distributeIntoDaysFlexible(
     days.push(newDay);
   }
   
+  // PRD v3: Add cross-day restriction warnings
+  addCrossDayWarnings(days);
+  
   return days;
+}
+
+/**
+ * PRD v3: Validar restricciones que afectan a múltiples días
+ */
+function addCrossDayWarnings(days: ProposedShootingDay[]): void {
+  let consecutiveNights = 0;
+  let consecutiveWorkDays = 0;
+
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i];
+    const isNight = day.timeOfDay?.toUpperCase().includes('NOCHE');
+
+    // Max 5 noches consecutivas
+    if (isNight) {
+      consecutiveNights++;
+      if (consecutiveNights >= RESTRICTIONS.MAX_CONSECUTIVE_NIGHTS) {
+        day.warnings.push(`🔴 ${consecutiveNights} noches consecutivas (máx ${RESTRICTIONS.MAX_CONSECUTIVE_NIGHTS})`);
+      } else if (consecutiveNights >= RESTRICTIONS.WARN_CONSECUTIVE_NIGHTS) {
+        day.warnings.push(`⚠️ ${consecutiveNights} noches consecutivas`);
+      }
+    } else {
+      consecutiveNights = 0;
+    }
+
+    // 1 día descanso cada 6
+    consecutiveWorkDays++;
+    if (consecutiveWorkDays >= RESTRICTIONS.REST_DAY_EVERY) {
+      day.warnings.push(`⚠️ ${consecutiveWorkDays} días sin descanso (recomendado: 1 cada ${RESTRICTIONS.REST_DAY_EVERY})`);
+      // Don't reset - keeps warning until plan is adjusted
+    }
+
+    // Niños: max 8h, no noche
+    if (RESTRICTIONS.CHILDREN_NO_NIGHT && isNight) {
+      const hasChildren = day.scenes.some((s: any) => {
+        const f = s.complejidad_factores || (s as any).complejidad_factores;
+        return f && f.ninos === true;
+      });
+      if (hasChildren) {
+        day.warnings.push('🔴 Niños en escena nocturna (prohibido)');
+      }
+    }
+
+    // Niños: max 8h
+    const hasChildrenInDay = day.scenes.some((s: any) => {
+      const f = s.complejidad_factores || (s as any).complejidad_factores;
+      return f && f.ninos === true;
+    });
+    if (hasChildrenInDay && day.estimatedHours > RESTRICTIONS.CHILDREN_MAX_HOURS) {
+      day.warnings.push(`🔴 Niños en jornada de ${day.estimatedHours.toFixed(1)}h (máx ${RESTRICTIONS.CHILDREN_MAX_HOURS}h)`);
+    }
+  }
+
+  // Actor wait days check
+  checkActorWaitDays(days);
+}
+
+/**
+ * PRD v3: Verificar que ningún actor espera más de 7 días entre apariciones
+ */
+function checkActorWaitDays(days: ProposedShootingDay[]): void {
+  const actorLastDay = new Map<string, number>();
+  
+  for (const day of days) {
+    for (const char of day.characters) {
+      const lastDay = actorLastDay.get(char);
+      if (lastDay !== undefined) {
+        const waitDays = day.dayNumber - lastDay - 1;
+        if (waitDays > RESTRICTIONS.MAX_ACTOR_WAIT_DAYS) {
+          day.warnings.push(`⚠️ ${char}: ${waitDays} días de espera (máx ${RESTRICTIONS.MAX_ACTOR_WAIT_DAYS})`);
+        }
+      }
+      actorLastDay.set(char, day.dayNumber);
+    }
+  }
 }
 
 // Helper to get most common time of day
@@ -489,13 +661,15 @@ function distributeIntoDays(
     days.push(currentDay);
   }
   
-  // Add warnings for days with issues
+  // Add warnings for days with issues (PRD v3)
   for (const day of days) {
     if (day.totalEighths > maxEighthsPerDay) {
       day.warnings.push(`Día sobrecargado: ${day.totalEighths.toFixed(1)}/8 octavos`);
     }
     if (day.estimatedHours > MAX_WORKDAY_HOURS) {
-      day.warnings.push(`¡Jornada de ${day.estimatedHours.toFixed(1)}h!`);
+      day.warnings.push(`🔴 Jornada de ${day.estimatedHours.toFixed(1)}h excede máximo ${MAX_WORKDAY_HOURS}h`);
+    } else if (day.estimatedHours > WARNING_WORKDAY_HOURS) {
+      day.warnings.push(`⚠️ Jornada de ${day.estimatedHours.toFixed(1)}h supera las ${WARNING_WORKDAY_HOURS}h recomendadas`);
     }
     if (day.characters.length > 10) {
       day.warnings.push(`Muchos personajes: ${day.characters.length}`);
@@ -751,9 +925,11 @@ function distributeIntoDaysFlexibleWithZones(
       totalMinutes: currentMinutes,
     };
     
-    // Add warnings
+    // Add warnings (PRD v3)
     if (estimatedHours > MAX_WORKDAY_HOURS) {
-      newDay.warnings.push(`¡Jornada de ${estimatedHours.toFixed(1)}h excede ${MAX_WORKDAY_HOURS}h!`);
+      newDay.warnings.push(`🔴 Jornada de ${estimatedHours.toFixed(1)}h excede máximo ${MAX_WORKDAY_HOURS}h`);
+    } else if (estimatedHours > WARNING_WORKDAY_HOURS) {
+      newDay.warnings.push(`⚠️ Jornada de ${estimatedHours.toFixed(1)}h supera las ${WARNING_WORKDAY_HOURS}h recomendadas`);
     }
     if (allCharacters.length > 10) {
       newDay.warnings.push(`Muchos personajes: ${allCharacters.length}`);
@@ -826,6 +1002,29 @@ export function generateSmartShootingPlan(
       console.log('[ShootingPlan] Grouping by GEOGRAPHIC ZONE');
       allDays = groupAndDistributeByZone(scenes, locations, options);
       break;
+
+    case 'balanced':
+      console.log('[ShootingPlan] Grouping BALANCED (multi-criteria)');
+      // Balanced: sort by location first, then by characters within location, then time_of_day
+      {
+        const sortedScenes = [...scenes].sort((a, b) => {
+          const locCompare = a.location_name.localeCompare(b.location_name);
+          if (locCompare !== 0) return locCompare;
+          const aChars = (a.characters || []).slice(0, 2).sort().join(',');
+          const bChars = (b.characters || []).slice(0, 2).sort().join(',');
+          const charCompare = aChars.localeCompare(bChars);
+          if (charCompare !== 0) return charCompare;
+          if (options.separateDayNight) {
+            const timeOrder: Record<string, number> = { 'DÍA': 0, 'AMANECER': 1, 'ATARDECER': 2, 'NOCHE': 3 };
+            const timeA = timeOrder[a.time_of_day] ?? 0;
+            const timeB = timeOrder[b.time_of_day] ?? 0;
+            if (timeA !== timeB) return timeA - timeB;
+          }
+          return a.sequence_number - b.sequence_number;
+        });
+        allDays = distributeIntoDaysFlexible(sortedScenes, options, 1);
+      }
+      break;
       
     case 'location':
     default:
@@ -833,6 +1032,9 @@ export function generateSmartShootingPlan(
       allDays = groupAndDistributeByLocation(scenes, options);
       break;
   }
+  
+  // PRD v3: Apply cross-day restriction warnings to all strategies
+  addCrossDayWarnings(allDays);
   
   console.log(`[ShootingPlan] Generated ${allDays.length} shooting days`);
   

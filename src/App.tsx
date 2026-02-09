@@ -54,6 +54,8 @@ import ComunicacionPage from "./pages/audiencias/ComunicacionPage";
 // Convocatorias Pages
 import BibliotecaPage from "./pages/convocatorias/BibliotecaPage";
 import CalendarioPage from "./pages/convocatorias/CalendarioPage";
+import WorkspacePage from "./pages/convocatorias/WorkspacePage";
+import TareasPage from "./pages/convocatorias/TareasPage";
 
 import NotFound from "./pages/NotFound";
 
@@ -114,6 +116,8 @@ const App = () => (
               {/* Convocatorias - with projectId */}
               <Route path="/convocatorias/:projectId/biblioteca" element={<ProtectedRoute><BibliotecaPage /></ProtectedRoute>} />
               <Route path="/convocatorias/:projectId/calendario" element={<ProtectedRoute><CalendarioPage /></ProtectedRoute>} />
+              <Route path="/convocatorias/:projectId/workspace" element={<ProtectedRoute><WorkspacePage /></ProtectedRoute>} />
+              <Route path="/convocatorias/:projectId/tareas" element={<ProtectedRoute><TareasPage /></ProtectedRoute>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

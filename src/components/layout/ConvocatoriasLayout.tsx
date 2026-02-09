@@ -3,6 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Library,
   CalendarDays,
+  Briefcase,
+  ListChecks,
   Landmark,
   LogOut,
   ChevronRight,
@@ -40,6 +42,8 @@ export default function ConvocatoriasLayout({
   const tabs = [
     { id: 'biblioteca', label: 'Biblioteca', icon: Library, path: `/convocatorias/${projectId}/biblioteca` },
     { id: 'calendario', label: 'Calendario', icon: CalendarDays, path: `/convocatorias/${projectId}/calendario` },
+    { id: 'workspace', label: 'Workspace', icon: Briefcase, path: `/convocatorias/${projectId}/workspace` },
+    { id: 'tareas', label: 'Tareas', icon: ListChecks, path: `/convocatorias/${projectId}/tareas` },
   ];
 
   const handleSignOut = async () => { await signOut(); navigate('/auth'); };

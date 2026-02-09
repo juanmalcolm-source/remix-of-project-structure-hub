@@ -4,9 +4,9 @@ import { useConvocatorias } from '@/hooks/useConvocatorias';
 import { useSolicitudes } from '@/hooks/useSolicitudes';
 import { useProject } from '@/hooks/useProject';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,8 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Info, Search, ExternalLink, Send } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search, ExternalLink, Send, Library } from 'lucide-react';
 
 const formatEUR = (v: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('es-ES') : '—';
@@ -76,10 +77,10 @@ export default function BibliotecaPage() {
   return (
     <ConvocatoriasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold">Biblioteca de Convocatorias</h1>
-          <p className="text-muted-foreground mt-1">Catálogo de ayudas y convocatorias disponibles.</p>
-        </div>
+        <PageHeader
+          title="Biblioteca de Convocatorias"
+          description="Catálogo de ayudas y convocatorias disponibles."
+        />
 
         <div className="flex gap-6">
           {/* Sidebar filters */}
@@ -130,11 +131,11 @@ export default function BibliotecaPage() {
             {isLoading ? (
               <Card><CardContent className="p-6 space-y-3">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12 w-full" />)}</CardContent></Card>
             ) : !convocatorias?.length ? (
-              <Alert className="border-blue-500/30 bg-blue-500/5">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertTitle className="text-blue-700">Sin resultados</AlertTitle>
-                <AlertDescription className="text-blue-600">No se encontraron convocatorias con los filtros actuales.</AlertDescription>
-              </Alert>
+              <EmptyState
+                icon={Library}
+                title="Sin resultados"
+                description="No se encontraron convocatorias con los filtros actuales."
+              />
             ) : (
               <Card>
                 <CardContent className="p-0">

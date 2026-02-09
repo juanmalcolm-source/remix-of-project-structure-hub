@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useFestivals } from '@/hooks/useFestivals';
 import { useProject } from '@/hooks/useProject';
 import AudienciasLayout from '@/components/layout/AudienciasLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Info, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Film } from 'lucide-react';
 
 const PRIORITY_STYLES: Record<string, string> = { alta: 'bg-red-500/10 text-red-600 border-red-500/30', media: 'bg-amber-500/10 text-amber-600 border-amber-500/30', baja: 'bg-green-500/10 text-green-600 border-green-500/30' };
 const ESTADO_STYLES: Record<string, string> = { pendiente: 'bg-muted text-muted-foreground', enviado: 'bg-blue-500/10 text-blue-600 border-blue-500/30', aceptado: 'bg-green-500/10 text-green-600 border-green-500/30', rechazado: 'bg-red-500/10 text-red-600 border-red-500/30' };
@@ -52,22 +53,22 @@ export default function FestivalesPage() {
   return (
     <AudienciasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Festivales</h1>
-            <p className="text-muted-foreground mt-1">Estrategia de festivales y mercados.</p>
-          </div>
-          <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nuevo Festival</Button>
-        </div>
+        <PageHeader
+          title="Festivales"
+          description="Estrategia de festivales y mercados."
+          actions={<Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nuevo Festival</Button>}
+        />
 
         {isLoading ? (
           <Card><CardContent className="p-6 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</CardContent></Card>
         ) : festivals.length === 0 ? (
-          <Alert className="border-blue-500/30 bg-blue-500/5">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-700">Sin festivales</AlertTitle>
-            <AlertDescription className="text-blue-600">Añade festivales para planificar tu estrategia de lanzamiento.</AlertDescription>
-          </Alert>
+          <EmptyState
+            icon={Film}
+            title="Sin festivales"
+            description="Añade festivales para planificar tu estrategia de lanzamiento."
+            actionLabel="Nuevo Festival"
+            onAction={openNew}
+          />
         ) : (
           <Card>
             <CardContent className="p-0">

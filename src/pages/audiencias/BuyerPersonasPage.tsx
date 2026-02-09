@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useBuyerPersonas } from '@/hooks/useBuyerPersonas';
 import { useProject } from '@/hooks/useProject';
 import AudienciasLayout from '@/components/layout/AudienciasLayout';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Info, Plus, Trash2, Sparkles, UserCircle } from 'lucide-react';
+import { Plus, Trash2, Sparkles, UserCircle } from 'lucide-react';
 
 interface PersonaForm {
   nombre: string;
@@ -108,24 +109,20 @@ export default function BuyerPersonasPage() {
   return (
     <AudienciasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Buyer Personas</h1>
-            <p className="text-muted-foreground mt-1">Perfiles detallados de tu público objetivo.</p>
-          </div>
-          <div className="flex gap-2">
-            {personas.length === 0 && !isLoading && (
-              <Button variant="outline" onClick={handleGenerarMock} disabled={isCreating}>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generar con IA
-              </Button>
-            )}
-            <Button onClick={openNew}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Persona
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Buyer Personas"
+          description="Perfiles detallados de tu público objetivo."
+          actions={
+            <div className="flex gap-2">
+              {personas.length === 0 && !isLoading && (
+                <Button variant="outline" onClick={handleGenerarMock} disabled={isCreating}>
+                  <Sparkles className="w-4 h-4 mr-2" />Generar con IA
+                </Button>
+              )}
+              <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nueva Persona</Button>
+            </div>
+          }
+        />
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,11 +131,13 @@ export default function BuyerPersonasPage() {
             ))}
           </div>
         ) : personas.length === 0 ? (
-          <Alert className="border-blue-500/30 bg-blue-500/5">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-700">Sin buyer personas</AlertTitle>
-            <AlertDescription className="text-blue-600">Crea perfiles de buyer persona para entender mejor a tu audiencia.</AlertDescription>
-          </Alert>
+          <EmptyState
+            icon={UserCircle}
+            title="Sin buyer personas"
+            description="Crea perfiles de buyer persona para entender mejor a tu audiencia."
+            actionLabel="Nueva Persona"
+            onAction={openNew}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {personas.map((p) => (

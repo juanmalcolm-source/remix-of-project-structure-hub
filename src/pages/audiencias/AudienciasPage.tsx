@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useAudiences } from '@/hooks/useAudiences';
 import { useProject } from '@/hooks/useProject';
 import AudienciasLayout from '@/components/layout/AudienciasLayout';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Info, Plus, Trash2, Users } from 'lucide-react';
+import { Plus, Trash2, Users } from 'lucide-react';
 
 const PRIORITY_STYLES: Record<string, string> = {
   alta: 'bg-red-500/10 text-red-600 border-red-500/30',
@@ -96,16 +97,11 @@ export default function AudienciasPage() {
   return (
     <AudienciasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Segmentos de Audiencia</h1>
-            <p className="text-muted-foreground mt-1">Define los segmentos de público objetivo del proyecto.</p>
-          </div>
-          <Button onClick={openNew}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nuevo Segmento
-          </Button>
-        </div>
+        <PageHeader
+          title="Segmentos de Audiencia"
+          description="Define los segmentos de público objetivo del proyecto."
+          actions={<Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nuevo Segmento</Button>}
+        />
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -114,11 +110,13 @@ export default function AudienciasPage() {
             ))}
           </div>
         ) : audiences.length === 0 ? (
-          <Alert className="border-blue-500/30 bg-blue-500/5">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-700">Sin segmentos</AlertTitle>
-            <AlertDescription className="text-blue-600">Añade segmentos de audiencia para definir a quién va dirigido tu proyecto.</AlertDescription>
-          </Alert>
+          <EmptyState
+            icon={Users}
+            title="Sin segmentos"
+            description="Añade segmentos de audiencia para definir a quién va dirigido tu proyecto."
+            actionLabel="Nuevo Segmento"
+            onAction={openNew}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {audiences.map((a) => (

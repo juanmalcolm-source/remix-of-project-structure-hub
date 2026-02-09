@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useDistribution } from '@/hooks/useDistribution';
 import { useProject } from '@/hooks/useProject';
 import AudienciasLayout from '@/components/layout/AudienciasLayout';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Info, Plus, Trash2, DollarSign } from 'lucide-react';
+import { Plus, Trash2, DollarSign, Share2 } from 'lucide-react';
 
 const formatEUR = (v: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 
@@ -49,13 +50,11 @@ export default function DistribucionPage() {
   return (
     <AudienciasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Distribución</h1>
-            <p className="text-muted-foreground mt-1">Planes de distribución por canal y territorio.</p>
-          </div>
-          <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nuevo Plan</Button>
-        </div>
+        <PageHeader
+          title="Distribución"
+          description="Planes de distribución por canal y territorio."
+          actions={<Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nuevo Plan</Button>}
+        />
 
         {/* KPI */}
         {!isLoading && plans.length > 0 && (
@@ -71,11 +70,13 @@ export default function DistribucionPage() {
         {isLoading ? (
           <Card><CardContent className="p-6 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</CardContent></Card>
         ) : plans.length === 0 ? (
-          <Alert className="border-blue-500/30 bg-blue-500/5">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-700">Sin planes de distribución</AlertTitle>
-            <AlertDescription className="text-blue-600">Añade canales de distribución para planificar los ingresos del proyecto.</AlertDescription>
-          </Alert>
+          <EmptyState
+            icon={Share2}
+            title="Sin planes de distribución"
+            description="Añade canales de distribución para planificar los ingresos del proyecto."
+            actionLabel="Nuevo Plan"
+            onAction={openNew}
+          />
         ) : (
           <Card>
             <CardContent className="p-0">

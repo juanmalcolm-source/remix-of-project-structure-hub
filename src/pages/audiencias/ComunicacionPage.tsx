@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useCommunication } from '@/hooks/useCommunication';
 import { useProject } from '@/hooks/useProject';
 import AudienciasLayout from '@/components/layout/AudienciasLayout';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Info, Plus, Trash2, DollarSign, Hash, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, DollarSign, Hash, CheckCircle2, Megaphone } from 'lucide-react';
 
 const formatEUR = (v: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('es-ES') : '—';
@@ -112,13 +113,11 @@ export default function ComunicacionPage() {
   return (
     <AudienciasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Comunicación</h1>
-            <p className="text-muted-foreground mt-1">Estrategia de comunicación por fases.</p>
-          </div>
-          <Button onClick={() => openNew()}><Plus className="w-4 h-4 mr-2" />Nueva Acción</Button>
-        </div>
+        <PageHeader
+          title="Comunicación"
+          description="Estrategia de comunicación por fases."
+          actions={<Button onClick={() => openNew()}><Plus className="w-4 h-4 mr-2" />Nueva Acción</Button>}
+        />
 
         {/* KPIs */}
         {!isLoading && strategies.length > 0 && (
@@ -132,11 +131,13 @@ export default function ComunicacionPage() {
         {isLoading ? (
           <Card><CardContent className="p-6 space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</CardContent></Card>
         ) : strategies.length === 0 ? (
-          <Alert className="border-blue-500/30 bg-blue-500/5">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-700">Sin acciones de comunicación</AlertTitle>
-            <AlertDescription className="text-blue-600">Planifica acciones de comunicación para cada fase del proyecto.</AlertDescription>
-          </Alert>
+          <EmptyState
+            icon={Megaphone}
+            title="Sin acciones de comunicación"
+            description="Planifica acciones de comunicación para cada fase del proyecto."
+            actionLabel="Nueva Acción"
+            onAction={() => openNew()}
+          />
         ) : (
           <Tabs defaultValue="pre-lanzamiento">
             <TabsList>

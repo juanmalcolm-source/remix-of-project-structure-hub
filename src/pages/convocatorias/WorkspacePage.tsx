@@ -12,6 +12,8 @@ import { useAnalisisSolicitud } from '@/hooks/useAnalisisSolicitud';
 import { useTareasSolicitud } from '@/hooks/useTareasSolicitud';
 import { useProject } from '@/hooks/useProject';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
 
 const ESTADO_COLORS: Record<string, string> = {
   borrador: 'bg-muted text-muted-foreground',
@@ -190,23 +192,21 @@ export default function WorkspacePage() {
   return (
     <ConvocatoriasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-display font-bold">Workspace</h2>
-          <p className="text-muted-foreground">Gestiona tus solicitudes activas</p>
-        </div>
+        <PageHeader
+          title="Workspace"
+          description="Gestiona tus solicitudes activas"
+        />
 
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
           </div>
         ) : solicitudes.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <FileText className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Sin solicitudes activas</h3>
-              <p className="text-muted-foreground">Ve a la Biblioteca para solicitar una convocatoria</p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={FileText}
+            title="Sin solicitudes activas"
+            description="Ve a la Biblioteca para solicitar una convocatoria."
+          />
         ) : (
           <div className="space-y-4">
             {solicitudes.map((s) => (

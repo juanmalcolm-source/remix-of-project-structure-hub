@@ -70,7 +70,7 @@ export default function ProductionLayout({
               <Clapperboard className="w-5 h-5 text-orange-500" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-sidebar-foreground text-lg">Fractal Kit</h1>
+              <h1 className="font-display font-bold text-sidebar-foreground text-lg bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">Fractal Kit</h1>
               <p className="text-xs text-sidebar-foreground/60">Producción</p>
             </div>
           </div>
@@ -236,7 +236,7 @@ export default function ProductionLayout({
         </div>
 
         {/* Content */}
-        <div className="p-6 lg:p-8 animate-fade-in">
+        <div className="p-6 lg:p-8 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           {children}
         </div>
       </main>

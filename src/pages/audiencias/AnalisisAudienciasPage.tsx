@@ -2,12 +2,13 @@ import { useParams } from 'react-router-dom';
 import { useAudienceDesigns } from '@/hooks/useAudienceDesigns';
 import { useProject } from '@/hooks/useProject';
 import AudienciasLayout from '@/components/layout/AudienciasLayout';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Info, Sparkles, TrendingUp, Users, AlertTriangle, Lightbulb, Target } from 'lucide-react';
+import { Sparkles, TrendingUp, Users, AlertTriangle, Lightbulb, Target, BarChart3 } from 'lucide-react';
 
 const formatNumber = (v: number) =>
   new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v);
@@ -37,18 +38,16 @@ export default function AnalisisAudienciasPage() {
   return (
     <AudienciasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Análisis de Audiencias</h1>
-            <p className="text-muted-foreground mt-1">Estudio de mercado y segmentación del proyecto.</p>
-          </div>
-          {!design && !isLoading && (
+        <PageHeader
+          title="Análisis de Audiencias"
+          description="Estudio de mercado y segmentación del proyecto."
+          actions={!design && !isLoading ? (
             <Button onClick={handleGenerarMock} disabled={isCreating}>
               <Sparkles className="w-4 h-4 mr-2" />
               {isCreating ? 'Generando...' : 'Generar con IA'}
             </Button>
-          )}
-        </div>
+          ) : undefined}
+        />
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -60,13 +59,13 @@ export default function AnalisisAudienciasPage() {
             ))}
           </div>
         ) : !design ? (
-          <Alert className="border-blue-500/30 bg-blue-500/5">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-700">Sin análisis de mercado</AlertTitle>
-            <AlertDescription className="text-blue-600">
-              Genera un análisis de audiencias con IA para obtener insights sobre el mercado de tu proyecto.
-            </AlertDescription>
-          </Alert>
+          <EmptyState
+            icon={BarChart3}
+            title="Sin análisis de mercado"
+            description="Genera un análisis de audiencias con IA para obtener insights sobre el mercado de tu proyecto."
+            actionLabel="Generar con IA"
+            onAction={handleGenerarMock}
+          />
         ) : (
           <div className="space-y-4">
             {/* KPI */}

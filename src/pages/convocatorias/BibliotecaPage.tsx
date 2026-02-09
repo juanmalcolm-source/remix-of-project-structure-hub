@@ -6,6 +6,7 @@ import { useProject } from '@/hooks/useProject';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
+import UploadBasesDialog from '@/components/convocatorias/UploadBasesDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +17,10 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, ExternalLink, Send, Library } from 'lucide-react';
+import { Search, ExternalLink, Send, Library, Plus, FileDown, Sparkles } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 const formatEUR = (v: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('es-ES') : '—';
@@ -33,9 +36,15 @@ const AMBITO_STYLES: Record<string, string> = {
 const AMBITOS = ['estatal', 'autonomica', 'europea', 'iberoamericana', 'privada'];
 const TIPOS = ['largometraje', 'cortometraje', 'documental', 'produccion', 'distribucion', 'guion'];
 
+function renderList(items: unknown): string[] {
+  if (Array.isArray(items)) return items.map(String);
+  return [];
+}
+
 export default function BibliotecaPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { data: project } = useProject(projectId);
+  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState('');
   const [selectedAmbitos, setSelectedAmbitos] = useState<string[]>([]);
@@ -51,10 +60,11 @@ export default function BibliotecaPage() {
 
   const { createSolicitud, isCreating } = useSolicitudes(projectId);
 
-  const [selectedConv, setSelectedConv] = useState<typeof convocatorias extends (infer T)[] | undefined ? T : never>(null as any);
+  const [selectedConv, setSelectedConv] = useState<NonNullable<typeof convocatorias>[0] | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [solicitudDialog, setSolicitudDialog] = useState(false);
   const [importeSolicitado, setImporteSolicitado] = useState('');
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const openDetail = (c: NonNullable<typeof convocatorias>[0]) => {
     setSelectedConv(c);
@@ -74,12 +84,20 @@ export default function BibliotecaPage() {
   const toggleAmbito = (a: string) => setSelectedAmbitos(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
   const toggleTipo = (t: string) => setSelectedTipos(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
 
+  const basesResumen = selectedConv ? (selectedConv as any).bases_resumen : null;
+  const basesPdfUrl = selectedConv ? (selectedConv as any).bases_pdf_url : null;
+
   return (
     <ConvocatoriasLayout projectTitle={project?.title}>
       <div className="space-y-6">
         <PageHeader
           title="Biblioteca de Convocatorias"
           description="Catálogo de ayudas y convocatorias disponibles."
+          actions={
+            <Button onClick={() => setUploadOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />Nueva Convocatoria
+            </Button>
+          }
         />
 
         <div className="flex gap-6">
@@ -122,7 +140,6 @@ export default function BibliotecaPage() {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            {/* Mobile search */}
             <div className="md:hidden mb-4 relative">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
               <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9" />
@@ -135,6 +152,8 @@ export default function BibliotecaPage() {
                 icon={Library}
                 title="Sin resultados"
                 description="No se encontraron convocatorias con los filtros actuales."
+                actionLabel="Añadir convocatoria"
+                onAction={() => setUploadOpen(true)}
               />
             ) : (
               <Card>
@@ -176,7 +195,7 @@ export default function BibliotecaPage() {
 
         {/* Detail Sheet */}
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetContent className="overflow-y-auto">
+          <SheetContent className="overflow-y-auto w-[420px] sm:max-w-[420px]">
             {selectedConv && (
               <>
                 <SheetHeader>
@@ -189,7 +208,7 @@ export default function BibliotecaPage() {
                   </div>
                   <div><p className="text-sm font-medium text-muted-foreground">Organismo</p><p className="text-sm">{selectedConv.organismo}</p></div>
                   {selectedConv.descripcion && <div><p className="text-sm font-medium text-muted-foreground">Descripción</p><p className="text-sm">{selectedConv.descripcion}</p></div>}
-                  {selectedConv.requisitos && <div><p className="text-sm font-medium text-muted-foreground">Requisitos</p><p className="text-sm">{selectedConv.requisitos}</p></div>}
+                  {selectedConv.requisitos && <div><p className="text-sm font-medium text-muted-foreground">Requisitos</p><p className="text-sm whitespace-pre-line">{selectedConv.requisitos}</p></div>}
                   {selectedConv.dotacion && <div><p className="text-sm font-medium text-muted-foreground">Dotación</p><p className="text-lg font-bold">{formatEUR(Number(selectedConv.dotacion))}</p></div>}
                   <div className="grid grid-cols-2 gap-4">
                     <div><p className="text-sm font-medium text-muted-foreground">Apertura</p><p className="text-sm">{formatDate(selectedConv.fecha_apertura)}</p></div>
@@ -198,6 +217,66 @@ export default function BibliotecaPage() {
                   {(selectedConv.tipos_obra as string[])?.length > 0 && (
                     <div><p className="text-sm font-medium text-muted-foreground mb-1">Tipos de obra</p><div className="flex flex-wrap gap-1">{(selectedConv.tipos_obra as string[]).map((t, i) => <Badge key={i} variant="secondary">{t}</Badge>)}</div></div>
                   )}
+
+                  {/* PDF link */}
+                  {basesPdfUrl && (
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => window.open(basesPdfUrl, '_blank')}>
+                      <FileDown className="w-4 h-4 mr-2" />Ver bases (PDF)
+                    </Button>
+                  )}
+
+                  {/* AI Summary Accordion */}
+                  {basesResumen && (
+                    <div className="border rounded-lg">
+                      <div className="flex items-center gap-2 p-3 border-b">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-semibold">Resumen IA de las bases</span>
+                      </div>
+                      <Accordion type="multiple" className="px-1">
+                        {renderList(basesResumen.requisitos).length > 0 && (
+                          <AccordionItem value="requisitos">
+                            <AccordionTrigger className="text-sm py-2 px-2">Requisitos ({renderList(basesResumen.requisitos).length})</AccordionTrigger>
+                            <AccordionContent className="px-2">
+                              <ul className="space-y-1 text-sm">
+                                {renderList(basesResumen.requisitos).map((r, i) => <li key={i} className="flex gap-2"><span className="text-primary mt-0.5">•</span>{r}</li>)}
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                        )}
+                        {renderList(basesResumen.criterios_valoracion).length > 0 && (
+                          <AccordionItem value="criterios">
+                            <AccordionTrigger className="text-sm py-2 px-2">Criterios de valoración ({renderList(basesResumen.criterios_valoracion).length})</AccordionTrigger>
+                            <AccordionContent className="px-2">
+                              <ul className="space-y-1 text-sm">
+                                {renderList(basesResumen.criterios_valoracion).map((c, i) => <li key={i} className="flex gap-2"><span className="text-primary mt-0.5">•</span>{c}</li>)}
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                        )}
+                        {renderList(basesResumen.documentacion_requerida).length > 0 && (
+                          <AccordionItem value="docs">
+                            <AccordionTrigger className="text-sm py-2 px-2">Documentación requerida ({renderList(basesResumen.documentacion_requerida).length})</AccordionTrigger>
+                            <AccordionContent className="px-2">
+                              <ul className="space-y-1 text-sm">
+                                {renderList(basesResumen.documentacion_requerida).map((d, i) => <li key={i} className="flex gap-2"><span className="text-primary mt-0.5">•</span>{d}</li>)}
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                        )}
+                        {renderList(basesResumen.notas_importantes).length > 0 && (
+                          <AccordionItem value="notas">
+                            <AccordionTrigger className="text-sm py-2 px-2">Notas importantes ({renderList(basesResumen.notas_importantes).length})</AccordionTrigger>
+                            <AccordionContent className="px-2">
+                              <ul className="space-y-1 text-sm">
+                                {renderList(basesResumen.notas_importantes).map((n, i) => <li key={i} className="flex gap-2"><span className="text-amber-500 mt-0.5">⚠</span>{n}</li>)}
+                              </ul>
+                            </AccordionContent>
+                          </AccordionItem>
+                        )}
+                      </Accordion>
+                    </div>
+                  )}
+
                   {selectedConv.url && (
                     <Button variant="outline" size="sm" onClick={() => window.open(selectedConv.url!, '_blank')}>
                       <ExternalLink className="w-4 h-4 mr-2" />Web oficial
@@ -226,6 +305,13 @@ export default function BibliotecaPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Upload Bases Dialog */}
+        <UploadBasesDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          onCreated={() => queryClient.invalidateQueries({ queryKey: ['convocatorias'] })}
+        />
       </div>
     </ConvocatoriasLayout>
   );

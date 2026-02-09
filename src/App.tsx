@@ -41,6 +41,7 @@ import TerritoriosPage from "./pages/financiacion/TerritoriosPage";
 import FuentesPage from "./pages/financiacion/FuentesPage";
 import SimuladorPage from "./pages/financiacion/SimuladorPage";
 import TimelinePage from "./pages/financiacion/TimelinePage";
+import ResumenPage from "./pages/financiacion/ResumenPage";
 
 import NotFound from "./pages/NotFound";
 
@@ -82,6 +83,7 @@ const App = () => (
               <Route path="/produccion/:projectId/dossier" element={<ProtectedRoute><ExportDossierPage /></ProtectedRoute>} />
               
               {/* Financiacion - with projectId */}
+              <Route path="/financiacion/:projectId/resumen" element={<ProtectedRoute><ResumenPage /></ProtectedRoute>} />
               <Route path="/financiacion/:projectId/configuracion" element={<ProtectedRoute><ConfiguracionPage /></ProtectedRoute>} />
               <Route path="/financiacion/:projectId/intensidad" element={<ProtectedRoute><IntensidadPage /></ProtectedRoute>} />
               <Route path="/financiacion/:projectId/territorios" element={<ProtectedRoute><TerritoriosPage /></ProtectedRoute>} />

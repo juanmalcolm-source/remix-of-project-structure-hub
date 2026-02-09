@@ -421,6 +421,56 @@ export type Database = {
           },
         ]
       }
+      communication_strategies: {
+        Row: {
+          accion: string
+          canal: string
+          created_at: string
+          estado: string | null
+          fase: string | null
+          fecha_fin: string | null
+          fecha_inicio: string | null
+          id: string
+          presupuesto: number | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          accion: string
+          canal: string
+          created_at?: string
+          estado?: string | null
+          fase?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          id?: string
+          presupuesto?: number | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          accion?: string
+          canal?: string
+          created_at?: string
+          estado?: string | null
+          fase?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string | null
+          id?: string
+          presupuesto?: number | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_strategies_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creative_analysis: {
         Row: {
           act_structure: Json | null
@@ -485,6 +535,103 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "creative_analysis_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_plans: {
+        Row: {
+          canal: string
+          created_at: string
+          estrategia: string | null
+          id: string
+          ingreso_estimado: number | null
+          project_id: string
+          territorio: string | null
+          updated_at: string
+          ventana: string | null
+        }
+        Insert: {
+          canal: string
+          created_at?: string
+          estrategia?: string | null
+          id?: string
+          ingreso_estimado?: number | null
+          project_id: string
+          territorio?: string | null
+          updated_at?: string
+          ventana?: string | null
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          estrategia?: string | null
+          id?: string
+          ingreso_estimado?: number | null
+          project_id?: string
+          territorio?: string | null
+          updated_at?: string
+          ventana?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      festival_strategies: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          estado: string | null
+          estrategia: string | null
+          fecha_limite: string | null
+          id: string
+          nombre: string
+          notas: string | null
+          pais: string | null
+          prioridad: string | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          estado?: string | null
+          estrategia?: string | null
+          fecha_limite?: string | null
+          id?: string
+          nombre: string
+          notas?: string | null
+          pais?: string | null
+          prioridad?: string | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          estado?: string | null
+          estrategia?: string | null
+          fecha_limite?: string | null
+          id?: string
+          nombre?: string
+          notas?: string | null
+          pais?: string | null
+          prioridad?: string | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "festival_strategies_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

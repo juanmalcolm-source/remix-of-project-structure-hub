@@ -47,6 +47,9 @@ import ResumenPage from "./pages/financiacion/ResumenPage";
 import AnalisisAudienciasPage from "./pages/audiencias/AnalisisAudienciasPage";
 import AudienciasPage from "./pages/audiencias/AudienciasPage";
 import BuyerPersonasPage from "./pages/audiencias/BuyerPersonasPage";
+import FestivalesPage from "./pages/audiencias/FestivalesPage";
+import DistribucionPage from "./pages/audiencias/DistribucionPage";
+import ComunicacionPage from "./pages/audiencias/ComunicacionPage";
 
 import NotFound from "./pages/NotFound";
 
@@ -100,6 +103,9 @@ const App = () => (
               <Route path="/audiencias/:projectId/analisis" element={<ProtectedRoute><AnalisisAudienciasPage /></ProtectedRoute>} />
               <Route path="/audiencias/:projectId/segmentos" element={<ProtectedRoute><AudienciasPage /></ProtectedRoute>} />
               <Route path="/audiencias/:projectId/buyer-personas" element={<ProtectedRoute><BuyerPersonasPage /></ProtectedRoute>} />
+              <Route path="/audiencias/:projectId/festivales" element={<ProtectedRoute><FestivalesPage /></ProtectedRoute>} />
+              <Route path="/audiencias/:projectId/distribucion" element={<ProtectedRoute><DistribucionPage /></ProtectedRoute>} />
+              <Route path="/audiencias/:projectId/comunicacion" element={<ProtectedRoute><ComunicacionPage /></ProtectedRoute>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

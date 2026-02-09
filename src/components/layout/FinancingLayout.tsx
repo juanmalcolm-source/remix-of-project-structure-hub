@@ -13,7 +13,8 @@ import {
   Palette,
   Clapperboard,
   TrendingUp,
-  Megaphone
+  Megaphone,
+  Landmark,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -138,6 +139,15 @@ export default function FinancingLayout({
           >
             <Megaphone className="w-4 h-4 mr-2" />
             Audiencias
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate(`/convocatorias/${projectId}/biblioteca`)}
+            className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <Landmark className="w-4 h-4 mr-2" />
+            Convocatorias
           </Button>
         </div>
 

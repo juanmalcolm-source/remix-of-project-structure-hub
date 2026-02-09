@@ -471,6 +471,57 @@ export type Database = {
           },
         ]
       }
+      convocatorias: {
+        Row: {
+          activa: boolean | null
+          ambito: string
+          created_at: string
+          descripcion: string | null
+          dotacion: number | null
+          fecha_apertura: string | null
+          fecha_cierre: string | null
+          id: string
+          nombre: string
+          organismo: string
+          requisitos: string | null
+          tipos_obra: string[] | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          activa?: boolean | null
+          ambito: string
+          created_at?: string
+          descripcion?: string | null
+          dotacion?: number | null
+          fecha_apertura?: string | null
+          fecha_cierre?: string | null
+          id?: string
+          nombre: string
+          organismo: string
+          requisitos?: string | null
+          tipos_obra?: string[] | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          activa?: boolean | null
+          ambito?: string
+          created_at?: string
+          descripcion?: string | null
+          dotacion?: number | null
+          fecha_apertura?: string | null
+          fecha_cierre?: string | null
+          id?: string
+          nombre?: string
+          organismo?: string
+          requisitos?: string | null
+          tipos_obra?: string[] | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       creative_analysis: {
         Row: {
           act_structure: Json | null
@@ -1192,6 +1243,54 @@ export type Database = {
           },
           {
             foreignKeyName: "shooting_days_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solicitudes: {
+        Row: {
+          convocatoria_id: string
+          created_at: string
+          estado: string | null
+          fecha_envio: string | null
+          id: string
+          importe_solicitado: number | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          convocatoria_id: string
+          created_at?: string
+          estado?: string | null
+          fecha_envio?: string | null
+          id?: string
+          importe_solicitado?: number | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          convocatoria_id?: string
+          created_at?: string
+          estado?: string | null
+          fecha_envio?: string | null
+          id?: string
+          importe_solicitado?: number | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitudes_convocatoria_id_fkey"
+            columns: ["convocatoria_id"]
+            isOneToOne: false
+            referencedRelation: "convocatorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

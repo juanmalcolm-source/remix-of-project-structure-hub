@@ -51,6 +51,10 @@ import FestivalesPage from "./pages/audiencias/FestivalesPage";
 import DistribucionPage from "./pages/audiencias/DistribucionPage";
 import ComunicacionPage from "./pages/audiencias/ComunicacionPage";
 
+// Convocatorias Pages
+import BibliotecaPage from "./pages/convocatorias/BibliotecaPage";
+import CalendarioPage from "./pages/convocatorias/CalendarioPage";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -106,6 +110,10 @@ const App = () => (
               <Route path="/audiencias/:projectId/festivales" element={<ProtectedRoute><FestivalesPage /></ProtectedRoute>} />
               <Route path="/audiencias/:projectId/distribucion" element={<ProtectedRoute><DistribucionPage /></ProtectedRoute>} />
               <Route path="/audiencias/:projectId/comunicacion" element={<ProtectedRoute><ComunicacionPage /></ProtectedRoute>} />
+
+              {/* Convocatorias - with projectId */}
+              <Route path="/convocatorias/:projectId/biblioteca" element={<ProtectedRoute><BibliotecaPage /></ProtectedRoute>} />
+              <Route path="/convocatorias/:projectId/calendario" element={<ProtectedRoute><CalendarioPage /></ProtectedRoute>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

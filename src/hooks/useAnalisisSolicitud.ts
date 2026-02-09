@@ -33,9 +33,9 @@ export function useAnalisisSolicitud(solicitudId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['analisis_solicitud', solicitudId] });
-      toast({ title: 'Análisis guardado' });
+      toast({ title: 'Creado', description: 'Análisis guardado correctamente' });
     },
-    onError: () => toast({ title: 'Error al guardar análisis', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   return {

@@ -30,8 +30,11 @@ export function useDistribution(projectId: string | undefined) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['distribution', projectId] }); toast({ title: 'Plan creado' }); },
-    onError: () => toast({ title: 'Error al crear plan', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['distribution', projectId] });
+      toast({ title: 'Creado', description: 'Plan de distribución creado correctamente' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -40,8 +43,11 @@ export function useDistribution(projectId: string | undefined) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['distribution', projectId] }); toast({ title: 'Plan actualizado' }); },
-    onError: () => toast({ title: 'Error al actualizar', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['distribution', projectId] });
+      toast({ title: 'Actualizado', description: 'Cambios guardados' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -49,8 +55,11 @@ export function useDistribution(projectId: string | undefined) {
       const { error } = await supabase.from('distribution_plans').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['distribution', projectId] }); toast({ title: 'Plan eliminado' }); },
-    onError: () => toast({ title: 'Error al eliminar', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['distribution', projectId] });
+      toast({ title: 'Eliminado', description: 'Plan eliminado', variant: 'destructive' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   return {

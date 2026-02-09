@@ -32,9 +32,9 @@ export function useTareasSolicitud(solicitudId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tareas_solicitud', solicitudId] });
-      toast({ title: 'Tarea creada' });
+      toast({ title: 'Creado', description: 'Tarea creada correctamente' });
     },
-    onError: () => toast({ title: 'Error al crear tarea', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -50,9 +50,9 @@ export function useTareasSolicitud(solicitudId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tareas_solicitud', solicitudId] });
-      toast({ title: 'Tarea actualizada' });
+      toast({ title: 'Actualizado', description: 'Cambios guardados' });
     },
-    onError: () => toast({ title: 'Error al actualizar tarea', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -62,9 +62,9 @@ export function useTareasSolicitud(solicitudId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tareas_solicitud', solicitudId] });
-      toast({ title: 'Tarea eliminada' });
+      toast({ title: 'Eliminado', description: 'Tarea eliminada', variant: 'destructive' });
     },
-    onError: () => toast({ title: 'Error al eliminar tarea', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   return {

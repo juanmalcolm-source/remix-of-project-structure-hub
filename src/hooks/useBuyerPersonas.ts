@@ -32,9 +32,9 @@ export function useBuyerPersonas(projectId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['buyer-personas', projectId] });
-      toast({ title: 'Buyer Persona creado' });
+      toast({ title: 'Creado', description: 'Buyer Persona creado correctamente' });
     },
-    onError: () => toast({ title: 'Error al crear persona', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -50,9 +50,9 @@ export function useBuyerPersonas(projectId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['buyer-personas', projectId] });
-      toast({ title: 'Buyer Persona actualizado' });
+      toast({ title: 'Actualizado', description: 'Cambios guardados' });
     },
-    onError: () => toast({ title: 'Error al actualizar', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -62,9 +62,9 @@ export function useBuyerPersonas(projectId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['buyer-personas', projectId] });
-      toast({ title: 'Buyer Persona eliminado' });
+      toast({ title: 'Eliminado', description: 'Buyer Persona eliminado', variant: 'destructive' });
     },
-    onError: () => toast({ title: 'Error al eliminar', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   return {

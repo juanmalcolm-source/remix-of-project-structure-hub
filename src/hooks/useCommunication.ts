@@ -30,8 +30,11 @@ export function useCommunication(projectId: string | undefined) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['communication', projectId] }); toast({ title: 'Acción creada' }); },
-    onError: () => toast({ title: 'Error al crear acción', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communication', projectId] });
+      toast({ title: 'Creado', description: 'Acción de comunicación creada correctamente' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -40,8 +43,11 @@ export function useCommunication(projectId: string | undefined) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['communication', projectId] }); toast({ title: 'Acción actualizada' }); },
-    onError: () => toast({ title: 'Error al actualizar', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communication', projectId] });
+      toast({ title: 'Actualizado', description: 'Cambios guardados' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -49,8 +55,11 @@ export function useCommunication(projectId: string | undefined) {
       const { error } = await supabase.from('communication_strategies').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['communication', projectId] }); toast({ title: 'Acción eliminada' }); },
-    onError: () => toast({ title: 'Error al eliminar', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communication', projectId] });
+      toast({ title: 'Eliminado', description: 'Acción eliminada', variant: 'destructive' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   return {

@@ -32,9 +32,9 @@ export function useAudiences(projectId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['audiences', projectId] });
-      toast({ title: 'Segmento creado' });
+      toast({ title: 'Creado', description: 'Segmento creado correctamente' });
     },
-    onError: () => toast({ title: 'Error al crear segmento', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -50,9 +50,9 @@ export function useAudiences(projectId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['audiences', projectId] });
-      toast({ title: 'Segmento actualizado' });
+      toast({ title: 'Actualizado', description: 'Cambios guardados' });
     },
-    onError: () => toast({ title: 'Error al actualizar', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -62,9 +62,9 @@ export function useAudiences(projectId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['audiences', projectId] });
-      toast({ title: 'Segmento eliminado' });
+      toast({ title: 'Eliminado', description: 'Segmento eliminado', variant: 'destructive' });
     },
-    onError: () => toast({ title: 'Error al eliminar', variant: 'destructive' }),
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   return {

@@ -30,8 +30,11 @@ export function useSolicitudes(projectId: string | undefined) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['solicitudes', projectId] }); toast({ title: 'Solicitud creada' }); },
-    onError: () => toast({ title: 'Error al crear solicitud', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', projectId] });
+      toast({ title: 'Creado', description: 'Solicitud creada correctamente' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const updateMutation = useMutation({
@@ -40,8 +43,11 @@ export function useSolicitudes(projectId: string | undefined) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['solicitudes', projectId] }); toast({ title: 'Solicitud actualizada' }); },
-    onError: () => toast({ title: 'Error al actualizar', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', projectId] });
+      toast({ title: 'Actualizado', description: 'Cambios guardados' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -49,8 +55,11 @@ export function useSolicitudes(projectId: string | undefined) {
       const { error } = await supabase.from('solicitudes').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['solicitudes', projectId] }); toast({ title: 'Solicitud eliminada' }); },
-    onError: () => toast({ title: 'Error al eliminar', variant: 'destructive' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['solicitudes', projectId] });
+      toast({ title: 'Eliminado', description: 'Solicitud eliminada', variant: 'destructive' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
   return {

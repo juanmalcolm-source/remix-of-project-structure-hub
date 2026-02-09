@@ -42,6 +42,9 @@ export default function AudienciasLayout({
     { id: 'analisis', label: 'Análisis', icon: BarChart3, path: `/audiencias/${projectId}/analisis` },
     { id: 'segmentos', label: 'Segmentos', icon: Users, path: `/audiencias/${projectId}/segmentos` },
     { id: 'buyer-personas', label: 'Buyer Personas', icon: UserCircle, path: `/audiencias/${projectId}/buyer-personas` },
+    { id: 'festivales', label: 'Festivales', icon: Film, path: `/audiencias/${projectId}/festivales` },
+    { id: 'distribucion', label: 'Distribución', icon: Megaphone, path: `/audiencias/${projectId}/distribucion` },
+    { id: 'comunicacion', label: 'Comunicación', icon: Megaphone, path: `/audiencias/${projectId}/comunicacion` },
   ];
 
   const handleSignOut = async () => {

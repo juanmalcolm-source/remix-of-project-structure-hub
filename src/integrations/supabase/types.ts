@@ -507,7 +507,11 @@ export type Database = {
         Row: {
           activa: boolean | null
           ambito: string
+          bases_pdf_url: string | null
+          bases_resumen: Json | null
+          bases_texto_extraido: string | null
           created_at: string
+          created_by: string | null
           descripcion: string | null
           dotacion: number | null
           fecha_apertura: string | null
@@ -523,7 +527,11 @@ export type Database = {
         Insert: {
           activa?: boolean | null
           ambito: string
+          bases_pdf_url?: string | null
+          bases_resumen?: Json | null
+          bases_texto_extraido?: string | null
           created_at?: string
+          created_by?: string | null
           descripcion?: string | null
           dotacion?: number | null
           fecha_apertura?: string | null
@@ -539,7 +547,11 @@ export type Database = {
         Update: {
           activa?: boolean | null
           ambito?: string
+          bases_pdf_url?: string | null
+          bases_resumen?: Json | null
+          bases_texto_extraido?: string | null
           created_at?: string
+          created_by?: string | null
           descripcion?: string | null
           dotacion?: number | null
           fecha_apertura?: string | null

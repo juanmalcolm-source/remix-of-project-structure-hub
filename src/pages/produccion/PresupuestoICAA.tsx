@@ -17,7 +17,12 @@ import {
   DollarSign,
   Film,
   CalendarDays,
-  Clock
+  Clock,
+  Save,
+  History,
+  RotateCcw,
+  ArrowLeftRight,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,6 +43,11 @@ import {
   useBulkCreateBudgetLines,
   type BudgetLine as DBBudgetLine
 } from '@/hooks/useBudgetLines';
+import {
+  useBudgetVersions,
+  useCreateBudgetVersion,
+  useDeleteBudgetVersion,
+} from '@/hooks/useBudgetVersions';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   generarPresupuestoEstimado, 
@@ -51,6 +61,28 @@ import {
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface LocalBudgetLine {
   id: string;
@@ -232,6 +264,18 @@ export default function PresupuestoICAA() {
   const [aiRecommendations, setAiRecommendations] = useState<string[]>([]);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [activeChapter, setActiveChapter] = useState<string>("1");
+  
+  // Versioning state
+  const { data: versions = [], isLoading: versionsLoading } = useBudgetVersions(projectId);
+  const createVersion = useCreateBudgetVersion();
+  const deleteVersion = useDeleteBudgetVersion();
+  const [showVersionsPanel, setShowVersionsPanel] = useState(false);
+  const [showSaveVersionDialog, setShowSaveVersionDialog] = useState(false);
+  const [versionName, setVersionName] = useState('');
+  const [versionNotes, setVersionNotes] = useState('');
+  const [isSavingVersion, setIsSavingVersion] = useState(false);
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
+
   // Initialize chapters from DB
   useEffect(() => {
     if (!linesLoading) {
@@ -799,8 +843,129 @@ export default function PresupuestoICAA() {
     }
   };
 
+  // === Version handlers ===
+  const handleSaveVersion = async () => {
+    if (!projectId) return;
+    setIsSavingVersion(true);
+    try {
+      // Build snapshot from current chapters
+      const snapshot = chapters.map(ch => ({
+        id: ch.id,
+        name: ch.name,
+        lines: ch.lines.map(l => ({
+          accountNumber: l.accountNumber,
+          concept: l.concept,
+          units: l.units,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          agencyPercentage: l.agencyPercentage,
+          total: l.total,
+        })),
+      }));
+
+      const total = chapters.reduce((s, ch) => s + ch.lines.reduce((s2, l) => s2 + l.total, 0), 0);
+
+      await createVersion.mutateAsync({
+        projectId,
+        versionName: versionName || undefined,
+        notes: versionNotes || undefined,
+        budgetJson: { chapters: snapshot } as any,
+        totalAmount: total,
+      });
+
+      setShowSaveVersionDialog(false);
+      setVersionName('');
+      setVersionNotes('');
+      toast({ title: '✓ Versión guardada' });
+    } catch (error) {
+      console.error('Error saving version:', error);
+      toast({ title: 'Error al guardar versión', variant: 'destructive' });
+    } finally {
+      setIsSavingVersion(false);
+    }
+  };
+
+  const handleLoadVersion = async (versionId: string) => {
+    if (!projectId) return;
+    const version = versions.find(v => v.id === versionId);
+    if (!version) return;
+
+    try {
+      const json = version.budget_json as any;
+      if (!json?.chapters) {
+        toast({ title: 'Formato de versión no válido', variant: 'destructive' });
+        return;
+      }
+
+      // Convert snapshot back to budget_lines format for bulk insert
+      const lines: any[] = [];
+      for (const ch of json.chapters) {
+        for (const line of ch.lines) {
+          lines.push({
+            chapter: ch.id,
+            account_number: line.accountNumber,
+            concept: line.concept,
+            units: line.units,
+            quantity: line.quantity,
+            unit_price: line.unitPrice,
+            agency_percentage: line.agencyPercentage,
+          });
+        }
+      }
+
+      await bulkCreate.mutateAsync({ projectId, lines });
+      setShowEmptyState(false);
+      toast({
+        title: '✓ Versión restaurada',
+        description: `Se cargó "${version.version_name || `v${version.version_number}`}" con ${lines.length} partidas`,
+      });
+    } catch (error) {
+      console.error('Error loading version:', error);
+      toast({ title: 'Error al cargar versión', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteVersion = async (versionId: string) => {
+    if (!projectId) return;
+    try {
+      await deleteVersion.mutateAsync({ id: versionId, projectId });
+      if (compareVersionId === versionId) setCompareVersionId(null);
+      toast({ title: '✓ Versión eliminada' });
+    } catch (error) {
+      toast({ title: 'Error al eliminar versión', variant: 'destructive' });
+    }
+  };
+
+  const getCompareVersion = () => {
+    if (!compareVersionId) return null;
+    return versions.find(v => v.id === compareVersionId) || null;
+  };
+
+  const getCompareChapterTotal = (chapterId: number): number | null => {
+    const version = getCompareVersion();
+    if (!version) return null;
+    const json = version.budget_json as any;
+    if (!json?.chapters) return null;
+    const ch = json.chapters.find((c: any) => c.id === chapterId);
+    if (!ch) return 0;
+    return ch.lines.reduce((s: number, l: any) => s + (l.total || 0), 0);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
+  };
+
+  const formatDiffBadge = (current: number, previous: number | null) => {
+    if (previous === null) return null;
+    const diff = current - previous;
+    const pct = previous > 0 ? ((diff / previous) * 100) : 0;
+    if (Math.abs(diff) < 1) return null;
+    const isUp = diff > 0;
+    return (
+      <Badge variant="outline" className={`ml-2 text-xs ${isUp ? 'border-destructive/50 text-destructive' : 'border-emerald-500/50 text-emerald-600'}`}>
+        {isUp ? '+' : ''}{pct.toFixed(1)}%
+      </Badge>
+    );
   };
 
   const getChapterTotal = (chapter: BudgetChapter) => 
@@ -1252,6 +1417,32 @@ export default function PresupuestoICAA() {
                       Regenerar
                     </Button>
                   )}
+                  
+                  {/* Version Buttons */}
+                  {!showEmptyState && dbLines.length > 0 && (
+                    <>
+                      <div className="w-px h-6 bg-border" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSaveVersionDialog(true)}
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Guardar versión
+                      </Button>
+                      <Button
+                        variant={showVersionsPanel ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setShowVersionsPanel(!showVersionsPanel)}
+                      >
+                        <History className="w-4 h-4 mr-2" />
+                        Versiones
+                        {versions.length > 0 && (
+                          <Badge variant="secondary" className="ml-1">{versions.length}</Badge>
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </div>
                 
                 {/* Budget Level Badge */}
@@ -1276,6 +1467,7 @@ export default function PresupuestoICAA() {
                     {chapters.map((chapter) => {
                       const chapterTotal = getChapterTotal(chapter);
                       const hasData = chapterTotal > 0;
+                      const compareTotal = getCompareChapterTotal(chapter.id);
                       return (
                         <TabsTrigger
                           key={chapter.id}
@@ -1286,6 +1478,7 @@ export default function PresupuestoICAA() {
                           <span className={`text-xs ${hasData ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
                             {chapterTotal > 0 ? formatCurrency(chapterTotal) : '—'}
                           </span>
+                          {compareTotal !== null && formatDiffBadge(chapterTotal, compareTotal)}
                         </TabsTrigger>
                       );
                     })}
@@ -1443,13 +1636,183 @@ export default function PresupuestoICAA() {
           <Card className="border-2 border-primary">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
-                <span className="text-xl font-semibold">TOTAL GENERAL</span>
-                <span className="text-3xl font-bold text-primary">{formatCurrency(grandTotal)}</span>
+                <div>
+                  <span className="text-xl font-semibold">TOTAL GENERAL</span>
+                  {compareVersionId && getCompareVersion() && (
+                    <span className="text-sm text-muted-foreground ml-3">
+                      vs {getCompareVersion()?.version_name || `v${getCompareVersion()?.version_number}`}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center">
+                  <span className="text-3xl font-bold text-primary">{formatCurrency(grandTotal)}</span>
+                  {compareVersionId && formatDiffBadge(grandTotal, Number(getCompareVersion()?.total_amount || 0))}
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
+
+        {/* Versions Panel */}
+        {showVersionsPanel && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <History className="w-5 h-5" />
+                  Historial de versiones
+                </CardTitle>
+                <Button variant="ghost" size="icon" onClick={() => setShowVersionsPanel(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              {compareVersionId && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant="outline" className="gap-1">
+                    <ArrowLeftRight className="w-3 h-3" />
+                    Comparando con: {getCompareVersion()?.version_name || `v${getCompareVersion()?.version_number}`}
+                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={() => setCompareVersionId(null)}>
+                    Dejar de comparar
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {versionsLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : versions.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No hay versiones guardadas. Guarda una versión para poder restaurarla o compararla.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {versions.map((v) => (
+                    <div key={v.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{v.version_name || `Versión ${v.version_number}`}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {formatCurrency(Number(v.total_amount || 0))}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {new Date(v.created_at).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {v.notes && ` — ${v.notes}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant={compareVersionId === v.id ? 'secondary' : 'ghost'}
+                          size="sm"
+                          onClick={() => setCompareVersionId(compareVersionId === v.id ? null : v.id)}
+                          title="Comparar con versión actual"
+                        >
+                          <ArrowLeftRight className="w-4 h-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" title="Restaurar esta versión">
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Restaurar versión?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esto reemplazará el presupuesto actual con "{v.version_name || `v${v.version_number}`}".
+                                Se recomienda guardar una versión del presupuesto actual antes de restaurar.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleLoadVersion(v.id)}>
+                                Restaurar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" title="Eliminar versión">
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar versión?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Se eliminará permanentemente "{v.version_name || `v${v.version_number}`}".
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteVersion(v.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Save Version Dialog */}
+      <Dialog open={showSaveVersionDialog} onOpenChange={setShowSaveVersionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Guardar versión del presupuesto</DialogTitle>
+            <DialogDescription>
+              Se guardará un snapshot completo del presupuesto actual ({formatCurrency(grandTotal)}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="version-name">Nombre (opcional)</Label>
+              <Input
+                id="version-name"
+                placeholder={`v${(versions[0]?.version_number ?? 0) + 1}`}
+                value={versionName}
+                onChange={(e) => setVersionName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="version-notes">Notas (opcional)</Label>
+              <Textarea
+                id="version-notes"
+                placeholder="Ej: Versión pre-rodaje, ajustes post-casting..."
+                value={versionNotes}
+                onChange={(e) => setVersionNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveVersionDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveVersion} disabled={isSavingVersion}>
+              {isSavingVersion ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ProductionLayout>
   );
 }

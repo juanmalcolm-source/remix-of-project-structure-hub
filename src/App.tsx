@@ -106,6 +106,7 @@ const App = () => (
               <Route path="/financiacion/:projectId/timeline" element={<ProtectedRoute><TimelinePage /></ProtectedRoute>} />
               
               {/* Audiencias - with projectId */}
+              <Route path="/audiencias/:projectId" element={<Navigate to="analisis" replace />} />
               <Route path="/audiencias/:projectId/analisis" element={<ProtectedRoute><AnalisisAudienciasPage /></ProtectedRoute>} />
               <Route path="/audiencias/:projectId/segmentos" element={<ProtectedRoute><AudienciasPage /></ProtectedRoute>} />
               <Route path="/audiencias/:projectId/buyer-personas" element={<ProtectedRoute><BuyerPersonasPage /></ProtectedRoute>} />
@@ -114,6 +115,7 @@ const App = () => (
               <Route path="/audiencias/:projectId/comunicacion" element={<ProtectedRoute><ComunicacionPage /></ProtectedRoute>} />
 
               {/* Convocatorias - with projectId */}
+              <Route path="/convocatorias/:projectId" element={<Navigate to="biblioteca" replace />} />
               <Route path="/convocatorias/:projectId/biblioteca" element={<ProtectedRoute><BibliotecaPage /></ProtectedRoute>} />
               <Route path="/convocatorias/:projectId/calendario" element={<ProtectedRoute><CalendarioPage /></ProtectedRoute>} />
               <Route path="/convocatorias/:projectId/workspace" element={<ProtectedRoute><WorkspacePage /></ProtectedRoute>} />

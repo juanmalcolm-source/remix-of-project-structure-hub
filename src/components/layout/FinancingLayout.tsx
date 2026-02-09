@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Save,
   Palette,
-  Clapperboard
+  Clapperboard,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ export default function FinancingLayout({
   const { user, profile, signOut } = useAuth();
 
   const financingTabs = [
+    { id: 'resumen', label: 'Resumen', icon: TrendingUp, path: `/financiacion/${projectId}/resumen` },
     { id: 'configuracion', label: 'Configuración', icon: Settings, path: `/financiacion/${projectId}/configuracion` },
     { id: 'intensidad', label: 'Intensidad Pública', icon: Percent, path: `/financiacion/${projectId}/intensidad` },
     { id: 'territorios', label: 'Comparador Territorios', icon: Map, path: `/financiacion/${projectId}/territorios` },

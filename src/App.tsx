@@ -24,6 +24,7 @@ import ViabilidadPage from "./pages/proyecto/ViabilidadPage";
 import MoodBoardPage from "./pages/proyecto/MoodBoardPage";
 
 // Produccion Pages
+import DesglosePage from "./pages/produccion/DesglosePage";
 import DesglosePersonajesPage from "./pages/produccion/DesglosePersonajesPage";
 import DesgloseLocalizacionesPage from "./pages/produccion/DesgloseLocalizacionesPage";
 import LugaresFisicosPage from "./pages/produccion/LugaresFisicosPage";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="/proyecto/:projectId/moodboard" element={<ProtectedRoute><MoodBoardPage /></ProtectedRoute>} />
               
               {/* Produccion - with projectId */}
+              <Route path="/produccion/:projectId/desglose" element={<ProtectedRoute><DesglosePage /></ProtectedRoute>} />
               <Route path="/produccion/:projectId/personajes" element={<ProtectedRoute><DesglosePersonajesPage /></ProtectedRoute>} />
               <Route path="/produccion/:projectId/localizaciones" element={<ProtectedRoute><DesgloseLocalizacionesPage /></ProtectedRoute>} />
               <Route path="/produccion/:projectId/lugares" element={<ProtectedRoute><LugaresFisicosPage /></ProtectedRoute>} />

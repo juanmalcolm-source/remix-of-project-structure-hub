@@ -41,6 +41,7 @@ export default function ProductionLayout({
   const { user, profile, signOut } = useAuth();
 
   const productionTabs = [
+    { id: 'desglose', label: 'Desglose Guión', icon: Clapperboard, path: `/produccion/${projectId}/desglose` },
     { id: 'personajes', label: 'Desglose Personajes', icon: Users, path: `/produccion/${projectId}/personajes` },
     { id: 'localizaciones', label: 'Desglose Localizaciones', icon: MapPin, path: `/produccion/${projectId}/localizaciones` },
     { id: 'lugares', label: 'Lugares Físicos', icon: Navigation, path: `/produccion/${projectId}/lugares` },

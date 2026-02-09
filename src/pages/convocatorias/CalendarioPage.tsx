@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useConvocatorias } from '@/hooks/useConvocatorias';
 import { useProject } from '@/hooks/useProject';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
+import PageHeader from '@/components/common/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -85,10 +86,10 @@ export default function CalendarioPage() {
   return (
     <ConvocatoriasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold">Calendario de Convocatorias</h1>
-          <p className="text-muted-foreground mt-1">Fechas de cierre de convocatorias.</p>
-        </div>
+        <PageHeader
+          title="Calendario de Convocatorias"
+          description="Fechas de cierre de convocatorias."
+        />
 
         {isLoading ? (
           <Card><CardContent className="p-6"><Skeleton className="h-96 w-full" /></CardContent></Card>

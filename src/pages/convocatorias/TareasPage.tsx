@@ -17,6 +17,8 @@ import { useSolicitudes } from '@/hooks/useSolicitudes';
 import { useTareasSolicitud } from '@/hooks/useTareasSolicitud';
 import { useProject } from '@/hooks/useProject';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
+import PageHeader from '@/components/common/PageHeader';
+import EmptyState from '@/components/common/EmptyState';
 
 const PRIORIDAD_COLORS: Record<string, string> = {
   baja: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
@@ -95,26 +97,22 @@ export default function TareasPage() {
   return (
     <ConvocatoriasLayout projectTitle={project?.title}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-display font-bold">Tareas</h2>
-            <p className="text-muted-foreground">Gestiona las tareas de tus solicitudes</p>
-          </div>
-          {effectiveSolicitudId && (
+        <PageHeader
+          title="Tareas"
+          description="Gestiona las tareas de tus solicitudes"
+          actions={effectiveSolicitudId ? (
             <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" /> Nueva Tarea</Button>
-          )}
-        </div>
+          ) : undefined}
+        />
 
         {solLoading ? (
           <Skeleton className="h-10 w-full" />
         ) : solicitudes.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <ListChecks className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Sin solicitudes</h3>
-              <p className="text-muted-foreground">Crea una solicitud en el Workspace para gestionar tareas</p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={ListChecks}
+            title="Sin solicitudes"
+            description="Crea una solicitud en el Workspace para gestionar tareas."
+          />
         ) : (
           <>
             {/* Selector solicitud */}

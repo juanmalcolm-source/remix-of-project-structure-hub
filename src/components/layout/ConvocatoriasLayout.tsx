@@ -52,7 +52,7 @@ export default function ConvocatoriasLayout({
   const renderSidebarContent = () => (
     <>
       <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
+        <button onClick={() => navigateTo(`/proyecto/${projectId}/dashboard`)} className="flex items-center gap-3 w-full text-left">
           <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
             <Landmark className="w-5 h-5 text-amber-600" />
           </div>
@@ -60,7 +60,7 @@ export default function ConvocatoriasLayout({
             <h1 className="font-display font-bold text-sidebar-foreground text-lg bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">Fractal Kit</h1>
             <p className="text-xs text-sidebar-foreground/60">Convocatorias</p>
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="px-4 py-4 border-b border-sidebar-border">
@@ -137,7 +137,7 @@ export default function ConvocatoriasLayout({
             <BreadcrumbList>
               <BreadcrumbItem><BreadcrumbLink className="cursor-pointer" onClick={() => navigate('/proyectos')}>Proyectos</BreadcrumbLink></BreadcrumbItem>
               <BreadcrumbSeparator />
-              <BreadcrumbItem><BreadcrumbLink className="cursor-pointer" onClick={() => navigate(`/proyecto/${projectId}/overview`)}>{projectTitle}</BreadcrumbLink></BreadcrumbItem>
+              <BreadcrumbItem><BreadcrumbLink className="cursor-pointer" onClick={() => navigate(`/proyecto/${projectId}/dashboard`)}>{projectTitle}</BreadcrumbLink></BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem><BreadcrumbPage>Convocatorias</BreadcrumbPage></BreadcrumbItem>
             </BreadcrumbList>

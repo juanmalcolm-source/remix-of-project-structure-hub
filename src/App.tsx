@@ -14,6 +14,7 @@ import Upload from "./pages/Upload";
 import Proyectos from "./pages/Proyectos";
 import Perfil from "./pages/Perfil";
 import Analisis from "./pages/Analisis";
+import DashboardPage from "./pages/DashboardPage";
 
 // Proyecto (Creative) Pages
 import OverviewPage from "./pages/proyecto/OverviewPage";
@@ -22,6 +23,7 @@ import PersonajesPage from "./pages/proyecto/PersonajesPage";
 import VentajasPage from "./pages/proyecto/VentajasPage";
 import ViabilidadPage from "./pages/proyecto/ViabilidadPage";
 import MoodBoardPage from "./pages/proyecto/MoodBoardPage";
+import ProyectoConfiguracionPage from "./pages/proyecto/ConfiguracionPage";
 
 // Produccion Pages
 import DesglosePage from "./pages/produccion/DesglosePage";
@@ -57,6 +59,7 @@ import CalendarioPage from "./pages/convocatorias/CalendarioPage";
 import WorkspacePage from "./pages/convocatorias/WorkspacePage";
 import TareasPage from "./pages/convocatorias/TareasPage";
 
+import GlobalSearch from "./components/GlobalSearch";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +72,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <GlobalSearch />
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<Index />} />
@@ -77,6 +81,10 @@ const App = () => (
               <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
               <Route path="/analisis" element={<ProtectedRoute><Analisis /></ProtectedRoute>} />
               
+              {/* Dashboard */}
+              <Route path="/proyecto/:projectId/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/proyecto/:projectId/configuracion" element={<ProtectedRoute><ProyectoConfiguracionPage /></ProtectedRoute>} />
+
               {/* Proyecto (Creative) - with projectId */}
               <Route path="/proyecto/:projectId/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
               <Route path="/proyecto/:projectId/narrativo" element={<ProtectedRoute><NarrativoPage /></ProtectedRoute>} />

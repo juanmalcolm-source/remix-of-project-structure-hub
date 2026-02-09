@@ -158,7 +158,7 @@ export default function Proyectos() {
                 key={project.id} 
                 className="card-cinematic cursor-pointer group animate-fade-in"
                 style={{ animationDelay: `${index * 50}ms` }}
-                onClick={() => navigate(`/proyecto/${project.id}/overview`)}
+                onClick={() => navigate(`/proyecto/${project.id}/dashboard`)}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
@@ -184,7 +184,7 @@ export default function Proyectos() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/proyecto/${project.id}/overview`); }}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/proyecto/${project.id}/dashboard`); }}>
                           <FolderOpen className="w-4 h-4 mr-2" />
                           Abrir
                         </DropdownMenuItem>

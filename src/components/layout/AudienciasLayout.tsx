@@ -6,6 +6,7 @@ import {
   UserCircle,
   Film,
   Megaphone,
+  Landmark,
   LogOut,
   ChevronRight,
   Save,
@@ -117,6 +118,10 @@ export default function AudienciasLayout({
           <Button variant="ghost" size="sm" onClick={() => navigate(`/financiacion/${projectId}/resumen`)} className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
             <Wallet className="w-4 h-4 mr-2" />
             Financiación
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/convocatorias/${projectId}/biblioteca`)} className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
+            <Landmark className="w-4 h-4 mr-2" />
+            Convocatorias
           </Button>
         </div>
 

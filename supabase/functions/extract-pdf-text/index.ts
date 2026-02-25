@@ -1,59 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
+import pdf from "npm:pdf-parse@1.1.1/lib/pdf-parse.js";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     console.log('Received PDF extraction request');
-    
-    // Get the PDF file from the request
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    
+
     if (!file) {
       throw new Error('No file provided');
     }
 
     console.log(`Processing PDF: ${file.name}, size: ${file.size} bytes`);
 
-    // Read file as ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    
-    console.log('Loading PDF document...');
-    
-    // Load PDF using pdfjs-serverless
-    const doc = await getDocument(uint8Array).promise;
-    const numPages = doc.numPages;
-    
-    console.log(`PDF loaded. Total pages: ${numPages}`);
-    
-    let fullText = '';
-    
-    // Extract text from each page
-    for (let i = 1; i <= numPages; i++) {
-      const page = await doc.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      fullText += pageText + '\n\n';
-      
-      console.log(`Extracted page ${i}/${numPages}`);
-    }
-    
-    console.log(`Extraction complete. Text length: ${fullText.length}`);
+    const buffer = new Uint8Array(arrayBuffer);
 
-    // Validate extracted text
+    console.log('Extracting text with pdf-parse...');
+    const data = await pdf(buffer);
+
+    const fullText = data.text;
+    const numPages = data.numpages;
+
+    console.log(`Extraction complete. Pages: ${numPages}, Text length: ${fullText.length}`);
+
     if (!fullText || fullText.trim().length === 0) {
       throw new Error('No se pudo extraer texto del PDF. El documento podría estar vacío o ser una imagen escaneada.');
     }
@@ -76,9 +56,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error extracting PDF text:', error);
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar PDF';
-    
+
     return new Response(
       JSON.stringify({
         success: false,

@@ -1,6 +1,7 @@
 export interface InformacionGeneral {
   titulo: string;
   genero: string;
+  subgeneros?: string[];
   duracion_estimada_minutos: number;
   paginas_totales: number;
   paginas_dialogo: number;
@@ -11,6 +12,11 @@ export interface InformacionGeneral {
   synopsis?: string;
   core_emotional?: string;
   central_theme?: string;
+  temas_secundarios?: string[];
+  referentes_cinematograficos?: string[];
+  publico_objetivo_sugerido?: string;
+  potencial_festival?: 'Alto' | 'Medio' | 'Bajo';
+  potencial_comercial?: 'Alto' | 'Medio' | 'Bajo';
 }
 
 export interface EstructuraActo {
@@ -36,6 +42,148 @@ export interface AnalisisNarrativo {
   estructura_actos: EstructuraActo[];
   puntos_de_giro: PuntoDeGiro[];
   curva_emocional: PuntoCurvaEmocional[];
+  errores_narrativos?: ErrorNarrativo[];
+  conflictos?: AnalisisConflictos;
+  ritmo?: AnalisisRitmo;
+  tematica?: AnalisisTematico;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NUEVAS INTERFACES - ANÁLISIS NARRATIVO PROFUNDO
+// ═══════════════════════════════════════════════════════════════
+
+/** Errores o inconsistencias detectados en el guion */
+export interface ErrorNarrativo {
+  tipo: 'plot_hole' | 'inconsistencia' | 'ritmo' | 'personaje' | 'dialogo' | 'estructura' | 'logica';
+  gravedad: 'critico' | 'importante' | 'menor' | 'sugerencia';
+  ubicacion: string;
+  pagina_aproximada?: number;
+  descripcion: string;
+  sugerencia_correccion: string;
+}
+
+/** Análisis completo de conflictos del guion */
+export interface AnalisisConflictos {
+  conflicto_principal: Conflicto;
+  conflictos_secundarios: Conflicto[];
+  conflictos_internos: ConflictoInterno[];
+  mapa_tensiones: PuntoTension[];
+}
+
+export interface Conflicto {
+  tipo: 'persona_vs_persona' | 'persona_vs_sociedad' | 'persona_vs_naturaleza' | 'persona_vs_si_mismo' | 'persona_vs_destino' | 'persona_vs_tecnologia';
+  descripcion: string;
+  personajes_involucrados: string[];
+  detonante: string;
+  desarrollo: string;
+  resolucion: string;
+  resuelto: boolean;
+}
+
+export interface ConflictoInterno {
+  personaje: string;
+  conflicto: string;
+  manifestacion: string;
+  evolucion: string;
+}
+
+export interface PuntoTension {
+  pagina_aproximada: number;
+  nivel_tension: number; // 1-10
+  descripcion: string;
+  conflicto_asociado: string;
+}
+
+/** Análisis del ritmo y pacing del guion */
+export interface AnalisisRitmo {
+  ritmo_general: 'lento' | 'moderado' | 'rapido' | 'variable';
+  observaciones: string;
+  secciones_lentas: SeccionRitmo[];
+  secciones_rapidas: SeccionRitmo[];
+  equilibrio_dialogo_accion: string;
+}
+
+export interface SeccionRitmo {
+  paginas: string; // ej: "15-22"
+  descripcion: string;
+  sugerencia?: string;
+}
+
+/** Análisis temático profundo */
+export interface AnalisisTematico {
+  tema_principal: TemaAnalizado;
+  temas_secundarios: TemaAnalizado[];
+  simbolismos: Simbolismo[];
+  mensaje_universal: string;
+}
+
+export interface TemaAnalizado {
+  nombre: string;
+  descripcion: string;
+  como_se_desarrolla: string;
+  escenas_clave: string[];
+}
+
+export interface Simbolismo {
+  elemento: string;
+  significado: string;
+  apariciones: string[];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANÁLISIS DAFO DEL GUION (conecta con audiencias y distribución)
+// ═══════════════════════════════════════════════════════════════
+
+export interface AnalisisDAFO {
+  fortalezas: ElementoDAFO[];
+  debilidades: ElementoDAFO[];
+  oportunidades: ElementoDAFO[];
+  amenazas: ElementoDAFO[];
+  score_narrativo: number; // 0-100
+  score_comercial: number; // 0-100
+  score_festival: number;  // 0-100
+  recomendacion_general: string;
+}
+
+export interface ElementoDAFO {
+  titulo: string;
+  descripcion: string;
+  impacto: 'alto' | 'medio' | 'bajo';
+  categoria: 'narrativa' | 'produccion' | 'mercado' | 'audiencia';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAPA DE RELACIONES ENTRE PERSONAJES
+// ═══════════════════════════════════════════════════════════════
+
+export interface RelacionPersonaje {
+  personaje_a: string;
+  personaje_b: string;
+  tipo_relacion: 'aliado' | 'antagonista' | 'mentor' | 'romantica' | 'familiar' | 'profesional' | 'rival' | 'protector';
+  descripcion: string;
+  evolucion: string;
+  escenas_interaccion: number[];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATOS PARA CONEXIÓN CON AUDIENCIAS (downstream para Fase 4)
+// ═══════════════════════════════════════════════════════════════
+
+export interface PerfilAudienciaSugerido {
+  segmento: string;
+  rango_edad: string;
+  intereses: string[];
+  motivacion_ver: string;
+  canales_alcance: string[];
+  comparables: string[]; // películas/series similares que vieron
+}
+
+export interface PotencialMercado {
+  territorios_principales: string[];
+  genero_tendencia: 'en_alza' | 'estable' | 'en_baja';
+  ventanas_distribucion: string[];
+  festivales_sugeridos: string[];
+  plataformas_potenciales: string[];
 }
 
 export interface Personaje {
@@ -53,6 +201,13 @@ export interface Personaje {
   motivaciones?: string;
   conflictos?: string;
   relaciones_clave?: string[];
+  // NUEVOS CAMPOS - Análisis profundo de personaje
+  necesidad_dramatica?: string;       // qué necesita el personaje (no qué quiere)
+  flaw_principal?: string;            // defecto/debilidad principal
+  transformacion?: string;            // cómo cambia de inicio a fin
+  ghost?: string;                     // herida del pasado que condiciona sus acciones
+  stakes?: string;                    // qué pierde si falla
+  funcion_narrativa?: string;         // qué rol cumple en la estructura (mentor, sombra, heraldo, etc.)
 }
 
 export interface Localizacion {
@@ -159,6 +314,11 @@ export interface AnalisisGuion {
   desglose_secuencias: Secuencia[];
   viabilidad?: Viabilidad;
   resumen_produccion: ResumenProduccion;
+  // NUEVOS CAMPOS - Fase 1
+  analisis_dafo?: AnalisisDAFO;
+  relaciones_personajes?: RelacionPersonaje[];
+  perfiles_audiencia_sugeridos?: PerfilAudienciaSugerido[];
+  potencial_mercado?: PotencialMercado;
 }
 
 // Función helper para calcular score de complejidad

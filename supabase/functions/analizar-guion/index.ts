@@ -13,7 +13,7 @@ serve(async (req) => {
 
   try {
     const { texto } = await req.json();
-    
+
     if (!texto || texto.trim().length === 0) {
       throw new Error('No se proporcionó texto del guión');
     }
@@ -28,191 +28,255 @@ serve(async (req) => {
 
     // Truncar texto si es muy largo para evitar timeouts
     const maxLength = 100000;
-    const textoTruncado = texto.length > maxLength 
-      ? texto.substring(0, maxLength) + '\n\n[TEXTO TRUNCADO POR LONGITUD]' 
+    const textoTruncado = texto.length > maxLength
+      ? texto.substring(0, maxLength) + '\n\n[TEXTO TRUNCADO POR LONGITUD]'
       : texto;
 
     // Calcular páginas del guión (aprox 600 chars por página)
     const paginasEstimadas = Math.ceil(texto.length / 600);
 
     // Contextualizar el texto como análisis profesional de producción
-    const contextoProduccion = `[DOCUMENTO PROFESIONAL: Análisis de Producción Cinematográfica]
-[TIPO: Guión de ficción para evaluación técnica de preproducción]
-[PROPÓSITO: Desglose de producción para presupuesto y logística]
+    const contextoProduccion = `[DOCUMENTO PROFESIONAL: Análisis Integral de Guión Cinematográfico]
+[TIPO: Guión de ficción para evaluación narrativa + técnica de preproducción]
+[PROPÓSITO: Análisis narrativo profundo + desglose de producción + evaluación de mercado]
 [PÁGINAS ESTIMADAS: ${paginasEstimadas}]
-[NOTA: Este es un trabajo de ficción que requiere análisis técnico profesional]
+[NOTA: Este es un trabajo de ficción que requiere análisis técnico y narrativo profesional]
 
 --- INICIO DEL GUIÓN ---
 ${textoTruncado}
 --- FIN DEL GUIÓN ---`;
 
-    const systemPrompt = `Eres un experto analista de guiones cinematográficos especializado en preproducción.
-Tu trabajo es realizar un ANÁLISIS EXHAUSTIVO Y COMPLETO para el departamento de producción.
+    const systemPrompt = `Eres un ANALISTA EXPERTO de guiones cinematográficos con triple especialización:
+1. SCRIPT DOCTOR — Detectas problemas narrativos, errores de estructura, inconsistencias y sugieres correcciones
+2. DIRECTOR DE PRODUCCIÓN — Realizas desgloses profesionales para presupuesto y logística
+3. ESTRATEGA DE MERCADO — Evalúas potencial de festivales, audiencia y distribución
 
-CONTEXTO: Estás analizando un guión de ficción. Tu análisis será usado para:
-- Presentación del proyecto a inversores y distribuidores
-- Estimación de presupuesto
-- Planificación de localizaciones
-- Casting y contratación de actores
-- Logística de producción
-
-═══════════════════════════════════════════════════════════════════════
-LEY DE LOS OCTAVOS - REGLA DE ORO DE PRODUCCIÓN CINEMATOGRÁFICA
-═══════════════════════════════════════════════════════════════════════
-Esta es la herramienta principal que utiliza un Asistente de Dirección (1er AD) 
-para saber cuánto tiempo real tomará rodar cada escena.
-
-FUNDAMENTO:
-- En formato estándar (Courier 12): 1 página de guión ≈ 1 minuto en pantalla
-- Cada página se divide en 8 partes horizontales iguales = 8 OCTAVOS
-- 1 página completa = 8/8 = 8 octavos
-- Media página = 4/8 = 4 octavos
-- Un par de líneas de diálogo = 1/8 = 1 octavo
-
-CÓMO CALCULAR OCTAVOS (valores que debes usar):
-┌─────────────────────────────────────────────────────────────┐
-│ OCTAVOS │ DESCRIPCIÓN                    │ LÍNEAS APROX    │
-├─────────────────────────────────────────────────────────────┤
-│    1    │ Escena muy corta, transición   │ 1-7 líneas      │
-│    2    │ Escena corta, diálogo breve    │ 8-14 líneas     │
-│    3    │ Escena mediana-corta           │ 15-21 líneas    │
-│    4    │ Media página                   │ 22-28 líneas    │
-│    5    │ Escena mediana-larga           │ 29-35 líneas    │
-│    6    │ Tres cuartos de página         │ 36-42 líneas    │
-│    7    │ Casi página completa           │ 43-49 líneas    │
-│    8    │ Página completa                │ 50-55 líneas    │
-│   9+    │ Más de una página (suma octavos)│ 56+ líneas      │
-└─────────────────────────────────────────────────────────────┘
+Tu análisis será usado para:
+- Mejorar el guión antes de producción (como un script doctor profesional)
+- Presentación a inversores, distribuidores y comités de selección de festivales
+- Estimación de presupuesto y planificación de producción
+- Diseño de estrategia de audiencia y distribución
+- Solicitudes de ayudas públicas (ICAA, Eurimages, Ibermedia, MEDIA)
 
 ═══════════════════════════════════════════════════════════════════════
-ANÁLISIS DE COMPLEJIDAD DETALLADO - 15 FACTORES
+SECCIÓN 1: LEY DE LOS OCTAVOS - PRODUCCIÓN
 ═══════════════════════════════════════════════════════════════════════
-Para cada escena, analiza los siguientes FACTORES DE COMPLEJIDAD:
+- 1 página de guión ≈ 1 minuto en pantalla
+- Cada página = 8 OCTAVOS
+- Calcula octavos por escena según el texto real (NO uses 1 para todas)
 
-1. TIPO DE ESCENA (tipo_escena):
-   - dialogo_estatico: Solo diálogos, cámara estática
-   - movimiento: Personajes en movimiento, seguimiento
-   - accion: Peleas ligeras, carreras, coordinación
-   - intimista: Escenas íntimas, actuación sutil
-   - accion_compleja: Stunts, efectos especiales, vehículos
+CÁLCULO DE COMPLEJIDAD POR ESCENA (15 factores):
+- num_personajes: +1 punto por cada personaje extra después de 2
+- movimiento_camara: +2 / accion_fisica: +3 / stunts: +10
+- efectos_especiales: +5 / ninos: +3 / animales: +3
+- vehiculos_movimiento: +5 / coordinacion_extras: +1 por cada 5
+- iluminacion_compleja: +2 / escena_noche: +2 / exteriores_clima: +2
+- dialogo_extenso: +1 / requiere_grua: +3 / planos_especiales: +2
+- Score: <10=Baja, 10-25=Media, >25=Alta
 
-2. FACTORES ESPECÍFICOS (true/false o number):
-   - num_personajes: Número de personajes en la escena (+1 punto por cada uno después de 2)
-   - movimiento_camara: ¿La cámara se mueve activamente? (+2 puntos)
-   - accion_fisica: ¿Hay acción física (correr, empujar, luchar)? (+3 puntos)
-   - stunts: ¿Requiere coordinador de stunts? (+10 puntos)
-   - efectos_especiales: ¿Efectos especiales/VFX? (+5 puntos)
-   - ninos: ¿Participan niños menores de 16? (+3 puntos)
-   - animales: ¿Hay animales? (+3 puntos)
-   - vehiculos_movimiento: ¿Vehículos en movimiento durante el rodaje? (+5 puntos)
-   - coordinacion_extras: Número de extras (+1 punto por cada 5)
-   - iluminacion_compleja: ¿Iluminación compleja? (+2 puntos)
-   - escena_noche: ¿Es escena nocturna? (+2 puntos)
-   - exteriores_clima: ¿Es exterior dependiente del clima? (+2 puntos)
-   - dialogo_extenso: ¿Diálogos extensos (>1 página)? (+1 punto)
-   - requiere_grua: ¿Requiere grúa? (+3 puntos)
-   - planos_especiales: ¿Planos especiales (steadicam, drone, underwater)? (+2 puntos)
+═══════════════════════════════════════════════════════════════════════
+SECCIÓN 2: ANÁLISIS NARRATIVO PROFUNDO (SCRIPT DOCTOR)
+═══════════════════════════════════════════════════════════════════════
+Analiza como un script doctor profesional:
 
-3. CÁLCULO DE SCORE:
-   - Suma los puntos de cada factor presente
-   - score_complejidad: Total (0-100)
-   - categoria: <10 = "Baja", 10-25 = "Media", >25 = "Alta"
-   - tiempo_setup_estimado_minutos: 45 (INT), 60 (EXT), +15 si NOCHE
-   - paginas_por_dia_sugerido: Baja=5-6, Media=3-4, Alta=1-2
+A) ERRORES NARRATIVOS: Busca activamente:
+   - Plot holes (información contradictoria o faltante)
+   - Inconsistencias de personaje (actúa fuera de su lógica)
+   - Problemas de ritmo (escenas que sobran, transiciones bruscas)
+   - Diálogos expositivos o artificiales
+   - Resoluciones deus ex machina
+   - Subtramas abandonadas
+   - Personajes sin función narrativa clara
 
-Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta estructura COMPLETA:
+B) MAPA DE CONFLICTOS:
+   - Conflicto principal: tipo, detonante, desarrollo, resolución
+   - Conflictos secundarios
+   - Conflictos internos de cada personaje relevante
+   - Mapa de tensión escena por escena
+
+C) ANÁLISIS DE RITMO/PACING:
+   - Equilibrio diálogo vs acción
+   - Secciones que pierden ritmo
+   - Secciones que van demasiado rápido
+
+D) ANÁLISIS TEMÁTICO:
+   - Temas principales y secundarios
+   - Simbolismos encontrados
+   - Mensaje universal
+
+E) PERSONAJES EN PROFUNDIDAD:
+   - Necesidad dramática (qué necesita, no qué quiere)
+   - Flaw principal (defecto que debe superar)
+   - Ghost (herida del pasado)
+   - Transformación (inicio → fin)
+   - Stakes (qué pierde si falla)
+   - Función narrativa (mentor, sombra, heraldo, etc.)
+
+═══════════════════════════════════════════════════════════════════════
+SECCIÓN 3: ANÁLISIS DAFO + MERCADO
+═══════════════════════════════════════════════════════════════════════
+Evalúa el guión como un productor experimentado:
+
+A) DAFO:
+   - Fortalezas: qué tiene el guión que lo hace especial
+   - Debilidades: qué problemas narrativos o de producción tiene
+   - Oportunidades: tendencias de mercado, festivales afines, nichos
+   - Amenazas: competencia, saturación de género, dificultades
+
+B) SCORING:
+   - score_narrativo (0-100): calidad del guión como obra
+   - score_comercial (0-100): potencial comercial
+   - score_festival (0-100): potencial para circuito de festivales
+
+C) AUDIENCIA Y MERCADO:
+   - Perfiles de audiencia sugeridos (2-3 segmentos)
+   - Territorios principales de interés
+   - Películas/series comparables
+   - Festivales sugeridos según género/temática
+   - Plataformas potenciales
+
+Devuelve SOLO un JSON válido con esta estructura COMPLETA:
 
 {
   "informacion_general": {
-    "titulo": "string (título del guión)",
-    "genero": "string (Drama, Thriller, Comedia, etc.)", 
-    "duracion_estimada_minutos": number (páginas × 1),
+    "titulo": "string",
+    "genero": "string",
+    "subgeneros": ["string"],
+    "duracion_estimada_minutos": number,
     "paginas_totales": number,
-    "paginas_dialogo": number (estimado),
-    "paginas_accion": number (estimado),
-    "tono": "string (ej: dramático, thriller, comedia, oscuro, ligero...)",
-    "estilo_visual_sugerido": "string (propuesta de estilo visual)",
-    "logline": "string (UNA FRASE que resume la historia - máximo 30 palabras, debe captar la esencia dramática)",
-    "synopsis": "string (sinopsis de UN PÁRRAFO, 100-150 palabras, describiendo inicio, desarrollo y conflicto principal)",
-    "core_emotional": "string (el núcleo emocional de la historia - qué emoción debe sentir el espectador)",
-    "central_theme": "string (tema central explorado en la historia)"
+    "paginas_dialogo": number,
+    "paginas_accion": number,
+    "tono": "string",
+    "estilo_visual_sugerido": "string",
+    "logline": "string (UNA FRASE, máx 30 palabras)",
+    "synopsis": "string (UN PÁRRAFO, 100-150 palabras)",
+    "core_emotional": "string",
+    "central_theme": "string",
+    "temas_secundarios": ["string"],
+    "referentes_cinematograficos": ["string (3-5 películas similares)"],
+    "publico_objetivo_sugerido": "string",
+    "potencial_festival": "Alto|Medio|Bajo",
+    "potencial_comercial": "Alto|Medio|Bajo"
   },
   "analisis_narrativo": {
     "estructura_actos": [
-      { "acto": 1, "descripcion": "string (qué ocurre en este acto)", "paginas_inicio": 1, "paginas_fin": number },
+      { "acto": 1, "descripcion": "string", "paginas_inicio": 1, "paginas_fin": number },
       { "acto": 2, "descripcion": "string", "paginas_inicio": number, "paginas_fin": number },
       { "acto": 3, "descripcion": "string", "paginas_inicio": number, "paginas_fin": number }
     ],
     "puntos_de_giro": [
-      { "nombre": "Incidente incitador", "pagina_aproximada": number, "descripcion": "string (breve descripción del momento)" },
+      { "nombre": "Incidente incitador", "pagina_aproximada": number, "descripcion": "string" },
       { "nombre": "Punto de giro 1", "pagina_aproximada": number, "descripcion": "string" },
       { "nombre": "Punto medio", "pagina_aproximada": number, "descripcion": "string" },
       { "nombre": "Punto de giro 2", "pagina_aproximada": number, "descripcion": "string" },
       { "nombre": "Clímax", "pagina_aproximada": number, "descripcion": "string" }
     ],
     "curva_emocional": [
-      { "momento": "Inicio", "emocion": "string", "intensidad": number (1-10) },
-      { "momento": "Incidente incitador", "emocion": "string", "intensidad": number },
-      { "momento": "Punto medio", "emocion": "string", "intensidad": number },
-      { "momento": "Clímax", "emocion": "string", "intensidad": number },
-      { "momento": "Resolución", "emocion": "string", "intensidad": number }
-    ]
+      { "momento": "string", "emocion": "string", "intensidad": number }
+    ],
+    "errores_narrativos": [
+      {
+        "tipo": "plot_hole|inconsistencia|ritmo|personaje|dialogo|estructura|logica",
+        "gravedad": "critico|importante|menor|sugerencia",
+        "ubicacion": "string (escena o página)",
+        "pagina_aproximada": number,
+        "descripcion": "string (qué falla)",
+        "sugerencia_correccion": "string (cómo arreglarlo)"
+      }
+    ],
+    "conflictos": {
+      "conflicto_principal": {
+        "tipo": "persona_vs_persona|persona_vs_sociedad|persona_vs_naturaleza|persona_vs_si_mismo|persona_vs_destino|persona_vs_tecnologia",
+        "descripcion": "string",
+        "personajes_involucrados": ["string"],
+        "detonante": "string",
+        "desarrollo": "string",
+        "resolucion": "string",
+        "resuelto": boolean
+      },
+      "conflictos_secundarios": [{ "...mismo formato..." }],
+      "conflictos_internos": [
+        { "personaje": "string", "conflicto": "string", "manifestacion": "string", "evolucion": "string" }
+      ],
+      "mapa_tensiones": [
+        { "pagina_aproximada": number, "nivel_tension": number, "descripcion": "string", "conflicto_asociado": "string" }
+      ]
+    },
+    "ritmo": {
+      "ritmo_general": "lento|moderado|rapido|variable",
+      "observaciones": "string",
+      "secciones_lentas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }],
+      "secciones_rapidas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }],
+      "equilibrio_dialogo_accion": "string"
+    },
+    "tematica": {
+      "tema_principal": { "nombre": "string", "descripcion": "string", "como_se_desarrolla": "string", "escenas_clave": ["string"] },
+      "temas_secundarios": [{ "nombre": "string", "descripcion": "string", "como_se_desarrolla": "string", "escenas_clave": ["string"] }],
+      "simbolismos": [{ "elemento": "string", "significado": "string", "apariciones": ["string"] }],
+      "mensaje_universal": "string"
+    }
   },
   "personajes": [
     {
       "nombre": "string (EN MAYÚSCULAS)",
       "categoria": "PROTAGONISTA|PRINCIPAL|SECUNDARIO|FIGURACION",
-      "descripcion": "string (descripción física y psicológica detallada)",
+      "descripcion": "string",
       "genero": "Masculino|Femenino|No especificado",
-      "edad_aproximada": "string (ej: 35-40 años)",
-      "primera_aparicion": "string (escena o página)",
+      "edad_aproximada": "string",
+      "primera_aparicion": "string",
       "escenas_aparicion": [numbers],
       "dias_rodaje_estimados": number,
       "dialogos_principales": boolean,
       "importancia_trama": "Alta|Media|Baja",
-      "arco_dramatico": "string (evolución completa del personaje a lo largo de la historia)",
-      "motivaciones": "string (qué quiere conseguir el personaje)",
-      "conflictos": "string (conflictos internos y externos del personaje)",
-      "relaciones_clave": ["string (Personaje X - tipo de relación)"]
+      "arco_dramatico": "string (evolución completa)",
+      "motivaciones": "string",
+      "conflictos": "string",
+      "relaciones_clave": ["string"],
+      "necesidad_dramatica": "string (qué necesita realmente)",
+      "flaw_principal": "string (defecto/debilidad)",
+      "transformacion": "string (de X a Y)",
+      "ghost": "string (herida del pasado)",
+      "stakes": "string (qué pierde si falla)",
+      "funcion_narrativa": "string (mentor, sombra, heraldo, etc.)"
     }
   ],
   "localizaciones": [
     {
-      "nombre": "string (nombre descriptivo)",
+      "nombre": "string",
       "tipo": "INT|EXT",
       "momento_dia": "DÍA|NOCHE|ATARDECER|AMANECER",
-      "descripcion": "string (descripción detallada del espacio)",
-      "ambiente": "string (atmósfera, sensación)",
+      "descripcion": "string",
+      "ambiente": "string",
       "escenas": [numbers],
       "paginas_totales": number,
       "dias_rodaje_estimados": number,
       "complejidad": "Baja|Media|Alta",
-      "necesidades_especiales": ["strings (decoración, efectos, permisos...)"],
-      "requisitos_tecnicos": ["strings (iluminación especial, grúas, etc.)"]
+      "necesidades_especiales": ["strings"],
+      "requisitos_tecnicos": ["strings"]
     }
   ],
   "desglose_secuencias": [
     {
       "numero_secuencia": number,
       "numero_escena": "string",
-      "encabezado": "string (ej: INT. CASA DE PEDRO - DÍA)",
+      "encabezado": "string",
       "localizacion": "string",
       "set_type": "INT|EXT",
       "momento_dia": "string",
-      "paginas_octavos": number (ENTERO de 1 a 16+),
-      "complexity_factor": number (1.0, 1.2, 2.0 o 3.0),
-      "complexity_reason": "string (breve razón del multiplicador)",
-      "setup_time_minutes": number (45 INT, 60 EXT, +15 si NOCHE),
-      "shooting_time_minutes": number (octavos × 11.25 × complexity_factor),
-      "total_time_minutes": number (setup + shooting),
-      "duracion_estimada_minutos": number (octavos/8, redondeado),
+      "paginas_octavos": number,
+      "complexity_factor": number,
+      "complexity_reason": "string",
+      "setup_time_minutes": number,
+      "shooting_time_minutes": number,
+      "total_time_minutes": number,
+      "duracion_estimada_minutos": number,
       "personajes": ["strings"],
-      "attrezzo": ["strings (objetos necesarios)"],
-      "vestuario": ["strings (cambios de vestuario)"],
+      "attrezzo": ["strings"],
+      "vestuario": ["strings"],
       "vehiculos": ["strings"],
       "efectos_especiales": ["strings"],
       "complejidad_rodaje": "Baja|Media|Alta",
-      "notas_direccion": "string (sugerencias para la dirección)",
+      "notas_direccion": "string",
       "analisis_complejidad": {
         "tipo_escena": "dialogo_estatico|movimiento|accion|intimista|accion_compleja",
         "factores": {
@@ -232,45 +296,79 @@ Analiza ABSOLUTAMENTE TODO el guión y devuelve SOLO un JSON válido con esta es
           "requiere_grua": boolean,
           "planos_especiales": boolean
         },
-        "score_complejidad": number (0-100),
+        "score_complejidad": number,
         "categoria": "Baja|Media|Alta",
         "tiempo_setup_estimado_minutos": number,
         "paginas_por_dia_sugerido": number
       }
     }
   ],
+  "relaciones_personajes": [
+    {
+      "personaje_a": "string",
+      "personaje_b": "string",
+      "tipo_relacion": "aliado|antagonista|mentor|romantica|familiar|profesional|rival|protector",
+      "descripcion": "string",
+      "evolucion": "string",
+      "escenas_interaccion": [numbers]
+    }
+  ],
+  "analisis_dafo": {
+    "fortalezas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
+    "debilidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
+    "oportunidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
+    "amenazas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
+    "score_narrativo": number,
+    "score_comercial": number,
+    "score_festival": number,
+    "recomendacion_general": "string"
+  },
+  "perfiles_audiencia_sugeridos": [
+    {
+      "segmento": "string",
+      "rango_edad": "string",
+      "intereses": ["string"],
+      "motivacion_ver": "string",
+      "canales_alcance": ["string"],
+      "comparables": ["string (películas/series que vieron)"]
+    }
+  ],
+  "potencial_mercado": {
+    "territorios_principales": ["string"],
+    "genero_tendencia": "en_alza|estable|en_baja",
+    "ventanas_distribucion": ["string"],
+    "festivales_sugeridos": ["string"],
+    "plataformas_potenciales": ["string"]
+  },
   "viabilidad": {
-    "fortalezas": ["strings (puntos fuertes del guión para producción)"],
-    "debilidades": ["strings (puntos débiles o desafíos)"],
-    "sugerencias_mejora": ["strings (recomendaciones concretas)"],
-    "factores_positivos": ["strings (elementos que facilitan la producción)"],
-    "factores_negativos": ["strings (elementos que complican la producción)"]
+    "fortalezas": ["strings"],
+    "debilidades": ["strings"],
+    "sugerencias_mejora": ["strings"],
+    "factores_positivos": ["strings"],
+    "factores_negativos": ["strings"]
   },
   "resumen_produccion": {
     "total_personajes": {"protagonistas": 0, "principales": 0, "secundarios": 0, "figuracion": 0},
     "total_localizaciones": {"interiores": 0, "exteriores": 0},
-    "total_octavos": number (SUMA de todos los paginas_octavos de desglose_secuencias),
+    "total_octavos": number,
     "dias_rodaje": {"estimacion_minima": 0, "estimacion_maxima": 0, "estimacion_recomendada": 0},
     "complejidad_general": "Baja|Media|Alta",
-    "elementos_destacados": ["strings (efectos especiales, stunts, escenas complicadas, etc.)"]
+    "elementos_destacados": ["strings"]
   }
 }
 
 INSTRUCCIONES CRÍTICAS:
-1. El LOGLINE debe ser UNA SOLA FRASE impactante que capture la esencia de la historia
-2. La SYNOPSIS debe resumir TODA la historia en un párrafo coherente
-3. El CORE_EMOTIONAL debe identificar la emoción principal que debe experimentar el espectador
-4. Analiza CADA personaje mencionado en el guión, no solo los principales
-5. Identifica TODAS las localizaciones únicas
-6. ⚠️ CRÍTICO: Calcula CORRECTAMENTE los OCTAVOS de cada escena según la LEY DE OCTAVOS
-   - NO uses 1 para todas las escenas
-   - Mide el texto real: líneas de diálogo + descripciones + acciones
-   - Una escena larga de 2 páginas = 16 octavos
-   - Una escena corta de transición = 1-2 octavos
-7. El total_octavos debe ser coherente con paginas_totales (aprox. paginas × 8)
-8. Sé EXHAUSTIVO y PROFESIONAL en el análisis
-9. ⚠️ CRÍTICO: Incluye el análisis_complejidad COMPLETO para CADA escena con los 15 factores
-10. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
+1. El LOGLINE debe ser UNA SOLA FRASE impactante (máximo 30 palabras)
+2. La SYNOPSIS debe resumir TODA la historia en UN PÁRRAFO (100-150 palabras)
+3. BUSCA ACTIVAMENTE errores narrativos — sé honesto y constructivo como un script doctor
+4. Calcula CORRECTAMENTE los OCTAVOS según la ley de octavos
+5. Los errores_narrativos deben ser ESPECÍFICOS con sugerencias de corrección útiles
+6. El mapa_tensiones debe tener al menos 8-10 puntos a lo largo del guión
+7. Los scores del DAFO deben ser realistas y justificados
+8. Los perfiles_audiencia deben ser perfiles reales de espectadores
+9. Los festivales_sugeridos deben ser festivales REALES que encajen con el género
+10. Sé EXHAUSTIVO y PROFESIONAL — este análisis vale dinero
+11. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
     // Modelos a intentar en orden de preferencia
     const modelos = [
@@ -285,7 +383,7 @@ INSTRUCCIONES CRÍTICAS:
     for (const modelo of modelos) {
       try {
         console.log(`Intentando análisis con ${modelo.nombre}...`);
-        
+
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -298,37 +396,37 @@ INSTRUCCIONES CRÍTICAS:
               { role: 'system', content: systemPrompt },
               { role: 'user', content: contextoProduccion }
             ],
-            max_completion_tokens: 32000,
+            max_completion_tokens: 64000,
           }),
         });
-        
+
         console.log(`${modelo.nombre} - Status:`, response.status);
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`${modelo.nombre} - Error:`, response.status, errorText);
-          
+
           if (response.status === 429) {
             return new Response(
               JSON.stringify({ success: false, error: 'Límite de solicitudes excedido. Intenta de nuevo en unos momentos.' }),
               { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-          
+
           if (response.status === 402) {
             return new Response(
               JSON.stringify({ success: false, error: 'Créditos insuficientes. Añade créditos a tu workspace.' }),
               { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-          
+
           ultimoError = `${modelo.nombre}: Error ${response.status}`;
           continue;
         }
 
         const aiResponse = await response.json();
-        
-        // Verificar si hay errores en la respuesta (ej: PROHIBITED_CONTENT)
+
+        // Verificar si hay errores en la respuesta
         if (aiResponse.error) {
           console.error(`${modelo.nombre} - Error en respuesta:`, JSON.stringify(aiResponse.error));
           ultimoError = `${modelo.nombre}: ${aiResponse.error.message || 'Error del modelo'}`;
@@ -365,7 +463,7 @@ INSTRUCCIONES CRÍTICAS:
             jsonStr = jsonStr.slice(0, -3);
           }
           jsonStr = jsonStr.trim();
-          
+
           analisis = JSON.parse(jsonStr);
         } catch (parseError) {
           console.error(`${modelo.nombre} - Error parseando JSON:`, parseError);
@@ -373,7 +471,7 @@ INSTRUCCIONES CRÍTICAS:
           ultimoError = `${modelo.nombre}: Error parseando respuesta`;
           continue;
         }
-        
+
         modeloUsado = modelo.id;
         console.log(`✓ Análisis completado con ${modelo.nombre}`);
         console.log('Personajes:', analisis.personajes?.length || 0);
@@ -382,6 +480,10 @@ INSTRUCCIONES CRÍTICAS:
         console.log('Synopsis:', analisis.informacion_general?.synopsis ? 'Sí' : 'No');
         console.log('Core Emotional:', analisis.informacion_general?.core_emotional ? 'Sí' : 'No');
         console.log('Análisis Narrativo:', analisis.analisis_narrativo ? 'Sí' : 'No');
+        console.log('Errores Narrativos:', analisis.analisis_narrativo?.errores_narrativos?.length || 0);
+        console.log('DAFO:', analisis.analisis_dafo ? 'Sí' : 'No');
+        console.log('Relaciones:', analisis.relaciones_personajes?.length || 0);
+        console.log('Audiencias:', analisis.perfiles_audiencia_sugeridos?.length || 0);
         console.log('Viabilidad:', analisis.viabilidad ? 'Sí' : 'No');
 
         return new Response(
@@ -393,6 +495,7 @@ INSTRUCCIONES CRÍTICAS:
               proveedor: 'lovable-ai',
               timestamp: new Date().toISOString(),
               paginas_estimadas: paginasEstimadas,
+              version_analisis: '2.0',
             }
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -410,7 +513,7 @@ INSTRUCCIONES CRÍTICAS:
 
   } catch (error) {
     console.error('Error en analizar-guion:', error);
-    
+
     return new Response(
       JSON.stringify({
         success: false,

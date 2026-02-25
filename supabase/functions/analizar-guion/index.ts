@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -371,9 +371,10 @@ INSTRUCCIONES CRÍTICAS:
 11. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
     // Modelos a intentar en orden de preferencia
+    // Flash primero: más rápido (~60s vs ~150s de Pro) para evitar timeout de edge functions
     const modelos = [
-      { id: 'google/gemini-2.5-pro', nombre: 'Gemini Pro' },
       { id: 'google/gemini-2.5-flash', nombre: 'Gemini Flash' },
+      { id: 'google/gemini-2.5-pro', nombre: 'Gemini Pro' },
       { id: 'openai/gpt-5-mini', nombre: 'GPT-5 Mini' }
     ];
 

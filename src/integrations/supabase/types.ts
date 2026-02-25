@@ -402,45 +402,81 @@ export type Database = {
           agency_percentage: number | null
           casting_suggestions: Json | null
           category: string | null
+          conflictos: string | null
           created_at: string
           daily_rate: number | null
           description: string | null
           dramatic_arc: string | null
+          edad_aproximada: string | null
+          escenas_aparicion: Json | null
+          flaw_principal: string | null
+          funcion_narrativa: string | null
+          genero: string | null
+          ghost: string | null
           id: string
+          importancia_trama: string | null
+          motivaciones: string | null
           name: string
+          necesidad_dramatica: string | null
           project_id: string
           relationships: Json | null
           shooting_days: number | null
+          stakes: string | null
+          transformacion: string | null
           updated_at: string
         }
         Insert: {
           agency_percentage?: number | null
           casting_suggestions?: Json | null
           category?: string | null
+          conflictos?: string | null
           created_at?: string
           daily_rate?: number | null
           description?: string | null
           dramatic_arc?: string | null
+          edad_aproximada?: string | null
+          escenas_aparicion?: Json | null
+          flaw_principal?: string | null
+          funcion_narrativa?: string | null
+          genero?: string | null
+          ghost?: string | null
           id?: string
+          importancia_trama?: string | null
+          motivaciones?: string | null
           name: string
+          necesidad_dramatica?: string | null
           project_id: string
           relationships?: Json | null
           shooting_days?: number | null
+          stakes?: string | null
+          transformacion?: string | null
           updated_at?: string
         }
         Update: {
           agency_percentage?: number | null
           casting_suggestions?: Json | null
           category?: string | null
+          conflictos?: string | null
           created_at?: string
           daily_rate?: number | null
           description?: string | null
           dramatic_arc?: string | null
+          edad_aproximada?: string | null
+          escenas_aparicion?: Json | null
+          flaw_principal?: string | null
+          funcion_narrativa?: string | null
+          genero?: string | null
+          ghost?: string | null
           id?: string
+          importancia_trama?: string | null
+          motivaciones?: string | null
           name?: string
+          necesidad_dramatica?: string | null
           project_id?: string
           relationships?: Json | null
           shooting_days?: number | null
+          stakes?: string | null
+          transformacion?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -569,18 +605,34 @@ export type Database = {
       creative_analysis: {
         Row: {
           act_structure: Json | null
+          analysis_version: string | null
           central_theme: string | null
+          character_relationships: Json | null
           confidential_notes: string | null
+          conflicts_analysis: Json | null
           core_emotional: string | null
           created_at: string
+          dafo_analysis: Json | null
           emotional_curve: Json | null
           estimated_budget_range: string | null
           id: string
           improvement_suggestions: Json | null
+          market_potential: Json | null
+          narrative_errors: Json | null
+          pacing_analysis: Json | null
+          potencial_comercial: string | null
+          potencial_festival: string | null
           producibility_score: number | null
           project_id: string
+          referentes_cinematograficos: Json | null
+          score_comercial: number | null
+          score_festival: number | null
+          score_narrativo: number | null
           strengths: Json | null
+          subgeneros: Json | null
+          suggested_audience_profiles: Json | null
           synopsis: string | null
+          thematic_analysis: Json | null
           turning_points: Json | null
           updated_at: string
           viability_factors_negative: Json | null
@@ -589,18 +641,34 @@ export type Database = {
         }
         Insert: {
           act_structure?: Json | null
+          analysis_version?: string | null
           central_theme?: string | null
+          character_relationships?: Json | null
           confidential_notes?: string | null
+          conflicts_analysis?: Json | null
           core_emotional?: string | null
           created_at?: string
+          dafo_analysis?: Json | null
           emotional_curve?: Json | null
           estimated_budget_range?: string | null
           id?: string
           improvement_suggestions?: Json | null
+          market_potential?: Json | null
+          narrative_errors?: Json | null
+          pacing_analysis?: Json | null
+          potencial_comercial?: string | null
+          potencial_festival?: string | null
           producibility_score?: number | null
           project_id: string
+          referentes_cinematograficos?: Json | null
+          score_comercial?: number | null
+          score_festival?: number | null
+          score_narrativo?: number | null
           strengths?: Json | null
+          subgeneros?: Json | null
+          suggested_audience_profiles?: Json | null
           synopsis?: string | null
+          thematic_analysis?: Json | null
           turning_points?: Json | null
           updated_at?: string
           viability_factors_negative?: Json | null
@@ -609,18 +677,34 @@ export type Database = {
         }
         Update: {
           act_structure?: Json | null
+          analysis_version?: string | null
           central_theme?: string | null
+          character_relationships?: Json | null
           confidential_notes?: string | null
+          conflicts_analysis?: Json | null
           core_emotional?: string | null
           created_at?: string
+          dafo_analysis?: Json | null
           emotional_curve?: Json | null
           estimated_budget_range?: string | null
           id?: string
           improvement_suggestions?: Json | null
+          market_potential?: Json | null
+          narrative_errors?: Json | null
+          pacing_analysis?: Json | null
+          potencial_comercial?: string | null
+          potencial_festival?: string | null
           producibility_score?: number | null
           project_id?: string
+          referentes_cinematograficos?: Json | null
+          score_comercial?: number | null
+          score_festival?: number | null
+          score_narrativo?: number | null
           strengths?: Json | null
+          subgeneros?: Json | null
+          suggested_audience_profiles?: Json | null
           synopsis?: string | null
+          thematic_analysis?: Json | null
           turning_points?: Json | null
           updated_at?: string
           viability_factors_negative?: Json | null
@@ -1111,37 +1195,55 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          estilo_visual_sugerido: string | null
+          genero: string | null
           id: string
           logline: string | null
           project_type: string | null
+          publico_objetivo_sugerido: string | null
+          referentes_cinematograficos: Json | null
           script_file_url: string | null
           script_text: string | null
           status: string | null
+          subgeneros: Json | null
           title: string
+          tono: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          estilo_visual_sugerido?: string | null
+          genero?: string | null
           id?: string
           logline?: string | null
           project_type?: string | null
+          publico_objetivo_sugerido?: string | null
+          referentes_cinematograficos?: Json | null
           script_file_url?: string | null
           script_text?: string | null
           status?: string | null
+          subgeneros?: Json | null
           title: string
+          tono?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          estilo_visual_sugerido?: string | null
+          genero?: string | null
           id?: string
           logline?: string | null
           project_type?: string | null
+          publico_objetivo_sugerido?: string | null
+          referentes_cinematograficos?: Json | null
           script_file_url?: string | null
           script_text?: string | null
           status?: string | null
+          subgeneros?: Json | null
           title?: string
+          tono?: string | null
           updated_at?: string
           user_id?: string
         }

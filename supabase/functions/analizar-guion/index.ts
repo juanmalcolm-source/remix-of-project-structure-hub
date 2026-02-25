@@ -26,10 +26,10 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY no está configurada');
     }
 
-    // Truncar texto si es muy largo para evitar timeouts
-    const maxLength = 100000;
+    // Truncar texto si es muy largo para evitar timeouts de Edge Function
+    const maxLength = 60000;
     const textoTruncado = texto.length > maxLength
-      ? texto.substring(0, maxLength) + '\n\n[TEXTO TRUNCADO POR LONGITUD]'
+      ? texto.substring(0, maxLength) + '\n\n[TEXTO TRUNCADO POR LONGITUD — se analizaron las primeras ~100 páginas]'
       : texto;
 
     // Calcular páginas del guión (aprox 600 chars por página)
@@ -370,7 +370,6 @@ INSTRUCCIONES CRÍTICAS:
 10. Sé EXHAUSTIVO y PROFESIONAL — este análisis vale dinero
 11. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
-    // Modelos a intentar en orden de preferencia
     // Flash primero: más rápido (~60s vs ~150s de Pro) para evitar timeout de edge functions
     const modelos = [
       { id: 'google/gemini-2.5-flash', nombre: 'Gemini Flash' },
@@ -397,7 +396,7 @@ INSTRUCCIONES CRÍTICAS:
               { role: 'system', content: systemPrompt },
               { role: 'user', content: contextoProduccion }
             ],
-            max_completion_tokens: 64000,
+            max_completion_tokens: 32000,
           }),
         });
 

@@ -370,35 +370,58 @@ INSTRUCCIONES CRÍTICAS:
 10. Sé EXHAUSTIVO y PROFESIONAL — este análisis vale dinero
 11. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
-    // Flash primero: más rápido (~60s vs ~150s de Pro) para evitar timeout de edge functions
+    // Estrategia: Pro primero (mejor calidad) con timeout de 150s
+    // Si Pro no responde a tiempo, Flash como fallback rápido
+    const PRO_TIMEOUT_MS = 150000; // 2.5 minutos para Pro
     const modelos = [
-      { id: 'google/gemini-2.5-flash', nombre: 'Gemini Flash' },
-      { id: 'google/gemini-2.5-pro', nombre: 'Gemini Pro' },
-      { id: 'openai/gpt-5-mini', nombre: 'GPT-5 Mini' }
+      { id: 'google/gemini-2.5-pro', nombre: 'Gemini Pro', timeout: PRO_TIMEOUT_MS },
+      { id: 'google/gemini-2.5-flash', nombre: 'Gemini Flash', timeout: 0 },
+      { id: 'openai/gpt-5-mini', nombre: 'GPT-5 Mini', timeout: 0 }
     ];
 
     let ultimoError = '';
     let modeloUsado = '';
 
+    // Helper: llamar a un modelo con timeout opcional
+    async function llamarModelo(modeloId: string, timeoutMs: number): Promise<Response> {
+      const fetchOptions: RequestInit = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modeloId,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: contextoProduccion }
+          ],
+          max_completion_tokens: 32000,
+        }),
+      };
+
+      if (timeoutMs > 0) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        fetchOptions.signal = controller.signal;
+        try {
+          const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', fetchOptions);
+          clearTimeout(timer);
+          return res;
+        } catch (err) {
+          clearTimeout(timer);
+          throw err;
+        }
+      }
+
+      return fetch('https://ai.gateway.lovable.dev/v1/chat/completions', fetchOptions);
+    }
+
     for (const modelo of modelos) {
       try {
-        console.log(`Intentando análisis con ${modelo.nombre}...`);
+        console.log(`Intentando análisis con ${modelo.nombre}${modelo.timeout ? ` (timeout: ${modelo.timeout / 1000}s)` : ''}...`);
 
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: modelo.id,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: contextoProduccion }
-            ],
-            max_completion_tokens: 32000,
-          }),
-        });
+        const response = await llamarModelo(modelo.id, modelo.timeout);
 
         console.log(`${modelo.nombre} - Status:`, response.status);
 
@@ -476,15 +499,8 @@ INSTRUCCIONES CRÍTICAS:
         console.log(`✓ Análisis completado con ${modelo.nombre}`);
         console.log('Personajes:', analisis.personajes?.length || 0);
         console.log('Localizaciones:', analisis.localizaciones?.length || 0);
-        console.log('Logline:', analisis.informacion_general?.logline ? 'Sí' : 'No');
-        console.log('Synopsis:', analisis.informacion_general?.synopsis ? 'Sí' : 'No');
-        console.log('Core Emotional:', analisis.informacion_general?.core_emotional ? 'Sí' : 'No');
-        console.log('Análisis Narrativo:', analisis.analisis_narrativo ? 'Sí' : 'No');
         console.log('Errores Narrativos:', analisis.analisis_narrativo?.errores_narrativos?.length || 0);
         console.log('DAFO:', analisis.analisis_dafo ? 'Sí' : 'No');
-        console.log('Relaciones:', analisis.relaciones_personajes?.length || 0);
-        console.log('Audiencias:', analisis.perfiles_audiencia_sugeridos?.length || 0);
-        console.log('Viabilidad:', analisis.viabilidad ? 'Sí' : 'No');
 
         return new Response(
           JSON.stringify({
@@ -502,6 +518,13 @@ INSTRUCCIONES CRÍTICAS:
         );
 
       } catch (error) {
+        // Si es timeout de AbortController, loguear y pasar al siguiente modelo
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          console.log(`${modelo.nombre} - Timeout alcanzado, pasando a modelo más rápido...`);
+          ultimoError = `${modelo.nombre}: Timeout (guión muy largo para este modelo)`;
+          continue;
+        }
+
         console.error(`${modelo.nombre} - Excepción:`, error);
         ultimoError = `${modelo.nombre}: ${error instanceof Error ? error.message : 'Error desconocido'}`;
         continue;

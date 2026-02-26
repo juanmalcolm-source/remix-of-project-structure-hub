@@ -3,8 +3,11 @@ import { useToast } from '@/hooks/use-toast';
 import { ERRORES } from '@/constants/errors';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configurar worker de PDF.js usando CDN (necesario para que funcione)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configurar worker de PDF.js usando resolución de Vite (no CDN)
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['application/pdf', 'text/plain'];

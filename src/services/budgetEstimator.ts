@@ -5,7 +5,6 @@
  */
 
 import type { Tables } from '@/integrations/supabase/types';
-import { supabase } from '@/integrations/supabase/client';
 
 type Character = Tables<'characters'>;
 type Location = Tables<'locations'>;
@@ -172,13 +171,17 @@ export async function generarPresupuestoConIA(
     } : null,
   };
 
-  const { data, error } = await supabase.functions.invoke('generar-presupuesto', {
-    body: requestData,
+  const response = await fetch('/api/generar-presupuesto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
   });
 
-  if (error) {
-    console.error('Error calling generar-presupuesto:', error);
-    throw new Error(error.message || 'Error al generar presupuesto con IA');
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error('Error calling generar-presupuesto:', data);
+    throw new Error(data.error || `Error HTTP ${response.status}`);
   }
 
   if (data.error) {

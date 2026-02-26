@@ -1,7 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
-
 // ── Constants ─────────────────────────────────────────────────────────
-const AI_TIMEOUT_MS = 60_000; // 60 seconds
+const AI_TIMEOUT_MS = 120_000; // 120 seconds (Claude can take longer)
 
 // ── Error classes ─────────────────────────────────────────────────────
 export class AIParseError extends Error {
@@ -27,19 +25,33 @@ interface AIGenerateParams {
 }
 
 export async function generateWithAI({ prompt, systemPrompt, maxTokens }: AIGenerateParams): Promise<string> {
-  const aiPromise = supabase.functions.invoke("ai-generate", {
-    body: { prompt, systemPrompt, maxTokens },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new AITimeoutError()), AI_TIMEOUT_MS),
-  );
+  try {
+    const response = await fetch('/api/ai-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, systemPrompt, maxTokens }),
+      signal: controller.signal,
+    });
 
-  const { data, error } = await Promise.race([aiPromise, timeoutPromise]);
+    const data = await response.json();
 
-  if (error) throw new Error(error.message);
-  if (data?.error) throw new Error(data.error);
-  return data.text;
+    if (!response.ok) {
+      throw new Error(data.error || `Error HTTP ${response.status}`);
+    }
+
+    if (data.error) throw new Error(data.error);
+    return data.text;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new AITimeoutError();
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // ── Resilient JSON extraction ─────────────────────────────────────────

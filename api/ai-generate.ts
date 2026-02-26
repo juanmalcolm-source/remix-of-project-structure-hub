@@ -44,6 +44,7 @@ export default async function handler(req: Request) {
       model: 'claude-sonnet-4-20250514',
       max_tokens: maxTokens || 4096,
       temperature: 0.3,
+      stream: true,
       messages,
     };
 
@@ -62,8 +63,12 @@ export default async function handler(req: Request) {
     });
 
     if (!anthropicResponse.ok) {
-      const errorData = await anthropicResponse.json().catch(() => ({}));
-      const errorMsg = (errorData as { error?: { message?: string } }).error?.message || `Error HTTP ${anthropicResponse.status}`;
+      const errorText = await anthropicResponse.text().catch(() => '');
+      let errorMsg = `Error HTTP ${anthropicResponse.status}`;
+      try {
+        const parsed = JSON.parse(errorText);
+        errorMsg = parsed.error?.message || errorMsg;
+      } catch { /* use default */ }
 
       if (anthropicResponse.status === 429) {
         return new Response(
@@ -78,18 +83,39 @@ export default async function handler(req: Request) {
       );
     }
 
-    const data = await anthropicResponse.json() as {
-      content: Array<{ type: string; text?: string }>;
-    };
+    // Read the SSE stream from Anthropic, accumulate all text
+    const reader = anthropicResponse.body!.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
 
-    // Extract text from the response
-    const text = data.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text || '')
-      .join('');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]' || data === '') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+              fullText += parsed.delta.text;
+            }
+          } catch {
+            // Ignore unparseable lines
+          }
+        }
+      }
+    }
 
     return new Response(
-      JSON.stringify({ text }),
+      JSON.stringify({ text: fullText }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

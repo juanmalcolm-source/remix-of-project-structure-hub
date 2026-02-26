@@ -38,7 +38,10 @@ Para cada línea presupuestaria incluye:
 - notes: notas adicionales
 - budget_level: nivel de presupuesto solicitado
 
-Responde SOLO con un JSON válido con esta estructura:
+IMPORTANTE: Responde ÚNICAMENTE con el JSON. Sin texto explicativo antes ni después. Sin markdown fences.
+La respuesta debe comenzar directamente con { y terminar con }.
+
+Estructura exacta:
 {
   "budgetLines": [...],
   "summary": {
@@ -54,21 +57,20 @@ Responde SOLO con un JSON válido con esta estructura:
 /**
  * Robust JSON extraction from Claude's response text.
  * Handles: pure JSON, markdown fences, text before/after JSON.
- * Each parse attempt is individually try-caught so failures never propagate.
  */
 function extractJsonFromText(raw: string): unknown {
   const trimmed = raw.trim();
 
-  // 1) Try direct parse (pure JSON response)
+  // 1) Try direct parse
   try { return JSON.parse(trimmed); } catch { /* continue */ }
 
-  // 2) Try extracting from markdown ```json ... ``` fences
+  // 2) Try extracting from markdown fences
   const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
   if (fenceMatch) {
     try { return JSON.parse(fenceMatch[1].trim()); } catch { /* continue */ }
   }
 
-  // 3) Fallback: find outermost { ... } in raw text
+  // 3) Fallback: find outermost { ... }
   const braceStart = trimmed.indexOf('{');
   const braceEnd = trimmed.lastIndexOf('}');
   if (braceStart >= 0 && braceEnd > braceStart) {
@@ -129,8 +131,10 @@ Rango de presupuesto estimado: ${requestData.creativeAnalysis.estimatedBudgetRan
 Factores positivos: ${(requestData.creativeAnalysis.viabilityFactorsPositive || []).join(', ')}
 Factores negativos: ${(requestData.creativeAnalysis.viabilityFactorsNegative || []).join(', ')}` : ''}
 
-Genera el presupuesto completo con líneas detalladas para cada capítulo. Usa tarifas realistas del mercado español 2024-2025.`;
+Genera el presupuesto completo con líneas detalladas para cada capítulo. Usa tarifas realistas del mercado español 2024-2025.
+Responde SOLO con JSON, sin texto adicional.`;
 
+    // Use streaming to avoid Vercel edge function timeout
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -142,14 +146,19 @@ Genera el presupuesto completo con líneas detalladas para cada capítulo. Usa t
         model: 'claude-sonnet-4-20250514',
         max_tokens: 16000,
         temperature: 0.2,
+        stream: true,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       }),
     });
 
     if (!anthropicResponse.ok) {
-      const errorData = await anthropicResponse.json().catch(() => ({}));
-      const errorMsg = (errorData as { error?: { message?: string } }).error?.message || `Error HTTP ${anthropicResponse.status}`;
+      const errorData = await anthropicResponse.text().catch(() => '');
+      let errorMsg = `Error HTTP ${anthropicResponse.status}`;
+      try {
+        const parsed = JSON.parse(errorData);
+        errorMsg = parsed.error?.message || errorMsg;
+      } catch { /* use default */ }
 
       return new Response(
         JSON.stringify({ error: `Error de la API: ${errorMsg}` }),
@@ -157,17 +166,39 @@ Genera el presupuesto completo con líneas detalladas para cada capítulo. Usa t
       );
     }
 
-    const data = await anthropicResponse.json() as {
-      content: Array<{ type: string; text?: string }>;
-    };
+    // Read the SSE stream from Anthropic, accumulate text, then return JSON
+    const reader = anthropicResponse.body!.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
 
-    const text = data.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text || '')
-      .join('');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    // Robust JSON extraction — handles text before/after JSON, markdown fences, etc.
-    const result = extractJsonFromText(text);
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]' || data === '') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+              fullText += parsed.delta.text;
+            }
+          } catch {
+            // Ignore unparseable lines
+          }
+        }
+      }
+    }
+
+    // Parse the accumulated JSON response
+    const result = extractJsonFromText(fullText);
 
     return new Response(
       JSON.stringify(result),
@@ -176,8 +207,9 @@ Genera el presupuesto completo con líneas detalladas para cada capítulo. Usa t
 
   } catch (error) {
     console.error('Error in generar-presupuesto:', error);
+    const message = error instanceof Error ? error.message : 'Error interno del servidor';
     return new Response(
-      JSON.stringify({ error: 'Error interno del servidor al generar presupuesto' }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

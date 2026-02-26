@@ -70,14 +70,14 @@ export default function SequenceDialog({
       setNum(sequence.sequence_number);
       setTitle(sequence.title || '');
       setDescription(sequence.description || '');
-      setIntExt((sequence as any).int_ext || 'INT');
+      setIntExt(sequence.int_ext || 'INT');
       setTimeOfDay(sequence.time_of_day || 'DIA');
       setOctavos(Number(sequence.page_eighths) || 1);
       setLocationId(sequence.location_id || 'none');
       const chars = sequence.characters_in_scene;
       setSelectedChars(Array.isArray(chars) ? (chars as string[]) : []);
-      setDiaFiccion((sequence as any).dia_ficcion?.toString() || '');
-      const cf = (sequence as any).complejidad_factores;
+      setDiaFiccion(sequence.dia_ficcion?.toString() || '');
+      const cf = sequence.complejidad_factores;
       setFactores(cf && typeof cf === 'object' ? { ...crearFactoresVacios(), ...cf } : crearFactoresVacios());
     } else {
       setNum(nextNumber);

@@ -19,6 +19,7 @@ import { useProject } from '@/hooks/useProject';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
+import type { Tables } from '@/integrations/supabase/types';
 
 const PRIORIDAD_COLORS: Record<string, string> = {
   baja: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
@@ -48,7 +49,7 @@ export default function TareasPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [editingTarea, setEditingTarea] = useState<any>(null);
+  const [editingTarea, setEditingTarea] = useState<Tables<'tareas_solicitud'> | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [filtroEstado, setFiltroEstado] = useState('todas');
 
@@ -73,7 +74,7 @@ export default function TareasPage() {
   const vencidas = tareas.filter((t) => isOverdue(t.fecha_limite, t.estado)).length;
 
   const openCreate = () => { setEditingTarea(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (t: any) => {
+  const openEdit = (t: Tables<'tareas_solicitud'>) => {
     setEditingTarea(t);
     setForm({ titulo: t.titulo, descripcion: t.descripcion || '', fecha_limite: t.fecha_limite || '', prioridad: t.prioridad || 'media', estado: t.estado || 'pendiente' });
     setDialogOpen(true);
@@ -81,7 +82,7 @@ export default function TareasPage() {
 
   const handleSave = () => {
     if (!form.titulo.trim()) return;
-    const payload: any = { ...form, fecha_limite: form.fecha_limite || null, descripcion: form.descripcion || null };
+    const payload = { ...form, fecha_limite: form.fecha_limite || null, descripcion: form.descripcion || null };
     if (editingTarea) {
       updateTarea({ id: editingTarea.id, ...payload });
     } else {
@@ -90,7 +91,7 @@ export default function TareasPage() {
     setDialogOpen(false);
   };
 
-  const handleToggleComplete = (t: any) => {
+  const handleToggleComplete = (t: Tables<'tareas_solicitud'>) => {
     updateTarea({ id: t.id, estado: t.estado === 'completada' ? 'pendiente' : 'completada' });
   };
 

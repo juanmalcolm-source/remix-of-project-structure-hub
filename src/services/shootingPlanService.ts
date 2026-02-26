@@ -2,6 +2,7 @@
 // Implements professional 1st AD time estimation formulas
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
 // ═══════════════════════════════════════════════════════════════════════
 // FÓRMULA PROFESIONAL DE TIEMPO DE RODAJE (PRD v3.0)
@@ -82,6 +83,9 @@ export interface SceneForPlanning {
   scene_complexity: string;
   characters: string[];
   effectiveEighths: number; // Adjusted by complexity
+  // Campos de complejidad (PRD v3 — 15 factores)
+  complejidad_factores?: Record<string, boolean | number> | null;
+  int_ext?: string | null;
   // Campos profesionales de tiempo
   set_type?: 'INT' | 'EXT';
   complexity_factor?: number;
@@ -173,8 +177,8 @@ export function calculateEffectiveEighths(pageEighths: number, complexity: strin
 /**
  * Calcular tiempo extra por factores de complejidad (PRD v3: 15 factores)
  */
-function calculateComplexityExtraMinutes(scene: SceneForPlanning | any): number {
-  const factores = scene.complejidad_factores || (scene as any).complejidad_factores;
+function calculateComplexityExtraMinutes(scene: SceneForPlanning): number {
+  const factores = scene.complejidad_factores;
   if (!factores || typeof factores !== 'object') return 0;
 
   let extra = 0;
@@ -203,8 +207,8 @@ function calculateComplexityExtraMinutes(scene: SceneForPlanning | any): number 
  * Calcular cobertura extra (PRD v3)
  * +50% del rodaje base si acción/stunts, +30% si diálogo extenso
  */
-function calculateCoverageMinutes(scene: SceneForPlanning | any, baseShootingMinutes: number): number {
-  const factores = scene.complejidad_factores || (scene as any).complejidad_factores;
+function calculateCoverageMinutes(scene: SceneForPlanning, baseShootingMinutes: number): number {
+  const factores = scene.complejidad_factores;
   if (!factores || typeof factores !== 'object') return 0;
 
   if (factores.accion_fisica || factores.stunts) {
@@ -224,7 +228,7 @@ function calculateCoverageMinutes(scene: SceneForPlanning | any, baseShootingMin
  * Complejidad: 15 factores con pesos específicos
  * Transición: 5min base
  */
-export function calculateSceneShootingTimeDetailed(scene: SceneForPlanning | any): SceneTimeBreakdown {
+export function calculateSceneShootingTimeDetailed(scene: SceneForPlanning): SceneTimeBreakdown {
   // Determinar tipo INT/EXT
   const setType = scene.set_type || scene.int_ext || detectSetType(scene.title || '');
   const isNight = isNightScene(scene.time_of_day);
@@ -276,7 +280,7 @@ export function calculateSceneShootingTimeDetailed(scene: SceneForPlanning | any
 /**
  * Versión simplificada que devuelve horas (para compatibilidad)
  */
-export function calculateSceneShootingTime(scene: SceneForPlanning | any): number {
+export function calculateSceneShootingTime(scene: SceneForPlanning): number {
   const breakdown = calculateSceneShootingTimeDetailed(scene);
   return breakdown.totalMinutes / 60;
 }
@@ -331,7 +335,7 @@ export function calculateDayTimeWithLocationOptimization(scenes: SceneForPlannin
 /**
  * Recalcular tiempo total de un día (versión simplificada para compatibilidad)
  */
-export function recalculateDayTime(scenes: (SceneForPlanning | any)[]): number {
+export function recalculateDayTime(scenes: SceneForPlanning[]): number {
   const result = calculateDayTimeWithLocationOptimization(scenes);
   return result.totalHours;
 }
@@ -522,8 +526,8 @@ function addCrossDayWarnings(days: ProposedShootingDay[]): void {
 
     // Niños: max 8h, no noche
     if (RESTRICTIONS.CHILDREN_NO_NIGHT && isNight) {
-      const hasChildren = day.scenes.some((s: any) => {
-        const f = s.complejidad_factores || (s as any).complejidad_factores;
+      const hasChildren = day.scenes.some((s) => {
+        const f = s.complejidad_factores;
         return f && f.ninos === true;
       });
       if (hasChildren) {
@@ -532,8 +536,8 @@ function addCrossDayWarnings(days: ProposedShootingDay[]): void {
     }
 
     // Niños: max 8h
-    const hasChildrenInDay = day.scenes.some((s: any) => {
-      const f = s.complejidad_factores || (s as any).complejidad_factores;
+    const hasChildrenInDay = day.scenes.some((s) => {
+      const f = s.complejidad_factores;
       return f && f.ninos === true;
     });
     if (hasChildrenInDay && day.estimatedHours > RESTRICTIONS.CHILDREN_MAX_HOURS) {
@@ -774,7 +778,7 @@ function groupAndDistributeByCharacters(
  */
 function groupAndDistributeByZone(
   scenes: SceneForPlanning[],
-  locations: any[],
+  locations: Tables<'locations'>[],
   options: PlanGenerationOptions
 ): ProposedShootingDay[] {
   const targetHours = options.targetHoursPerDay || 10;
@@ -946,8 +950,8 @@ function distributeIntoDaysFlexibleWithZones(
 
 // Main function: Generate smart shooting plan
 export function generateSmartShootingPlan(
-  sequences: any[],
-  locations: any[],
+  sequences: Tables<'sequences'>[],
+  locations: Tables<'locations'>[],
   options: PlanGenerationOptions
 ): ProposedShootingDay[] {
   console.log('[ShootingPlan] Generating plan with options:', options);
@@ -973,8 +977,10 @@ export function generateSmartShootingPlan(
       time_of_day: seq.time_of_day || parseTimeOfDay(seq.title || ''),
       page_eighths: pageEighths,
       scene_complexity: complexity,
-      characters: Array.isArray(seq.characters_in_scene) ? seq.characters_in_scene : [],
+      characters: Array.isArray(seq.characters_in_scene) ? seq.characters_in_scene as string[] : [],
       effectiveEighths: calculateEffectiveEighths(pageEighths, complexity),
+      complejidad_factores: seq.complejidad_factores as Record<string, boolean | number> | null,
+      int_ext: seq.int_ext,
     };
   });
   
@@ -1079,6 +1085,12 @@ export async function saveShootingPlan(
         title: s.title,
         page_eighths: s.page_eighths,
         effectiveEighths: s.effectiveEighths,
+        complejidad_factores: s.complejidad_factores ?? null,
+        int_ext: s.int_ext ?? null,
+        location_name: s.location_name,
+        time_of_day: s.time_of_day,
+        scene_complexity: s.scene_complexity,
+        characters: s.characters,
       })),
       characters: day.characters,
       total_eighths: day.totalEighths,
@@ -1093,9 +1105,9 @@ export async function saveShootingPlan(
     if (insertError) throw insertError;
     
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error saving shooting plan:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' };
   }
 }
 
@@ -1113,12 +1125,12 @@ export async function loadShootingPlan(projectId: string): Promise<ProposedShoot
   }
   
   return (data || []).map((row) => {
-    const scenes = (row.sequences as any[]) || [];
+    const scenes = (row.sequences as SceneForPlanning[]) || [];
     const estimatedHours = Number(row.estimated_hours) || 0;
     const targetHours = 10; // Default target
-    
+
     // Extract unique locations from scenes
-    const sceneLocations = scenes.map((s: any) => s.location_name).filter(Boolean);
+    const sceneLocations = scenes.map((s) => s.location_name).filter(Boolean);
     const uniqueLocations = [...new Set(sceneLocations)];
     const locations = uniqueLocations.length > 0 ? uniqueLocations : [row.location_name || 'Sin localización'];
     

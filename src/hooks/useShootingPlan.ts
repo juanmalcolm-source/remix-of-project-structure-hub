@@ -16,8 +16,8 @@ import {
 import { toast } from "sonner";
 
 // Helper to get unique locations from scenes
-function getUniqueLocations(scenes: any[]): string[] {
-  return [...new Set(scenes.map((s: any) => s.location_name).filter(Boolean))];
+function getUniqueLocations(scenes: SceneForPlanning[]): string[] {
+  return [...new Set(scenes.map((s) => s.location_name).filter(Boolean))];
 }
 
 export function useShootingPlan(projectId: string) {
@@ -66,7 +66,7 @@ export function useShootingPlan(projectId: string) {
   // Calculate unassigned scenes
   const unassignedScenes = useMemo(() => {
     const assignedIds = new Set(
-      shootingDays.flatMap(day => day.scenes.map((s: any) => s.id))
+      shootingDays.flatMap(day => day.scenes.map((s) => s.id))
     );
     return sequences.filter(seq => !assignedIds.has(seq.id));
   }, [sequences, shootingDays]);
@@ -106,8 +106,8 @@ export function useShootingPlan(projectId: string) {
   // Mutation to update a single day
   const updateDayMutation = useMutation({
     mutationFn: async ({ dayNumber, updates }: { dayNumber: number; updates: Partial<ProposedShootingDay> }) => {
-      const updateData: any = {};
-      
+      const updateData: Record<string, unknown> = {};
+
       if (updates.location !== undefined) updateData.location_name = updates.location;
       if (updates.timeOfDay !== undefined) updateData.time_of_day = updates.timeOfDay;
       if (updates.totalEighths !== undefined) updateData.total_eighths = updates.totalEighths;
@@ -115,7 +115,7 @@ export function useShootingPlan(projectId: string) {
       if (updates.warnings !== undefined) updateData.notes = updates.warnings.join('; ');
       if (updates.scenes !== undefined) {
         updateData.sequences = updates.scenes;
-        updateData.total_eighths = updates.scenes.reduce((sum: number, s: any) => 
+        updateData.total_eighths = updates.scenes.reduce((sum: number, s: SceneForPlanning) =>
           sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       }
       if (updates.characters !== undefined) updateData.characters = updates.characters;
@@ -222,13 +222,13 @@ export function useShootingPlan(projectId: string) {
       
       if (!fromDay || !toDay) throw new Error('Día no encontrado');
       
-      const scene = fromDay.scenes.find((s: any) => s.id === sceneId);
+      const scene = fromDay.scenes.find((s) => s.id === sceneId);
       if (!scene) throw new Error('Escena no encontrada');
-      
+
       // Update from day (remove scene)
-      const newFromScenes = fromDay.scenes.filter((s: any) => s.id !== sceneId);
-      const fromCharacters = [...new Set(newFromScenes.flatMap((s: any) => s.characters || []))];
-      const fromTotalEighths = newFromScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+      const newFromScenes = fromDay.scenes.filter((s) => s.id !== sceneId);
+      const fromCharacters = [...new Set(newFromScenes.flatMap((s) => s.characters || []))];
+      const fromTotalEighths = newFromScenes.reduce((sum: number, s) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       const fromTimeResult = calculateDayTimeWithLocationOptimization(newFromScenes);
       const fromLocations = getUniqueLocations(newFromScenes);
       
@@ -248,8 +248,8 @@ export function useShootingPlan(projectId: string) {
       
       // Update to day (add scene)
       const newToScenes = [...toDay.scenes, scene];
-      const toCharacters = [...new Set(newToScenes.flatMap((s: any) => s.characters || []))];
-      const toTotalEighths = newToScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+      const toCharacters = [...new Set(newToScenes.flatMap((s) => s.characters || []))];
+      const toTotalEighths = newToScenes.reduce((sum: number, s) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       const toTimeResult = calculateDayTimeWithLocationOptimization(newToScenes);
       const toLocations = getUniqueLocations(newToScenes);
       
@@ -308,12 +308,12 @@ export function useShootingPlan(projectId: string) {
       };
       
       const newScenes = [...day.scenes, newScene];
-      const newCharacters = [...new Set(newScenes.flatMap((s: any) => s.characters || []))];
-      const newTotalEighths = newScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
-      
+      const newCharacters = [...new Set(newScenes.flatMap((s) => s.characters || []))];
+      const newTotalEighths = newScenes.reduce((sum: number, s) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+
       await supabase
         .from('shooting_days')
-        .update({ 
+        .update({
           sequences: newScenes as unknown as null,
           characters: newCharacters as unknown as null,
           total_eighths: newTotalEighths,
@@ -330,19 +330,19 @@ export function useShootingPlan(projectId: string) {
 
   // Mutation to remove scene from a day (back to unassigned)
   const removeSceneFromDayMutation = useMutation({
-    mutationFn: async ({ 
-      sceneId, 
-      dayNumber 
-    }: { 
-      sceneId: string; 
+    mutationFn: async ({
+      sceneId,
+      dayNumber
+    }: {
+      sceneId: string;
       dayNumber: number;
     }) => {
       const day = shootingDays.find((d) => d.dayNumber === dayNumber);
       if (!day) throw new Error('Día no encontrado');
-      
-      const newScenes = day.scenes.filter((s: any) => s.id !== sceneId);
-      const newCharacters = [...new Set(newScenes.flatMap((s: any) => s.characters || []))];
-      const newTotalEighths = newScenes.reduce((sum: number, s: any) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
+
+      const newScenes = day.scenes.filter((s) => s.id !== sceneId);
+      const newCharacters = [...new Set(newScenes.flatMap((s) => s.characters || []))];
+      const newTotalEighths = newScenes.reduce((sum: number, s) => sum + (s.effectiveEighths || s.page_eighths || 1), 0);
       
       await supabase
         .from('shooting_days')
@@ -375,7 +375,7 @@ export function useShootingPlan(projectId: string) {
       
       // Reorder scenes based on sceneIds array
       const reorderedScenes = sceneIds
-        .map(id => day.scenes.find((s: any) => s.id === id))
+        .map(id => day.scenes.find((s) => s.id === id))
         .filter(Boolean);
       
       await supabase

@@ -59,7 +59,7 @@ export default function PlanRodajePage() {
   } = useShootingPlan(projectId || '');
 
   // Check if we have zone data for locations
-  const hasZoneData = locations.some((loc: any) => loc.zone);
+  const hasZoneData = locations.some((loc) => loc.zone);
 
   const isLoading = projectLoading || planLoading;
   

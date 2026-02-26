@@ -153,10 +153,10 @@ export async function generarPresupuestoConIA(
       timeOfDay: s.time_of_day,
       sceneComplexity: s.scene_complexity,
       pageEighths: s.page_eighths ? Number(s.page_eighths) : 1,
-      hasVFX: (s.effects as any[])?.some((e: any) => 
+      hasVFX: (s.effects as unknown[] | null)?.some((e) =>
         typeof e === 'string' ? e.toLowerCase().includes('vfx') : false
       ) || false,
-      hasAction: (s.effects as any[])?.some((e: any) => 
+      hasAction: (s.effects as unknown[] | null)?.some((e) =>
         typeof e === 'string' ? (e.toLowerCase().includes('acción') || e.toLowerCase().includes('pelea')) : false
       ) || false,
       hasNight: s.time_of_day?.toLowerCase().includes('noche') || false,

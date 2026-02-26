@@ -99,19 +99,50 @@ export default function BuyerPersonasPage() {
     setDialogOpen(false);
   };
 
+  // Build rich context from project analysis
+  const buildProjectContext = () => {
+    if (!project) return '';
+    const parts: string[] = [];
+    parts.push(`Película: "${project.title}"`);
+    if (project.logline) parts.push(`Logline: ${project.logline}`);
+    if (project.genero) parts.push(`Género: ${project.genero}`);
+    if (project.tono) parts.push(`Tono: ${project.tono}`);
+
+    const analysis = project.creative_analysis;
+    if (analysis) {
+      if (analysis.central_theme) parts.push(`Tema central: ${analysis.central_theme}`);
+      if (analysis.score_comercial) parts.push(`Potencial comercial: ${analysis.score_comercial}/100`);
+      if (analysis.score_festival) parts.push(`Potencial festival: ${analysis.score_festival}/100`);
+      const mp = analysis.market_potential as Record<string, unknown> | null;
+      if (mp && typeof mp === 'object' && !Array.isArray(mp)) {
+        if (Array.isArray(mp.territorios_principales)) parts.push(`Territorios objetivo: ${(mp.territorios_principales as string[]).join(', ')}`);
+        if (Array.isArray(mp.plataformas_potenciales)) parts.push(`Plataformas: ${(mp.plataformas_potenciales as string[]).join(', ')}`);
+      }
+    }
+
+    return parts.join('\n');
+  };
+
   const handleOpenAiDialog = () => {
-    setAiPrompt(project?.title ? `Película: "${project.title}"${project.logline ? `. ${project.logline}` : ''}` : '');
+    setAiPrompt(buildProjectContext());
     setAiDialogOpen(true);
   };
 
   const handleGenerateAI = async () => {
     if (!aiPrompt.trim()) return;
+    if (!project?.creative_analysis) {
+      toast({ title: 'Sin análisis de guión', description: 'Para mejores resultados, analiza el guión primero desde la Parte Creativa.' });
+    }
     setAiLoading(true);
     try {
       const text = await generateWithAI({
-        prompt: `Genera 3 buyer personas para este proyecto cinematográfico:\n\n${aiPrompt}`,
-        systemPrompt: 'Eres un experto en marketing cinematográfico y análisis de audiencias. Genera 3 buyer personas detallados para una película. Devuelve SOLO un JSON array (sin texto adicional) con objetos que tengan: nombre (string), edad (number), ocupacion (string), biografia (string, 2-3 frases), motivaciones (string[]), frustraciones (string[]), medios (string[]), objetivos (string[]).',
-        maxTokens: 2048,
+        prompt: `Genera 3 buyer personas para este proyecto cinematográfico. UNO debe ser el perfil PRIMARIO (mayor afinidad), y DOS perfiles SECUNDARIOS (audiencia complementaria).\n\nDATOS DEL PROYECTO:\n${aiPrompt}`,
+        systemPrompt: `Eres un experto en marketing cinematográfico y análisis de audiencias del mercado español y europeo. Genera 3 buyer personas segmentados: 1 PRIMARIO (máxima afinidad con el proyecto) y 2 SECUNDARIOS (audiencias complementarias).
+
+Para cada persona, basa tus decisiones en el género, tono, tema central y territorios del proyecto. Si se mencionan plataformas (Netflix, MUBI, etc.), usa eso para informar los medios de consumo.
+
+Devuelve SOLO un JSON array (sin texto adicional) con objetos que tengan: nombre (string, nombre ficticio español), edad (number), ocupacion (string), biografia (string, 3-4 frases que expliquen su relación con el cine y este tipo de contenido), motivaciones (string[], por qué verían esta película), frustraciones (string[], qué les falta en la oferta actual), medios (string[], dónde consumen contenido audiovisual), objetivos (string[], qué buscan al ver una película como esta).`,
+        maxTokens: 3000,
       });
 
       const generated = extractJson<Array<{
@@ -140,8 +171,8 @@ export default function BuyerPersonasPage() {
 
       toast({ title: 'IA completada', description: `${generated.length} buyer personas generadas con IA` });
       setAiDialogOpen(false);
-    } catch (err: any) {
-      toast({ title: 'Error de IA', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Error de IA', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     } finally {
       setAiLoading(false);
     }

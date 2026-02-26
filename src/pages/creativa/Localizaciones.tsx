@@ -166,7 +166,7 @@ export default function Localizaciones() {
     });
   };
 
-  const handleActualizarLocalizacion = (campo: keyof LocalizacionExtendida, valor: any, nombre: string) => {
+  const handleActualizarLocalizacion = (campo: keyof LocalizacionExtendida, valor: LocalizacionExtendida[keyof LocalizacionExtendida], nombre: string) => {
     setLocalizaciones(localizaciones.map(l => 
       l.nombre === nombre ? { ...l, [campo]: valor } : l
     ));

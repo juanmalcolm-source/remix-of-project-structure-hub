@@ -29,17 +29,63 @@ export default function AnalisisAudienciasPage() {
 
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Build rich project context from analysis
+  const buildProjectContext = () => {
+    const parts: string[] = [];
+    if (!project) return 'Un proyecto cinematográfico español';
+    parts.push(`Proyecto: "${project.title}"`);
+    if (project.logline) parts.push(`Logline: ${project.logline}`);
+    if (project.genero) parts.push(`Género: ${project.genero}`);
+    if (project.tono) parts.push(`Tono: ${project.tono}`);
+
+    const analysis = project.creative_analysis;
+    if (analysis) {
+      if (analysis.central_theme) parts.push(`Tema central: ${analysis.central_theme}`);
+      if (analysis.score_comercial != null) parts.push(`Score comercial: ${analysis.score_comercial}/100`);
+      if (analysis.score_festival != null) parts.push(`Score festival: ${analysis.score_festival}/100`);
+      if (analysis.estimated_budget_range) parts.push(`Rango presupuesto: ${analysis.estimated_budget_range}`);
+      if (analysis.potencial_comercial) parts.push(`Potencial comercial: ${analysis.potencial_comercial}`);
+
+      const mp = analysis.market_potential as Record<string, unknown> | null;
+      if (mp && typeof mp === 'object' && !Array.isArray(mp)) {
+        if (Array.isArray(mp.territorios_principales)) parts.push(`Territorios ya identificados: ${(mp.territorios_principales as string[]).join(', ')}`);
+        if (Array.isArray(mp.ventanas_distribucion)) parts.push(`Ventanas distribución: ${(mp.ventanas_distribucion as string[]).join(', ')}`);
+        if (Array.isArray(mp.plataformas_potenciales)) parts.push(`Plataformas potenciales: ${(mp.plataformas_potenciales as string[]).join(', ')}`);
+        if (Array.isArray(mp.festivales_sugeridos)) parts.push(`Festivales sugeridos: ${(mp.festivales_sugeridos as string[]).join(', ')}`);
+        if (typeof mp.genero_tendencia === 'string') parts.push(`Tendencia del género: ${mp.genero_tendencia}`);
+      }
+    }
+
+    return parts.join('\n');
+  };
+
   const handleGenerateAI = async () => {
+    if (!project?.creative_analysis) {
+      toast({ title: 'Sin análisis de guión', description: 'Para mejores resultados, analiza el guión primero desde la Parte Creativa.' });
+    }
     setAiLoading(true);
     try {
-      const projectDesc = project?.title
-        ? `Proyecto: "${project.title}"${project.logline ? `. Logline: ${project.logline}` : ''}`
-        : 'Un proyecto cinematográfico español';
+      const projectContext = buildProjectContext();
 
       const text = await generateWithAI({
-        prompt: `Analiza el potencial de mercado para este proyecto:\n\n${projectDesc}`,
-        systemPrompt: 'Eres un experto en análisis de mercado cinematográfico español y europeo. Analiza el potencial de mercado para una película. Devuelve SOLO un JSON (sin texto adicional) con: tamano_mercado_estimado (number, estimación de espectadores potenciales), resumen_mercado (string, 2-3 frases), segmentos_principales (string[], 4-5 segmentos), tendencias (string[], 4 tendencias del sector), oportunidades (string[], 4 oportunidades), riesgos (string[], 4 riesgos), recomendaciones (string, 2-3 frases de recomendación).',
-        maxTokens: 2048,
+        prompt: `Analiza el potencial de mercado para este proyecto cinematográfico. Usa los datos del análisis del guión como base y AMPLÍALOS con tu conocimiento del mercado.\n\nDATOS DEL PROYECTO:\n${projectContext}`,
+        systemPrompt: `Eres un analista de mercado cinematográfico especializado en cine español e independiente europeo. Conoces datos reales de taquilla española (fuente: ICAA/Comscore), cuotas de mercado de plataformas (Netflix, Movistar+, Filmin, MUBI), y circuitos de festivales de clase A.
+
+Analiza el potencial de mercado CONSIDERANDO:
+- Los territorios y plataformas ya identificados por el análisis del guión
+- La tendencia actual del género en España y Europa
+- Comparables reales de taquilla/streaming para películas similares
+- Ventanas de distribución específicas (salas → plataformas → TV)
+
+Devuelve SOLO un JSON (sin texto adicional) con:
+- tamano_mercado_estimado (number, espectadores potenciales en España, basado en comparables del género)
+- resumen_mercado (string, 3-4 frases con datos específicos de mercado, menciona comparables)
+- segmentos_principales (string[], 4-5 segmentos con rango de edad, ej: "Cinéfilos 25-45 años")
+- tendencias (string[], 4 tendencias del sector relevantes para este proyecto)
+- oportunidades (string[], 4 oportunidades incluyendo territorios internacionales y festivales)
+- riesgos (string[], 4 riesgos específicos del proyecto, no genéricos)
+- recomendaciones (string, 3-4 frases de estrategia de distribución concreta)`,
+        maxTokens: 3000,
       });
 
       const result = extractJson<{
@@ -69,8 +115,8 @@ export default function AnalisisAudienciasPage() {
       }
 
       toast({ title: 'IA completada', description: 'Análisis de mercado generado con IA' });
-    } catch (err: any) {
-      toast({ title: 'Error de IA', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Error de IA', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     } finally {
       setAiLoading(false);
     }

@@ -84,8 +84,8 @@ export default function BibliotecaPage() {
   const toggleAmbito = (a: string) => setSelectedAmbitos(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
   const toggleTipo = (t: string) => setSelectedTipos(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
 
-  const basesResumen = selectedConv ? (selectedConv as any).bases_resumen : null;
-  const basesPdfUrl = selectedConv ? (selectedConv as any).bases_pdf_url : null;
+  const basesResumen = selectedConv?.bases_resumen ?? null;
+  const basesPdfUrl = selectedConv?.bases_pdf_url ?? null;
 
   return (
     <ConvocatoriasLayout projectTitle={project?.title}>

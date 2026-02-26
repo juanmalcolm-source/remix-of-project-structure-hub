@@ -16,6 +16,19 @@ import { useToast } from '@/hooks/use-toast';
 import ConvocatoriasLayout from '@/components/layout/ConvocatoriasLayout';
 import PageHeader from '@/components/common/PageHeader';
 import EmptyState from '@/components/common/EmptyState';
+import type { Tables, Json } from '@/integrations/supabase/types';
+
+interface ResultadoAnalisis {
+  puntuacion?: number;
+  fortalezas?: string[];
+  debilidades?: string[];
+  recomendaciones?: string[];
+  probabilidad_exito?: string;
+}
+
+type SolicitudWithConv = Tables<'solicitudes'> & {
+  convocatorias: Tables<'convocatorias'> | null;
+};
 
 const ESTADO_COLORS: Record<string, string> = {
   borrador: 'bg-muted text-muted-foreground',
@@ -50,7 +63,7 @@ const DOCUMENT_TYPES = [
   { tipo: 'plan_distribucion', nombre: 'Plan de Distribución' },
 ];
 
-function SolicitudCard({ solicitud, onUpdateEstado, projectTitle }: { solicitud: any; onUpdateEstado: (id: string, estado: string) => void; projectTitle?: string }) {
+function SolicitudCard({ solicitud, onUpdateEstado, projectTitle }: { solicitud: SolicitudWithConv; onUpdateEstado: (id: string, estado: string) => void; projectTitle?: string }) {
   const [expanded, setExpanded] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const { toast } = useToast();
@@ -90,12 +103,12 @@ Dotación: ${convInfo?.dotacion ? convInfo.dotacion + '€' : 'No especificada'}
 
       createAnalisis({
         tipo: 'elegibilidad',
-        resultado: result as any,
+        resultado: result as unknown as Json,
       });
 
       toast({ title: 'IA completada', description: 'Análisis de elegibilidad generado' });
-    } catch (err: any) {
-      toast({ title: 'Error de IA', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Error de IA', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     } finally {
       setAiLoading(false);
     }
@@ -144,27 +157,30 @@ Dotación: ${convInfo?.dotacion ? convInfo.dotacion + '€' : 'No especificada'}
           {/* Análisis */}
           <div>
             <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Análisis de Elegibilidad</h4>
-            {analisisLoading ? <Skeleton className="h-16 w-full" /> : lastAnalysis ? (
+            {analisisLoading ? <Skeleton className="h-16 w-full" /> : lastAnalysis ? (() => {
+              const res = lastAnalysis.resultado as unknown as ResultadoAnalisis | null;
+              return (
               <Card className="bg-muted/50">
                 <CardContent className="p-4 text-sm space-y-2">
                   <div className="flex items-center gap-3">
                     <span className="font-medium">Puntuación:</span>
-                    <span className="text-lg font-bold">{(lastAnalysis.resultado as any)?.puntuacion}/100</span>
-                    {(lastAnalysis.resultado as any)?.probabilidad_exito && (
+                    <span className="text-lg font-bold">{res?.puntuacion}/100</span>
+                    {res?.probabilidad_exito && (
                       <Badge variant={
-                        (lastAnalysis.resultado as any).probabilidad_exito === 'alta' ? 'default' :
-                        (lastAnalysis.resultado as any).probabilidad_exito === 'media' ? 'secondary' : 'outline'
+                        res.probabilidad_exito === 'alta' ? 'default' :
+                        res.probabilidad_exito === 'media' ? 'secondary' : 'outline'
                       }>
-                        Probabilidad {(lastAnalysis.resultado as any).probabilidad_exito}
+                        Probabilidad {res.probabilidad_exito}
                       </Badge>
                     )}
                   </div>
-                  <p><strong>Fortalezas:</strong> {((lastAnalysis.resultado as any)?.fortalezas || []).join(', ')}</p>
-                  <p><strong>Debilidades:</strong> {((lastAnalysis.resultado as any)?.debilidades || []).join(', ')}</p>
-                  <p><strong>Recomendaciones:</strong> {((lastAnalysis.resultado as any)?.recomendaciones || []).join(', ')}</p>
+                  <p><strong>Fortalezas:</strong> {(res?.fortalezas || []).join(', ')}</p>
+                  <p><strong>Debilidades:</strong> {(res?.debilidades || []).join(', ')}</p>
+                  <p><strong>Recomendaciones:</strong> {(res?.recomendaciones || []).join(', ')}</p>
                 </CardContent>
-              </Card>
-            ) : (
+              </Card>);
+            })()
+            : (
               <Button variant="outline" size="sm" onClick={handleGenerateAnalysis} disabled={aiLoading}>
                 {aiLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analizando...</> : <><Sparkles className="w-4 h-4 mr-2" /> Generar Análisis con IA</>}
               </Button>

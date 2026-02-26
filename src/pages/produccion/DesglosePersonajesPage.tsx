@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import ProductionLayout from '@/components/layout/ProductionLayout';
-import { useProject } from '@/hooks/useProject';
+import { useProject, useUpdateCharacter } from '@/hooks/useProject';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ProductionCharacter {
@@ -29,6 +29,7 @@ export default function DesglosePersonajesPage() {
   const { toast } = useToast();
   const { data: project, isLoading } = useProject(projectId);
 
+  const updateCharacterMutation = useUpdateCharacter();
   const [characters, setCharacters] = useState<ProductionCharacter[]>([]);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,19 +57,38 @@ export default function DesglosePersonajesPage() {
     }
   }, [project]);
 
-  const handleSave = () => {
+  const saveCharacterToDb = async (charId: string, overrides?: Partial<Pick<ProductionCharacter, 'category' | 'shootingDays' | 'dailyRate' | 'agencyPercentage'>>) => {
+    if (!projectId) return;
+    const char = characters.find(c => c.id === charId);
+    if (!char) return;
+
+    const merged = { ...char, ...overrides };
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await updateCharacterMutation.mutateAsync({
+        id: charId,
+        projectId,
+        data: {
+          category: merged.category,
+          shooting_days: merged.shootingDays,
+          daily_rate: merged.dailyRate,
+          agency_percentage: merged.agencyPercentage,
+        },
+      });
       setLastSaved(new Date());
-      toast({ title: '✓ Guardado', duration: 1000 });
-    }, 500);
+      toast({ title: 'Guardado', duration: 1500 });
+    } catch (error) {
+      console.error('Error saving character:', error);
+      toast({ title: 'Error al guardar', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateCharacter = (id: string, field: keyof ProductionCharacter, value: number | string) => {
     setCharacters(prev => prev.map(char => {
       if (char.id !== id) return char;
-      
+
       const updated = { ...char, [field]: value };
       updated.total = updated.shootingDays * updated.dailyRate * (1 + updated.agencyPercentage / 100);
       return updated;
@@ -187,11 +207,11 @@ export default function DesglosePersonajesPage() {
                     <TableRow key={char.id}>
                       <TableCell className="font-medium">{char.name}</TableCell>
                       <TableCell>
-                        <Select 
+                        <Select
                           value={char.category}
                           onValueChange={(value) => {
                             updateCharacter(char.id, 'category', value);
-                            handleSave();
+                            saveCharacterToDb(char.id, { category: value as ProductionCharacter['category'] });
                           }}
                         >
                           <SelectTrigger className="w-32">
@@ -210,7 +230,7 @@ export default function DesglosePersonajesPage() {
                           type="number"
                           value={char.shootingDays}
                           onChange={(e) => updateCharacter(char.id, 'shootingDays', parseInt(e.target.value) || 0)}
-                          onBlur={handleSave}
+                          onBlur={() => saveCharacterToDb(char.id)}
                           className="w-20 text-right"
                         />
                       </TableCell>
@@ -219,7 +239,7 @@ export default function DesglosePersonajesPage() {
                           type="number"
                           value={char.dailyRate}
                           onChange={(e) => updateCharacter(char.id, 'dailyRate', parseFloat(e.target.value) || 0)}
-                          onBlur={handleSave}
+                          onBlur={() => saveCharacterToDb(char.id)}
                           className="w-24 text-right"
                         />
                       </TableCell>
@@ -228,7 +248,7 @@ export default function DesglosePersonajesPage() {
                           type="number"
                           value={char.agencyPercentage}
                           onChange={(e) => updateCharacter(char.id, 'agencyPercentage', parseFloat(e.target.value) || 0)}
-                          onBlur={handleSave}
+                          onBlur={() => saveCharacterToDb(char.id)}
                           className="w-20 text-right"
                         />
                       </TableCell>

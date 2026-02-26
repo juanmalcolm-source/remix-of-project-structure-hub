@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables, Json } from '@/integrations/supabase/types';
 
 export type BudgetVersion = Tables<'budget_versions'>;
 
@@ -59,7 +59,7 @@ export function useCreateBudgetVersion() {
           version_number: nextVersion,
           version_name: versionName || `v${nextVersion}`,
           notes: notes || null,
-          budget_json: budgetJson as any,
+          budget_json: budgetJson as unknown as Json,
           total_amount: totalAmount,
           created_by: user.user?.id || null,
         })

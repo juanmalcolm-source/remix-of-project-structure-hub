@@ -103,6 +103,23 @@ interface BudgetChapter {
   isOpen: boolean;
 }
 
+/** Shape of `budget_json` stored in budget_versions */
+interface BudgetVersionSnapshot {
+  chapters: {
+    id: number;
+    name: string;
+    lines: {
+      accountNumber: string;
+      concept: string;
+      units: number;
+      quantity: number;
+      unitPrice: number;
+      agencyPercentage: number;
+      total: number;
+    }[];
+  }[];
+}
+
 // ICAA Official 12 Chapters
 const ICAA_CHAPTERS = [
   { id: 1, name: 'CAP. 01 - Guión y Música' },
@@ -546,7 +563,7 @@ export default function PresupuestoICAA() {
     ));
   };
 
-  const handleUpdateLine = (chapterId: number, lineId: string, field: keyof LocalBudgetLine, value: any) => {
+  const handleUpdateLine = (chapterId: number, lineId: string, field: keyof LocalBudgetLine, value: string | number) => {
     setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
       
@@ -626,11 +643,11 @@ export default function PresupuestoICAA() {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       
-      const lines: Omit<any, 'project_id'>[] = [];
+      const lines: { chapter: number; account_number: string; concept: string; units: number; quantity: number; unit_price: number; agency_percentage: number }[] = [];
       const chapterLineCount: Record<number, number> = {};
 
       // Parse number from various formats
-      const parseNumber = (val: any): number => {
+      const parseNumber = (val: unknown): number => {
         if (typeof val === 'number') return val;
         if (!val) return 0;
         const str = String(val).replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.');
@@ -647,7 +664,7 @@ export default function PresupuestoICAA() {
         if (!sheetChapter && !sheetName.match(/RESUMEN/i)) continue;
         
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
         
         let currentChapter = sheetChapter || 1;
 
@@ -869,7 +886,7 @@ export default function PresupuestoICAA() {
         projectId,
         versionName: versionName || undefined,
         notes: versionNotes || undefined,
-        budgetJson: { chapters: snapshot } as any,
+        budgetJson: { chapters: snapshot } as unknown as import('@/integrations/supabase/types').Json,
         totalAmount: total,
       });
 
@@ -891,14 +908,14 @@ export default function PresupuestoICAA() {
     if (!version) return;
 
     try {
-      const json = version.budget_json as any;
+      const json = version.budget_json as unknown as BudgetVersionSnapshot | null;
       if (!json?.chapters) {
         toast({ title: 'Formato de versión no válido', variant: 'destructive' });
         return;
       }
 
       // Convert snapshot back to budget_lines format for bulk insert
-      const lines: any[] = [];
+      const lines: { chapter: number; account_number: string; concept: string; units: number; quantity: number; unit_price: number; agency_percentage: number }[] = [];
       for (const ch of json.chapters) {
         for (const line of ch.lines) {
           lines.push({
@@ -944,11 +961,11 @@ export default function PresupuestoICAA() {
   const getCompareChapterTotal = (chapterId: number): number | null => {
     const version = getCompareVersion();
     if (!version) return null;
-    const json = version.budget_json as any;
+    const json = version.budget_json as unknown as BudgetVersionSnapshot | null;
     if (!json?.chapters) return null;
-    const ch = json.chapters.find((c: any) => c.id === chapterId);
+    const ch = json.chapters.find((c) => c.id === chapterId);
     if (!ch) return 0;
-    return ch.lines.reduce((s: number, l: any) => s + (l.total || 0), 0);
+    return ch.lines.reduce((s, l) => s + (l.total || 0), 0);
   };
 
   const formatCurrency = (amount: number) => {
@@ -1014,7 +1031,8 @@ export default function PresupuestoICAA() {
   })();
 
   const projectTitle = project?.title || 'Mi Proyecto';
-  
+  const estimatedBudgetRange = project?.creative_analysis?.estimated_budget_range;
+
   // Check if we have any real budget data
   const hasRealBudgetData = dbLines.length > 0 && grandTotal > 0;
 
@@ -1096,6 +1114,22 @@ export default function PresupuestoICAA() {
                   </div>
                 )}
               </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* AI Estimated Budget Range from Script Analysis */}
+        {estimatedBudgetRange && (
+          <Alert className="border-primary/30 bg-primary/5">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-sm font-medium">Estimación IA del guión</AlertTitle>
+            <AlertDescription className="text-sm">
+              Rango presupuestario estimado: <span className="font-semibold text-primary">{estimatedBudgetRange}</span>
+              {hasRealBudgetData && grandTotal > 0 && (
+                <span className="ml-2 text-muted-foreground">
+                  — Tu presupuesto actual: {formatCurrency(grandTotal)}
+                </span>
+              )}
             </AlertDescription>
           </Alert>
         )}

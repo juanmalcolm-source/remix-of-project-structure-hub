@@ -15,7 +15,8 @@ import {
   MapPin,
   Zap,
   Clock,
-  Target
+  Target,
+  type LucideIcon
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -65,7 +66,7 @@ interface ScoreDimension {
   nombre: string;
   puntuacion: number;
   maximo: number;
-  icon: any;
+  icon: LucideIcon;
 }
 
 export default function Viabilidad() {

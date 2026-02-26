@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -5,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 export function useFestivals(projectId: string | undefined) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const suppressToastsRef = useRef(false);
 
   const query = useQuery({
     queryKey: ['festivals', projectId],
@@ -32,9 +34,15 @@ export function useFestivals(projectId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['festivals', projectId] });
-      toast({ title: 'Creado', description: 'Festival creado correctamente' });
+      if (!suppressToastsRef.current) {
+        toast({ title: 'Creado', description: 'Festival creado correctamente' });
+      }
     },
-    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) => {
+      if (!suppressToastsRef.current) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      }
+    },
   });
 
   const updateMutation = useMutation({
@@ -66,9 +74,12 @@ export function useFestivals(projectId: string | undefined) {
     festivals: query.data ?? [],
     isLoading: query.isLoading,
     createFestival: createMutation.mutate,
+    createFestivalAsync: createMutation.mutateAsync,
     updateFestival: updateMutation.mutate,
     deleteFestival: deleteMutation.mutate,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
+    /** Suppress individual toasts during bulk operations */
+    setSuppressToasts: (v: boolean) => { suppressToastsRef.current = v; },
   };
 }

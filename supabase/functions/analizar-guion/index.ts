@@ -123,17 +123,32 @@ A) DAFO:
    - Oportunidades: tendencias de mercado, festivales afines, nichos
    - Amenazas: competencia, saturación de género, dificultades
 
-B) SCORING:
-   - score_narrativo (0-100): calidad del guión como obra
-   - score_comercial (0-100): potencial comercial
+B) SCORING (usa estas rúbricas EXACTAS):
+   - score_narrativo (0-100): calidad del guión como obra narrativa
+     0-30: Estructura rota, personajes planos, conflictos incoherentes
+     31-50: Estructura reconocible pero con problemas serios de ritmo o motivación
+     51-70: Guión funcional con arco dramático claro pero predecible o con lagunas
+     71-85: Guión sólido con personajes memorables, giros efectivos y tema resonante
+     86-100: Excepcional — obra maestra narrativa comparable a guiones premiados
+   - score_comercial (0-100): potencial de mercado y taquilla
+     0-30: Nicho extremo, sin audiencia clara, experimental puro
+     31-50: Audiencia limitada, difícil de distribuir comercialmente
+     51-70: Audiencia identificable, comparable a éxitos moderados del género
+     71-85: Alto potencial comercial, crossover entre segmentos, plataformas interesadas
+     86-100: Blockbuster potencial o fenómeno cultural
    - score_festival (0-100): potencial para circuito de festivales
+     0-30: Sin elementos para circuito festival
+     31-50: Podría entrar en festivales nacionales o secciones paralelas
+     51-70: Competitivo en festivales clase A nacionales (San Sebastián, Málaga, Valladolid)
+     71-85: Competitivo en festivales clase A internacionales (Cannes, Venecia, Berlín secciones)
+     86-100: Candidato a premios principales en festivales Clase A
 
 C) AUDIENCIA Y MERCADO:
-   - Perfiles de audiencia sugeridos (2-3 segmentos)
-   - Territorios principales de interés
-   - Películas/series comparables
-   - Festivales sugeridos según género/temática
-   - Plataformas potenciales
+   - Perfiles de audiencia sugeridos (2-3 segmentos con rango_edad, motivacion_ver, canales_alcance)
+   - Territorios principales de interés (MÍNIMO 2 territorios)
+   - Películas/series comparables (MÍNIMO 3 comparables REALES con año)
+   - Festivales sugeridos (MÍNIMO 3 festivales REALES que encajen: incluir al menos 1 español + 1 internacional)
+   - Plataformas potenciales (Netflix, Movistar+, Filmin, MUBI, Amazon, HBO, etc.)
 
 Devuelve SOLO un JSON válido con esta estructura COMPLETA:
 
@@ -364,11 +379,14 @@ INSTRUCCIONES CRÍTICAS:
 4. Calcula CORRECTAMENTE los OCTAVOS según la ley de octavos
 5. Los errores_narrativos deben ser ESPECÍFICOS con sugerencias de corrección útiles
 6. El mapa_tensiones debe tener al menos 8-10 puntos a lo largo del guión
-7. Los scores del DAFO deben ser realistas y justificados
-8. Los perfiles_audiencia deben ser perfiles reales de espectadores
-9. Los festivales_sugeridos deben ser festivales REALES que encajen con el género
-10. Sé EXHAUSTIVO y PROFESIONAL — este análisis vale dinero
-11. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
+7. Los scores DEBEN seguir las rúbricas definidas arriba — justifica mentalmente cada puntuación
+8. Los perfiles_audiencia deben ser perfiles reales de espectadores con rango_edad y canales_alcance
+9. festivales_sugeridos MÍNIMO 3 festivales REALES (al menos 1 español + 1 internacional). Ej: San Sebastián, Málaga, Cannes, Berlín, Toronto, Rotterdam, Locarno, Mar del Plata
+10. territorios_principales MÍNIMO 2 territorios (siempre incluir España)
+11. Para personajes PROTAGONISTA: ghost, stakes, transformacion y necesidad_dramatica son OBLIGATORIOS — si el guión no los define claramente, indica "No explicitado en el guión — recomendación: desarrollar"
+12. comparables: MÍNIMO 3 películas/series REALES con año de estreno
+13. Sé EXHAUSTIVO y PROFESIONAL — este análisis vale dinero
+14. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
     // Estrategia: Pro primero (mejor calidad) con timeout de 150s
     // Si Pro no responde a tiempo, Flash como fallback rápido
@@ -396,6 +414,7 @@ INSTRUCCIONES CRÍTICAS:
             { role: 'system', content: systemPrompt },
             { role: 'user', content: contextoProduccion }
           ],
+          temperature: 0.3,
           max_completion_tokens: 32000,
         }),
       };

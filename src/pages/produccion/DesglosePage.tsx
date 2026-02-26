@@ -43,13 +43,25 @@ export default function DesglosePage() {
   const totalOctavos = sequences.reduce((sum, s) => sum + (Number(s.page_eighths) || 0), 0);
   const avgScore = sequences.length
     ? Math.round(sequences.reduce((sum, s) => {
-        const cf = (s as any).complejidad_factores;
-        const f = cf && typeof cf === 'object' ? { ...crearFactoresVacios(), ...cf } : crearFactoresVacios();
-        return sum + calcularScoreComplejidad(f as ComplejidadFactores);
+        const cf = s.complejidad_factores;
+        const f = cf && typeof cf === 'object' ? { ...crearFactoresVacios(), ...(cf as ComplejidadFactores) } : crearFactoresVacios();
+        return sum + calcularScoreComplejidad(f);
       }, 0) / sequences.length)
     : 0;
 
-  const handleSave = (data: any) => {
+  const handleSave = (data: {
+    sequence_number: number;
+    title: string;
+    description: string;
+    int_ext: string;
+    time_of_day: string;
+    page_eighths: number;
+    location_id: string | null;
+    characters_in_scene: string[];
+    dia_ficcion: number | null;
+    complejidad_factores: ComplejidadFactores;
+    scene_complexity: string;
+  }) => {
     if (!projectId) return;
     const payload = {
       project_id: projectId,
@@ -104,9 +116,9 @@ export default function DesglosePage() {
   };
 
   const getSeqScore = (seq: SequenceRow) => {
-    const cf = (seq as any).complejidad_factores;
-    const f = cf && typeof cf === 'object' ? { ...crearFactoresVacios(), ...cf } : crearFactoresVacios();
-    return calcularScoreComplejidad(f as ComplejidadFactores);
+    const cf = seq.complejidad_factores;
+    const f = cf && typeof cf === 'object' ? { ...crearFactoresVacios(), ...(cf as ComplejidadFactores) } : crearFactoresVacios();
+    return calcularScoreComplejidad(f);
   };
 
   const nextNumber = sequences.length ? Math.max(...sequences.map((s) => s.sequence_number)) + 1 : 1;
@@ -195,7 +207,7 @@ export default function DesglosePage() {
                       <TableCell className="font-mono font-bold">{seq.sequence_number}</TableCell>
                       <TableCell className="font-medium">{seq.title || '—'}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{(seq as any).int_ext || 'INT'}</Badge>
+                        <Badge variant="outline">{seq.int_ext || 'INT'}</Badge>
                       </TableCell>
                       <TableCell>{seq.time_of_day || 'DIA'}</TableCell>
                       <TableCell className="text-right font-mono">{seq.page_eighths}</TableCell>

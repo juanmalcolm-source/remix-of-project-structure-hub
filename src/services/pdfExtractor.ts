@@ -57,9 +57,9 @@ export async function extractTextFromPDF(
         
         // Concatenar el texto de todos los items de la página
         const pageText = textContent.items
-          .map((item: any) => {
+          .map((item) => {
             // Verificar que el item tenga la propiedad str
-            return item.str || '';
+            return (item as { str?: string }).str || '';
           })
           .filter(str => str.trim().length > 0) // Filtrar strings vacíos
           .join(' ');

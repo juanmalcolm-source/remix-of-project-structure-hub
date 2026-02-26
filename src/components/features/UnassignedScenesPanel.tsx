@@ -16,14 +16,15 @@ import {
   Filter,
   GripVertical
 } from "lucide-react";
-import { ProposedShootingDay, calculateSceneShootingTime } from "@/services/shootingPlanService";
+import { ProposedShootingDay, SceneForPlanning, calculateSceneShootingTime } from "@/services/shootingPlanService";
 import { useDragDrop } from "@/contexts/DragDropContext";
 import { cn } from "@/lib/utils";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface UnassignedScenesPanelProps {
-  sequences: any[];
+  sequences: Tables<'sequences'>[];
   shootingDays: ProposedShootingDay[];
-  locations: any[];
+  locations: Tables<'locations'>[];
   onAssignToDay: (sequenceId: string, dayNumber: number) => void;
   onCreateDayWithScene: (sequenceId: string) => void;
 }
@@ -50,7 +51,7 @@ export function UnassignedScenesPanel({
   // Calculate unassigned scenes
   const unassignedScenes = useMemo(() => {
     const assignedIds = new Set(
-      shootingDays.flatMap(day => day.scenes.map((s: any) => s.id))
+      shootingDays.flatMap(day => day.scenes.map((s) => s.id))
     );
     return sequences.filter(seq => !assignedIds.has(seq.id));
   }, [sequences, shootingDays]);
@@ -79,7 +80,7 @@ export function UnassignedScenesPanel({
     return locations.map(loc => loc.name);
   }, [locations]);
 
-  const parseTimeOfDay = (scene: any): string => {
+  const parseTimeOfDay = (scene: Tables<'sequences'>): string => {
     if (scene.time_of_day) return scene.time_of_day;
     const title = scene.title?.toUpperCase() || '';
     if (title.includes('NOCHE')) return 'NOCHE';
@@ -88,7 +89,7 @@ export function UnassignedScenesPanel({
     return 'DÍA';
   };
 
-  const handleDragStart = (e: React.DragEvent, scene: any) => {
+  const handleDragStart = (e: React.DragEvent, scene: Tables<'sequences'>) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', scene.id);
     

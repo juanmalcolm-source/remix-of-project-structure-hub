@@ -66,6 +66,7 @@ export function useDistribution(projectId: string | undefined) {
     plans: query.data ?? [],
     isLoading: query.isLoading,
     createPlan: createMutation.mutate,
+    createPlanAsync: createMutation.mutateAsync,
     updatePlan: updateMutation.mutate,
     deletePlan: deleteMutation.mutate,
     isCreating: createMutation.isPending,

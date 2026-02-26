@@ -87,31 +87,48 @@ export function useDeleteBudgetLine() {
 
 export function useBulkCreateBudgetLines() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ projectId, lines }: { projectId: string; lines: Omit<BudgetLineInsert, 'project_id'>[] }) => {
-      // First delete existing lines for this project
-      await supabase
+      // Snapshot existing lines for rollback if insert fails
+      const { data: existing } = await supabase
+        .from('budget_lines')
+        .select('*')
+        .eq('project_id', projectId);
+
+      // Delete existing lines
+      const { error: deleteError } = await supabase
         .from('budget_lines')
         .delete()
         .eq('project_id', projectId);
-      
-      // Then insert new lines - exclude 'total' as it's a generated column
+
+      if (deleteError) throw deleteError;
+
+      // Prepare new lines — exclude 'total' as it's a generated column
       const linesToInsert = lines.map(line => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { total, ...lineWithoutTotal } = line as any;
+        const { total, ...lineWithoutTotal } = line;
         return {
           ...lineWithoutTotal,
           project_id: projectId,
         };
       });
-      
-      const { data, error } = await supabase
+
+      const { data, error: insertError } = await supabase
         .from('budget_lines')
         .insert(linesToInsert)
         .select();
-      
-      if (error) throw error;
+
+      if (insertError) {
+        // Rollback: re-insert the original lines preserving IDs
+        if (existing && existing.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const rollback = existing.map(({ total, ...rest }) => rest);
+          await supabase.from('budget_lines').insert(rollback);
+        }
+        throw insertError;
+      }
+
       return data;
     },
     onSuccess: (_, variables) => {

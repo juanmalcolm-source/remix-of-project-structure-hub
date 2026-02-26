@@ -32,8 +32,9 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { 
-  ProposedShootingDay, 
+import {
+  ProposedShootingDay,
+  SceneForPlanning,
   calculateSceneShootingTimeDetailed,
   calculateDayTimeWithLocationOptimization,
   MAX_WORKDAY_HOURS,
@@ -124,7 +125,7 @@ export function ShootingDayCard({
     if (day.locations && day.locations.length > 0) {
       return day.locations;
     }
-    const locs = new Set(day.scenes.map((s: any) => s.location_name).filter(Boolean));
+    const locs = new Set(day.scenes.map((s) => s.location_name).filter(Boolean));
     return locs.size > 0 ? Array.from(locs) : [day.location || 'Sin localización'];
   }, [day.scenes, day.locations, day.location]);
   
@@ -190,7 +191,7 @@ export function ShootingDayCard({
     endDrag();
   };
 
-  const handleSceneDragStart = (e: React.DragEvent, scene: any) => {
+  const handleSceneDragStart = (e: React.DragEvent, scene: SceneForPlanning) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', scene.id);
     

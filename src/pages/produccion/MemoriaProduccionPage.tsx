@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import ProductionLayout from '@/components/layout/ProductionLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,17 +7,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Sparkles, 
-  Save, 
-  FileText, 
-  Target, 
-  Palette, 
-  Heart, 
-  Users, 
+import { useProject, useUpdateProductionNotes } from '@/hooks/useProject';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Sparkles,
+  Save,
+  FileText,
+  Target,
+  Palette,
+  Heart,
+  Users,
   Clapperboard,
   CheckCircle2,
-  Loader2
+  Loader2,
+  MapPin,
+  Eye
 } from 'lucide-react';
 
 interface MemoriaSection {
@@ -28,76 +33,72 @@ interface MemoriaSection {
   isGenerating: boolean;
 }
 
-export default function MemoriaProduccionPage() {
-  const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
-  const [sections, setSections] = useState<MemoriaSection[]>([
-    {
-      id: 'director_intentions',
-      title: 'Intenciones del Director',
-      description: 'Visión artística, motivación y objetivos narrativos',
-      icon: <Clapperboard className="h-5 w-5" />,
-      content: '',
-      isGenerating: false,
-    },
-    {
-      id: 'artistic_vision',
-      title: 'Visión Artística',
-      description: 'Estética visual, tono y atmósfera del proyecto',
-      icon: <Palette className="h-5 w-5" />,
-      content: '',
-      isGenerating: false,
-    },
-    {
-      id: 'personal_connection',
-      title: 'Conexión Personal',
-      description: 'Por qué esta historia importa al equipo',
-      icon: <Heart className="h-5 w-5" />,
-      content: '',
-      isGenerating: false,
-    },
-    {
-      id: 'target_audience',
-      title: 'Público Objetivo',
-      description: 'A quién va dirigido y por qué conectará',
-      icon: <Target className="h-5 w-5" />,
-      content: '',
-      isGenerating: false,
-    },
-    {
-      id: 'aesthetic_proposal',
-      title: 'Propuesta Estética',
-      description: 'Fotografía, arte, vestuario y localizaciones',
-      icon: <Palette className="h-5 w-5" />,
-      content: '',
-      isGenerating: false,
-    },
-    {
-      id: 'production_viability',
-      title: 'Viabilidad de Producción',
-      description: 'Plan de producción y recursos disponibles',
-      icon: <FileText className="h-5 w-5" />,
-      content: '',
-      isGenerating: false,
-    },
-    {
-      id: 'team_strengths',
-      title: 'Fortalezas del Equipo',
-      description: 'Experiencia y trayectoria del equipo',
-      icon: <Users className="h-5 w-5" />,
-      content: '',
-      isGenerating: false,
-    },
-  ]);
+const SECTION_DEFS = [
+  { id: 'director_intentions', title: 'Intenciones del Director', description: 'Visión artística, motivación y objetivos narrativos', icon: <Clapperboard className="h-5 w-5" /> },
+  { id: 'artistic_vision', title: 'Visión Artística', description: 'Estética visual, tono y atmósfera del proyecto', icon: <Palette className="h-5 w-5" /> },
+  { id: 'personal_connection', title: 'Conexión Personal', description: 'Por qué esta historia importa al equipo', icon: <Heart className="h-5 w-5" /> },
+  { id: 'target_audience', title: 'Público Objetivo', description: 'A quién va dirigido y por qué conectará', icon: <Target className="h-5 w-5" /> },
+  { id: 'aesthetic_proposal', title: 'Propuesta Estética', description: 'Fotografía, arte, vestuario y localizaciones', icon: <Palette className="h-5 w-5" /> },
+  { id: 'production_viability', title: 'Viabilidad de Producción', description: 'Plan de producción y recursos disponibles', icon: <FileText className="h-5 w-5" /> },
+  { id: 'team_strengths', title: 'Fortalezas del Equipo', description: 'Experiencia y trayectoria del equipo', icon: <Users className="h-5 w-5" /> },
+  { id: 'confirmed_locations', title: 'Localizaciones Confirmadas', description: 'Detalles de las localizaciones aseguradas para el rodaje', icon: <MapPin className="h-5 w-5" /> },
+  { id: 'visual_references', title: 'Referencias Visuales', description: 'Películas, fotógrafos o artistas que inspiran el look del proyecto', icon: <Eye className="h-5 w-5" /> },
+] as const;
 
-  // Mock project data - in production this would come from the database
-  const projectData = {
-    titulo: "Proyecto de Ejemplo",
-    logline: "Una historia sobre...",
-    genero: "Drama",
-    personajes: [],
-    localizaciones: [],
-  };
+export default function MemoriaProduccionPage() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const { toast } = useToast();
+  const { data: project, isLoading } = useProject(projectId);
+  const updateNotes = useUpdateProductionNotes();
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [sections, setSections] = useState<MemoriaSection[]>(
+    SECTION_DEFS.map(def => ({ ...def, content: '', isGenerating: false }))
+  );
+  const [initializedFromDb, setInitializedFromDb] = useState(false);
+
+  // Load existing production notes from DB
+  useEffect(() => {
+    if (project?.production_notes && !initializedFromDb) {
+      const notes = project.production_notes;
+      setSections(prev => prev.map(s => ({
+        ...s,
+        content: (notes as Record<string, unknown>)[s.id] as string || '',
+      })));
+      setInitializedFromDb(true);
+    }
+  }, [project, initializedFromDb]);
+
+  // Build project data for AI generation from real project data + analysis
+  const analysis = project?.creative_analysis;
+  const marketPotential = (() => {
+    const mp = analysis?.market_potential;
+    if (!mp || typeof mp !== 'object' || Array.isArray(mp)) return null;
+    return mp as Record<string, unknown>;
+  })();
+
+  const projectData = project ? {
+    titulo: project.title || '',
+    logline: project.logline || '',
+    genero: project.genero || '',
+    tono: project.tono || '',
+    estilo_visual: project.estilo_visual_sugerido || '',
+    personajes: (project.characters || []).map(c => ({ nombre: c.name, categoria: c.category, descripcion: c.description })),
+    localizaciones: (project.locations || []).map(l => ({ nombre: l.name, tipo: l.type, descripcion: l.description })),
+    // Analysis context
+    sinopsis: analysis?.synopsis || '',
+    tema_central: analysis?.central_theme || '',
+    nucleo_emocional: analysis?.core_emotional || '',
+    score_narrativo: analysis?.score_narrativo ?? null,
+    score_comercial: analysis?.score_comercial ?? null,
+    score_festival: analysis?.score_festival ?? null,
+    potencial_comercial: analysis?.potencial_comercial || '',
+    potencial_festival: analysis?.potencial_festival || '',
+    estimated_budget_range: analysis?.estimated_budget_range || '',
+    festivales_sugeridos: Array.isArray(marketPotential?.festivales_sugeridos) ? marketPotential.festivales_sugeridos : [],
+    territorios_principales: Array.isArray(marketPotential?.territorios_principales) ? marketPotential.territorios_principales : [],
+    plataformas_potenciales: Array.isArray(marketPotential?.plataformas_potenciales) ? marketPotential.plataformas_potenciales : [],
+  } : null;
 
   const handleContentChange = (sectionId: string, content: string) => {
     setSections(prev => prev.map(s => 
@@ -106,6 +107,7 @@ export default function MemoriaProduccionPage() {
   };
 
   const generateWithAI = async (sectionId: string) => {
+    if (!projectData) return;
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
 
@@ -193,21 +195,47 @@ export default function MemoriaProduccionPage() {
   };
 
   const handleSave = async () => {
+    if (!projectId) return;
     setIsSaving(true);
-    // Simulate save
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    toast({
-      title: "Memoria guardada",
-      description: "Los cambios se han guardado correctamente.",
-    });
+    try {
+      const data: Record<string, string> = {};
+      for (const s of sections) {
+        data[s.id] = s.content;
+      }
+      await updateNotes.mutateAsync({ projectId, data });
+      setLastSaved(new Date());
+      toast({
+        title: "Memoria guardada",
+        description: "Los cambios se han guardado correctamente.",
+      });
+    } catch (error) {
+      console.error('Error saving production notes:', error);
+      toast({
+        title: "Error al guardar",
+        description: "No se pudieron guardar los cambios.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const completedSections = sections.filter(s => s.content.length > 50).length;
   const progress = Math.round((completedSections / sections.length) * 100);
 
+  if (isLoading) {
+    return (
+      <ProductionLayout projectTitle="Cargando...">
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-96 w-full" />
+        </div>
+      </ProductionLayout>
+    );
+  }
+
   return (
-    <ProductionLayout projectTitle="Proyecto Demo" lastSaved={new Date()}>
+    <ProductionLayout projectTitle={project?.title || 'Mi Proyecto'} lastSaved={lastSaved} isSaving={isSaving}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

@@ -14,7 +14,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, DollarSign, Share2 } from 'lucide-react';
+import { Plus, Trash2, DollarSign, Share2, Sparkles, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 const formatEUR = (v: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
 
@@ -24,13 +26,49 @@ const emptyForm: DistForm = { canal: '', territorio: '', ventana: '', estrategia
 export default function DistribucionPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { data: project } = useProject(projectId);
-  const { plans, isLoading, createPlan, updatePlan, deletePlan, isCreating, isUpdating } = useDistribution(projectId);
+  const { plans, isLoading, createPlan, createPlanAsync, updatePlan, deletePlan, isCreating, isUpdating } = useDistribution(projectId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<DistForm>(emptyForm);
+  const [isImporting, setIsImporting] = useState(false);
 
   const totalIngreso = plans.reduce((s, p) => s + (Number(p.ingreso_estimado) || 0), 0);
+
+  // Parse distribution data from script analysis
+  const marketPotential = project?.creative_analysis?.market_potential;
+  const distributionData = (() => {
+    if (!marketPotential || typeof marketPotential !== 'object' || Array.isArray(marketPotential)) return null;
+    const mp = marketPotential as Record<string, unknown>;
+    const territorios = Array.isArray(mp.territorios_principales) ? mp.territorios_principales.filter((t): t is string => typeof t === 'string') : [];
+    const ventanas = Array.isArray(mp.ventanas_distribucion) ? mp.ventanas_distribucion.filter((v): v is string => typeof v === 'string') : [];
+    const plataformas = Array.isArray(mp.plataformas_potenciales) ? mp.plataformas_potenciales.filter((p): p is string => typeof p === 'string') : [];
+    if (territorios.length === 0 && ventanas.length === 0 && plataformas.length === 0) return null;
+    return { territorios, ventanas, plataformas };
+  })();
+  const hasUnimportedSuggestions = distributionData !== null && plans.length === 0;
+
+  const importFromAnalysis = async () => {
+    if (!distributionData) return;
+    setIsImporting(true);
+    try {
+      const { plataformas, territorios, ventanas } = distributionData;
+      const defaultVentana = ventanas.length > 0 ? ventanas[0] : null;
+
+      // Create one entry per platform
+      for (const canal of plataformas) {
+        await createPlanAsync({ canal, ventana: defaultVentana });
+      }
+      // Create one theatrical entry per territory
+      for (const territorio of territorios) {
+        await createPlanAsync({ canal: 'Salas de cine', territorio, ventana: 'Estreno' });
+      }
+    } catch {
+      // Individual mutation errors handled by hook's onError
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const openNew = () => { setForm(emptyForm); setEditingId(null); setDialogOpen(true); };
   const openEdit = (p: typeof plans[0]) => {
@@ -55,6 +93,40 @@ export default function DistribucionPage() {
           description="Planes de distribución por canal y territorio."
           actions={<Button onClick={openNew}><Plus className="w-4 h-4 mr-2" />Nuevo Plan</Button>}
         />
+
+        {/* AI Suggestions from Script Analysis */}
+        {hasUnimportedSuggestions && distributionData && (
+          <Alert className="border-primary/30 bg-primary/5">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-sm font-medium">Distribución sugerida por el análisis</AlertTitle>
+            <AlertDescription>
+              <div className="space-y-2 mt-2 mb-3">
+                {distributionData.territorios.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Territorios:</span>
+                    {distributionData.territorios.map((t, i) => <Badge key={i} variant="outline" className="text-xs">{t}</Badge>)}
+                  </div>
+                )}
+                {distributionData.ventanas.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Ventanas:</span>
+                    {distributionData.ventanas.map((v, i) => <Badge key={i} variant="outline" className="text-xs">{v}</Badge>)}
+                  </div>
+                )}
+                {distributionData.plataformas.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Plataformas:</span>
+                    {distributionData.plataformas.map((p, i) => <Badge key={i} variant="outline" className="text-xs">{p}</Badge>)}
+                  </div>
+                )}
+              </div>
+              <Button size="sm" onClick={importFromAnalysis} disabled={isImporting}>
+                {isImporting ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+                Importar planes de distribución
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* KPI */}
         {!isLoading && plans.length > 0 && (

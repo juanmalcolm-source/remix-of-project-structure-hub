@@ -27,8 +27,11 @@ interface UploadBasesDialogProps {
   onCreated: () => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- pdf.js loaded via CDN script tag, no TS types available
 async function extractPdfText(file: File): Promise<string> {
-  const pdfjsLib = (window as any).pdfjsLib;
+  const pdfjsLib = (window as Record<string, unknown>).pdfjsLib as
+    | { GlobalWorkerOptions: { workerSrc: string }; getDocument: (opts: { data: ArrayBuffer }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str?: string }[] }> }> }> } }
+    | undefined;
   if (!pdfjsLib) throw new Error('pdf.js no cargado');
 
   pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -41,7 +44,7 @@ async function extractPdfText(file: File): Promise<string> {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const text = content.items.map((item: any) => item.str).join(' ');
+    const text = content.items.map((item) => item.str || '').join(' ');
     pages.push(text);
   }
 
@@ -88,7 +91,7 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
         console.log('2. Extrayendo texto del PDF...');
         extractedText = await extractPdfText(file);
         console.log('2b. Texto extraído:', extractedText.substring(0, 200));
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error extrayendo texto del PDF:', err);
         toast({ title: 'No se pudo extraer texto del PDF', description: 'La convocatoria se creará sin texto extraído.', variant: 'default' });
       }
@@ -121,7 +124,7 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
       };
       console.log('3b. Datos del formulario:', payload);
 
-      const { error: insertError } = await supabase.from('convocatorias').insert(payload as any);
+      const { error: insertError } = await supabase.from('convocatorias').insert(payload);
       console.log('4. Resultado:', insertError ? insertError.message : 'OK');
 
       if (insertError) throw new Error(insertError.message);
@@ -130,11 +133,12 @@ export default function UploadBasesDialog({ open, onOpenChange, onCreated }: Upl
       resetForm();
       onCreated();
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error guardando convocatoria:', err);
-      const msg = err.message?.includes('row-level security')
+      const errMsg = err instanceof Error ? err.message : 'Error desconocido';
+      const msg = errMsg.includes('row-level security')
         ? 'Debes iniciar sesión para crear convocatorias'
-        : err.message;
+        : errMsg;
       toast({ title: 'Error al guardar', description: msg, variant: 'destructive' });
     } finally {
       setSaving(false);

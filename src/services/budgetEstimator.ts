@@ -177,18 +177,23 @@ export async function generarPresupuestoConIA(
     body: JSON.stringify(requestData),
   });
 
-  const data = await response.json();
+  let data: Record<string, unknown>;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('El servidor no devolvió una respuesta válida. Inténtalo de nuevo.');
+  }
 
   if (!response.ok) {
     console.error('Error calling generar-presupuesto:', data);
-    throw new Error(data.error || `Error HTTP ${response.status}`);
+    throw new Error((data.error as string) || `Error HTTP ${response.status}`);
   }
 
   if (data.error) {
-    throw new Error(data.error);
+    throw new Error(data.error as string);
   }
 
-  return data as AIBudgetResponse;
+  return data as unknown as AIBudgetResponse;
 }
 
 /**

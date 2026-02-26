@@ -51,6 +51,33 @@ Responde SOLO con un JSON válido con esta estructura:
   }
 }`;
 
+/**
+ * Robust JSON extraction from Claude's response text.
+ * Handles: pure JSON, markdown fences, text before/after JSON.
+ * Each parse attempt is individually try-caught so failures never propagate.
+ */
+function extractJsonFromText(raw: string): unknown {
+  const trimmed = raw.trim();
+
+  // 1) Try direct parse (pure JSON response)
+  try { return JSON.parse(trimmed); } catch { /* continue */ }
+
+  // 2) Try extracting from markdown ```json ... ``` fences
+  const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (fenceMatch) {
+    try { return JSON.parse(fenceMatch[1].trim()); } catch { /* continue */ }
+  }
+
+  // 3) Fallback: find outermost { ... } in raw text
+  const braceStart = trimmed.indexOf('{');
+  const braceEnd = trimmed.lastIndexOf('}');
+  if (braceStart >= 0 && braceEnd > braceStart) {
+    try { return JSON.parse(trimmed.slice(braceStart, braceEnd + 1)); } catch { /* continue */ }
+  }
+
+  throw new Error('No se encontró JSON válido en la respuesta de Claude');
+}
+
 export default async function handler(req: Request) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -139,29 +166,8 @@ Genera el presupuesto completo con líneas detalladas para cada capítulo. Usa t
       .map((block) => block.text || '')
       .join('');
 
-    // Parse JSON from response (handle markdown fences)
-    let jsonStr = text.trim();
-    if (jsonStr.startsWith('```json')) {
-      jsonStr = jsonStr.slice(7);
-    } else if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.slice(3);
-    }
-    if (jsonStr.endsWith('```')) {
-      jsonStr = jsonStr.slice(0, -3);
-    }
-    jsonStr = jsonStr.trim();
-
-    let result;
-    try {
-      result = JSON.parse(jsonStr);
-    } catch {
-      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No se encontró JSON válido en la respuesta');
-      }
-    }
+    // Robust JSON extraction — handles text before/after JSON, markdown fences, etc.
+    const result = extractJsonFromText(text);
 
     return new Response(
       JSON.stringify(result),

@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.ai-generate]
 verify_jwt = false
+
+[functions.analizar-guion-claude]
+verify_jwt = false

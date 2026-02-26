@@ -76,7 +76,7 @@ function sleep(ms: number): Promise<void> {
  */
 async function llamarEdgeFunction(texto: string): Promise<AnalisisResponse> {
   try {
-    const { data, error } = await supabase.functions.invoke('analizar-guion', {
+    const { data, error } = await supabase.functions.invoke('analizar-guion-claude', {
       body: { texto },
     });
 

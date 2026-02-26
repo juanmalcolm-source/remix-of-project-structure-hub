@@ -1,5 +1,5 @@
 // ── Constants ─────────────────────────────────────────────────────────
-const AI_TIMEOUT_MS = 120_000; // 120 seconds (Claude can take longer)
+const AI_TIMEOUT_MS = 180_000; // 180 seconds (SSE streaming keeps alive)
 
 // ── Error classes ─────────────────────────────────────────────────────
 export class AIParseError extends Error {
@@ -16,7 +16,7 @@ export class AITimeoutError extends Error {
   }
 }
 
-// ── AI generation with timeout ────────────────────────────────────────
+// ── AI generation with SSE streaming ──────────────────────────────────
 
 interface AIGenerateParams {
   prompt: string;
@@ -36,14 +36,50 @@ export async function generateWithAI({ prompt, systemPrompt, maxTokens }: AIGene
       signal: controller.signal,
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.error || `Error HTTP ${response.status}`);
+      // Error responses come as JSON (not SSE)
+      let errorMsg = `Error HTTP ${response.status}`;
+      try {
+        const errData = await response.json();
+        errorMsg = errData.error || errorMsg;
+      } catch { /* keep default */ }
+      throw new Error(errorMsg);
     }
 
-    if (data.error) throw new Error(data.error);
-    return data.text;
+    // Read SSE stream and accumulate text
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No se pudo leer la respuesta del servidor');
+
+    const decoder = new TextDecoder();
+    let fullText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.type === 'delta' && parsed.text) {
+              fullText += parsed.text;
+            } else if (parsed.type === 'error') {
+              throw new Error(parsed.error || 'Error en la generación');
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Error en la generación') {
+              continue; // Ignore JSON parse errors on SSE lines
+            }
+            throw e;
+          }
+        }
+      }
+    }
+
+    return fullText;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new AITimeoutError();

@@ -177,23 +177,21 @@ export async function generarPresupuestoConIA(
     body: JSON.stringify(requestData),
   });
 
-  let data: Record<string, unknown>;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error('El servidor no devolvió una respuesta válida. Inténtalo de nuevo.');
-  }
-
   if (!response.ok) {
-    console.error('Error calling generar-presupuesto:', data);
-    throw new Error((data.error as string) || `Error HTTP ${response.status}`);
+    // Non-streaming error responses come as JSON
+    let errorMsg = `Error HTTP ${response.status}`;
+    try {
+      const errData = await response.json();
+      errorMsg = (errData as { error?: string }).error || errorMsg;
+    } catch { /* keep default */ }
+    throw new Error(errorMsg);
   }
 
-  if (data.error) {
-    throw new Error(data.error as string);
-  }
+  // Read SSE stream and accumulate text
+  const fullText = await readSSEStream(response);
 
-  return data as unknown as AIBudgetResponse;
+  // Parse the accumulated JSON
+  return extractBudgetJson(fullText);
 }
 
 /**
@@ -464,4 +462,65 @@ export function calcularDiasRodajeEstimados(sequences: Sequence[]): number {
   const daysFromCount = Math.ceil(sequences.length / 5);
   
   return Math.max(daysFromDuration, daysFromCount, 10); // Minimum 10 days
+}
+
+// ── SSE stream reading helpers ────────────────────────────────────────
+
+async function readSSEStream(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No se pudo leer la respuesta del servidor');
+
+  const decoder = new TextDecoder();
+  let fullText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    const lines = chunk.split('\n');
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const parsed = JSON.parse(line.slice(6));
+          if (parsed.type === 'delta' && parsed.text) {
+            fullText += parsed.text;
+          } else if (parsed.type === 'error') {
+            throw new Error(parsed.error || 'Error en la generación');
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message !== 'Error en la generación') {
+            // Ignore JSON parse errors on SSE lines
+            continue;
+          }
+          throw e;
+        }
+      }
+    }
+  }
+
+  return fullText;
+}
+
+function extractBudgetJson(raw: string): AIBudgetResponse {
+  const trimmed = raw.trim();
+
+  // 1) Direct parse
+  try { return JSON.parse(trimmed); } catch { /* continue */ }
+
+  // 2) Markdown fences
+  const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (fenceMatch) {
+    try { return JSON.parse(fenceMatch[1].trim()); } catch { /* continue */ }
+  }
+
+  // 3) Outermost braces
+  const braceStart = trimmed.indexOf('{');
+  const braceEnd = trimmed.lastIndexOf('}');
+  if (braceStart >= 0 && braceEnd > braceStart) {
+    try { return JSON.parse(trimmed.slice(braceStart, braceEnd + 1)); } catch { /* continue */ }
+  }
+
+  throw new Error('La IA no generó un presupuesto válido. Inténtalo de nuevo.');
 }

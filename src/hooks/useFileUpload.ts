@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { ERRORES } from '@/constants/errors';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configurar worker de PDF.js usando CDN (necesario para que funcione)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['application/pdf', 'text/plain'];
@@ -24,36 +27,61 @@ export const useFileUpload = () => {
     progreso: 0,
   });
 
+  /**
+   * Extrae texto de un PDF directamente en el navegador usando pdf.js
+   * Sin necesidad de edge functions ni servidores externos
+   */
   const extractTextFromPDF = async (file: File): Promise<string> => {
     setState(prev => ({ ...prev, progreso: 10 }));
-    
-    try {
-      // Create FormData to send the file
-      const formData = new FormData();
-      formData.append('file', file);
 
+    try {
+      // Leer el archivo como ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
+      setState(prev => ({ ...prev, progreso: 20 }));
+
+      // Cargar el documento PDF
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const totalPages = pdf.numPages;
       setState(prev => ({ ...prev, progreso: 30 }));
 
-      // Call the edge function
-      const { data, error } = await supabase.functions.invoke('extract-pdf-text', {
-        body: formData,
-      });
+      // Extraer texto de cada página
+      const textParts: string[] = [];
 
-      setState(prev => ({ ...prev, progreso: 90 }));
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
 
-      if (error) {
-        throw new Error(error.message || 'Error al procesar el PDF');
-      }
+        // Reconstruir texto con saltos de línea apropiados
+        let lastY: number | null = null;
+        let pageText = '';
 
-      if (!data.success) {
-        throw new Error(data.error || 'Error al extraer texto del PDF');
+        for (const item of textContent.items) {
+          if ('str' in item) {
+            const currentY = item.transform[5];
+            // Si cambió la posición Y, es una nueva línea
+            if (lastY !== null && Math.abs(currentY - lastY) > 2) {
+              pageText += '\n';
+            }
+            pageText += item.str;
+            lastY = currentY;
+          }
+        }
+
+        textParts.push(pageText);
+
+        // Actualizar progreso (30% a 90% durante extracción)
+        const extractionProgress = 30 + Math.round((pageNum / totalPages) * 60);
+        setState(prev => ({ ...prev, progreso: extractionProgress }));
       }
 
       setState(prev => ({ ...prev, progreso: 95 }));
-      return data.text;
+
+      // Unir todas las páginas
+      return textParts.join('\n\n');
+
     } catch (error) {
-      console.error('Error in extractTextFromPDF:', error);
-      throw error;
+      console.error('Error extrayendo texto del PDF:', error);
+      throw new Error('Error al procesar el PDF. Verifica que no esté protegido o corrupto.');
     }
   };
 
@@ -124,7 +152,7 @@ export const useFileUpload = () => {
       return extractedText;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error al procesar el archivo';
-      
+
       setState({
         archivo: null,
         textoExtraido: '',

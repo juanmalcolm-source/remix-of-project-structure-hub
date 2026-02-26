@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -5,74 +6,87 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/components/common/ThemeProvider";
+import ErrorBoundary from "@/components/common/ErrorBoundary";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
+import { Loader2 } from "lucide-react";
 
-// Pages
+// Eagerly loaded (critical path)
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
-import Upload from "./pages/Upload";
-import Proyectos from "./pages/Proyectos";
-import Perfil from "./pages/Perfil";
-import Analisis from "./pages/Analisis";
-import DashboardPage from "./pages/DashboardPage";
-
-// Proyecto (Creative) Pages
-import OverviewPage from "./pages/proyecto/OverviewPage";
-import NarrativoPage from "./pages/proyecto/NarrativoPage";
-import PersonajesPage from "./pages/proyecto/PersonajesPage";
-import VentajasPage from "./pages/proyecto/VentajasPage";
-import ViabilidadPage from "./pages/proyecto/ViabilidadPage";
-import MoodBoardPage from "./pages/proyecto/MoodBoardPage";
-import ProyectoConfiguracionPage from "./pages/proyecto/ConfiguracionPage";
-
-// Produccion Pages
-import DesglosePage from "./pages/produccion/DesglosePage";
-import DesglosePersonajesPage from "./pages/produccion/DesglosePersonajesPage";
-import DesgloseLocalizacionesPage from "./pages/produccion/DesgloseLocalizacionesPage";
-import LugaresFisicosPage from "./pages/produccion/LugaresFisicosPage";
-import PlanRodajePage from "./pages/produccion/PlanRodajePage";
-import PresupuestoICAA from "./pages/produccion/PresupuestoICAA";
-import ExportExcelPage from "./pages/produccion/ExportExcelPage";
-import MemoriaProduccionPage from "./pages/produccion/MemoriaProduccionPage";
-import ExportDossierPage from "./pages/produccion/ExportDossierPage";
-
-// Financiacion Pages
-import ConfiguracionPage from "./pages/financiacion/ConfiguracionPage";
-import IntensidadPage from "./pages/financiacion/IntensidadPage";
-import TerritoriosPage from "./pages/financiacion/TerritoriosPage";
-import FuentesPage from "./pages/financiacion/FuentesPage";
-import SimuladorPage from "./pages/financiacion/SimuladorPage";
-import TimelinePage from "./pages/financiacion/TimelinePage";
-import ResumenPage from "./pages/financiacion/ResumenPage";
-
-// Audiencias Pages
-import AnalisisAudienciasPage from "./pages/audiencias/AnalisisAudienciasPage";
-import AudienciasPage from "./pages/audiencias/AudienciasPage";
-import BuyerPersonasPage from "./pages/audiencias/BuyerPersonasPage";
-import FestivalesPage from "./pages/audiencias/FestivalesPage";
-import DistribucionPage from "./pages/audiencias/DistribucionPage";
-import ComunicacionPage from "./pages/audiencias/ComunicacionPage";
-
-// Convocatorias Pages
-import BibliotecaPage from "./pages/convocatorias/BibliotecaPage";
-import CalendarioPage from "./pages/convocatorias/CalendarioPage";
-import WorkspacePage from "./pages/convocatorias/WorkspacePage";
-import TareasPage from "./pages/convocatorias/TareasPage";
-
-import GlobalSearch from "./components/GlobalSearch";
 import NotFound from "./pages/NotFound";
+import GlobalSearch from "./components/GlobalSearch";
+
+// Lazy loaded pages
+const Upload = lazy(() => import("./pages/Upload"));
+const Proyectos = lazy(() => import("./pages/Proyectos"));
+const Perfil = lazy(() => import("./pages/Perfil"));
+const Analisis = lazy(() => import("./pages/Analisis"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+
+// Proyecto (Creative)
+const OverviewPage = lazy(() => import("./pages/proyecto/OverviewPage"));
+const NarrativoPage = lazy(() => import("./pages/proyecto/NarrativoPage"));
+const PersonajesPage = lazy(() => import("./pages/proyecto/PersonajesPage"));
+const VentajasPage = lazy(() => import("./pages/proyecto/VentajasPage"));
+const ViabilidadPage = lazy(() => import("./pages/proyecto/ViabilidadPage"));
+const MoodBoardPage = lazy(() => import("./pages/proyecto/MoodBoardPage"));
+const ProyectoConfiguracionPage = lazy(() => import("./pages/proyecto/ConfiguracionPage"));
+
+// Produccion
+const DesglosePage = lazy(() => import("./pages/produccion/DesglosePage"));
+const DesglosePersonajesPage = lazy(() => import("./pages/produccion/DesglosePersonajesPage"));
+const DesgloseLocalizacionesPage = lazy(() => import("./pages/produccion/DesgloseLocalizacionesPage"));
+const LugaresFisicosPage = lazy(() => import("./pages/produccion/LugaresFisicosPage"));
+const PlanRodajePage = lazy(() => import("./pages/produccion/PlanRodajePage"));
+const PresupuestoICAA = lazy(() => import("./pages/produccion/PresupuestoICAA"));
+const ExportExcelPage = lazy(() => import("./pages/produccion/ExportExcelPage"));
+const MemoriaProduccionPage = lazy(() => import("./pages/produccion/MemoriaProduccionPage"));
+const ExportDossierPage = lazy(() => import("./pages/produccion/ExportDossierPage"));
+
+// Financiacion
+const ConfiguracionPage = lazy(() => import("./pages/financiacion/ConfiguracionPage"));
+const IntensidadPage = lazy(() => import("./pages/financiacion/IntensidadPage"));
+const TerritoriosPage = lazy(() => import("./pages/financiacion/TerritoriosPage"));
+const FuentesPage = lazy(() => import("./pages/financiacion/FuentesPage"));
+const SimuladorPage = lazy(() => import("./pages/financiacion/SimuladorPage"));
+const TimelinePage = lazy(() => import("./pages/financiacion/TimelinePage"));
+const ResumenPage = lazy(() => import("./pages/financiacion/ResumenPage"));
+
+// Audiencias
+const AnalisisAudienciasPage = lazy(() => import("./pages/audiencias/AnalisisAudienciasPage"));
+const AudienciasPage = lazy(() => import("./pages/audiencias/AudienciasPage"));
+const BuyerPersonasPage = lazy(() => import("./pages/audiencias/BuyerPersonasPage"));
+const FestivalesPage = lazy(() => import("./pages/audiencias/FestivalesPage"));
+const DistribucionPage = lazy(() => import("./pages/audiencias/DistribucionPage"));
+const ComunicacionPage = lazy(() => import("./pages/audiencias/ComunicacionPage"));
+
+// Convocatorias
+const BibliotecaPage = lazy(() => import("./pages/convocatorias/BibliotecaPage"));
+const CalendarioPage = lazy(() => import("./pages/convocatorias/CalendarioPage"));
+const WorkspacePage = lazy(() => import("./pages/convocatorias/WorkspacePage"));
+const TareasPage = lazy(() => import("./pages/convocatorias/TareasPage"));
 
 const queryClient = new QueryClient();
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="light" storageKey="fractal-theme">
       <AuthProvider>
         <TooltipProvider>
+          <ErrorBoundary>
           <Toaster />
           <Sonner />
           <BrowserRouter>
             <GlobalSearch />
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<Index />} />
@@ -131,7 +145,9 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
+          </ErrorBoundary>
         </TooltipProvider>
       </AuthProvider>
     </ThemeProvider>

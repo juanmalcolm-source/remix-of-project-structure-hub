@@ -599,18 +599,18 @@ TIPO: ${projectType}
 NIVEL: ${budgetLevel}
 DIAS DE RODAJE ESTIMADOS: ${requestData.estimatedShootingDays || 'a determinar por ti segun los datos'}
 
-PERSONAJES (${(requestData.characters as unknown[])?.length || 0}):
-${((requestData.characters as Array<{ name: string; category: string; shootingDays?: number; agencyPercentage?: number }>) || []).map(c =>
+PERSONAJES (${Array.isArray(requestData.characters) ? requestData.characters.length : 0}):
+${(Array.isArray(requestData.characters) ? requestData.characters as Array<{ name: string; category: string; shootingDays?: number; agencyPercentage?: number }> : []).map(c =>
   `- ${c.name} (${c.category}, ${c.shootingDays || '?'} dias rodaje, agencia: ${c.agencyPercentage || 0}%)`
 ).join('\n')}
 
-LOCALIZACIONES (${(requestData.locations as unknown[])?.length || 0}):
-${((requestData.locations as Array<{ name: string; complexity: string; estimatedDays?: number; locationType?: string }>) || []).map(l =>
+LOCALIZACIONES (${Array.isArray(requestData.locations) ? requestData.locations.length : 0}):
+${(Array.isArray(requestData.locations) ? requestData.locations as Array<{ name: string; complexity: string; estimatedDays?: number; locationType?: string }> : []).map(l =>
   `- ${l.name} (complejidad: ${l.complexity}, ${l.estimatedDays || '?'} dias, tipo: ${l.locationType || 'no especificado'})`
 ).join('\n')}
 
-SECUENCIAS (${(requestData.sequences as unknown[])?.length || 0}):
-${((requestData.sequences as Array<{ sequenceNumber: number; title: string; sceneComplexity?: string; hasVFX: boolean; hasAction: boolean; hasNight: boolean }>) || []).map(s =>
+SECUENCIAS (${Array.isArray(requestData.sequences) ? requestData.sequences.length : 0}):
+${(Array.isArray(requestData.sequences) ? requestData.sequences as Array<{ sequenceNumber: number; title: string; sceneComplexity?: string; hasVFX: boolean; hasAction: boolean; hasNight: boolean }> : []).map(s =>
   `- Sec ${s.sequenceNumber}: ${s.title} (complejidad: ${s.sceneComplexity || 'media'}${s.hasVFX ? ', VFX' : ''}${s.hasAction ? ', accion' : ''}${s.hasNight ? ', noche' : ''})`
 ).join('\n')}
 

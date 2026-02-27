@@ -208,6 +208,42 @@ Cap 04 tiene 5 subsecciones obligatorias:
 04.04 SEMOVIENTES: Animales, Carruajes (si aplica)
 04.05 VARIOS: Material peluqueria, Material maquillaje
 
+## REGLA CRITICA PARA CAPITULOS 05-12
+
+Cada capitulo DEBE tener lineas individuales con cuenta CC.SS, concepto, y calculo.
+NUNCA poner un capitulo como una sola linea resumen.
+
+Cap 05 ESTUDIOS/VARIOS PRODUCCION:
+  05.01 Estudios rodaje: Plato/estudio (tarifa/dia x dias), montaje/desmontaje plato
+  05.02 Montaje/sonorizacion: Sala montaje (sem), sala mezclas
+  05.03 Varios produccion: Catering rodaje (personas x dias x 12-15€), oficina produccion, material consumible, copias guion
+
+Cap 06 MAQUINARIA Y TRANSPORTES — CALCULAR: tarifa/dia x dias rodaje
+  06.01 Maquinaria: Camara pack (120-450/dia segun nivel), optica (100-300/dia), iluminacion (80-450/dia), sonido directo (150/dia), dolly (120/dia), grua (200/dia si aplica), steadicam (300/dia), drone+piloto (600/dia), generador (200/dia exterior), material expendable
+  06.02 Transportes: Camion iluminacion (150/dia), furgonetas produccion (80/dia x numero), furgoneta atrezzo, vehiculos actores
+
+Cap 07 VIAJES/DIETAS — CALCULAR: segun equipo desplazado
+  07.01 Desplazamientos: Billetes avion/tren, combustible, peajes
+  07.02 Hoteles/comidas: Hoteles (personas x dias x 80€), dietas (55€/dia x personas x dias)
+
+Cap 08 SOPORTE DIGITAL:
+  08.01 Tarjetas CFexpress/SSD, discos backup diario, almacenamiento NAS/RAID, LTO archivo
+
+Cap 09 POSTPRODUCCION — USAR TARIFAS REALES de la seccion anterior:
+  09.01 Etalonaje (1.600/dia largo, 500/dia corto), copiones/dailies
+  09.02 Diseno sonoro (715/dia), edicion dialogos (680/dia), foley, mezcla 5.1, VFX (300-8.000/plano segun complejidad), titulos/creditos, DCP (1.500-2.250), subtitulos, coordinacion postpro, master UHD
+
+Cap 10 SEGUROS — CALCULAR como % del presupuesto:
+  10.01.01 RC: 0,3% del total | 10.01.02 Accidentes: 0,2% | 10.01.03 Interrupcion rodaje: 0,5% | 10.01.04 Equipo/material: 0,8% valor equipos
+
+Cap 11 GASTOS GENERALES:
+  11.01 Asesoria juridica, asesoria fiscal, auditoria ICAA (1.500 corto, 3.500 largo), gastos financieros
+  11.02 Imprevistos: 10% del subtotal Cap 01-10
+
+Cap 12 EXPLOTACION/PUBLICIDAD:
+  12.01 Copias: DCP distribucion, copias festivales
+  12.02 Publicidad: Trailer, carteleria, web, press kit, estreno
+
 ## EJEMPLO DE PRESUPUESTO REAL — DESGLOSE DETALLADO
 
 ${isCorto ? `Cortometraje ficcion "ED" — 5 dias rodaje, bajo presupuesto, Madrid
@@ -246,7 +282,58 @@ Cap 04 Escenografia: 3.500 EUR
   04.03.02 Vestuario adquirido: 500
   04.05.02 Material maquillaje: 200
 
-Cap 05-12: ~30.800 EUR (maquinaria, dietas, postpro, seguros, generales)
+Cap 05 Estudios/Varios Produccion: 2.200 EUR
+  05.02.01 Sala montaje (3 sem x 300/sem): 900
+  05.03.05 Catering rodaje (5d x 15 pers x 12€): 900
+  05.03.04 Material consumible/oficina: 400
+
+Cap 06 Maquinaria y Transportes: 5.100 EUR
+  06.01.01 Camara pack (Blackmagic URSA): 120/dia x 5d = 600
+  06.01.03 Optica (zoom cine): 100/dia x 5d = 500
+  06.01.05 Kit iluminacion basico: 80/dia x 5d = 400
+  06.01.06 Kit sonido directo: 150/dia x 5d = 750
+  06.01.07 Dolly: 120/dia x 3d = 360
+  06.01.12 Material expendable: 300
+  06.02.02 Furgoneta produccion: 80/dia x 6d = 480
+  06.02.04 Vehiculo actores: 60/dia x 5d = 300
+
+Cap 07 Viajes/Dietas: 4.200 EUR
+  07.02.02 Dietas equipo (12 pers x 5d x 55€): 3.300
+  07.02.03 Catering set complemento: 900
+
+Cap 08 Soporte Digital: 800 EUR
+  08.01.01 Tarjetas CFexpress/SSD: 500
+  08.01.02 Discos backup diario: 300
+
+Cap 09 Postproduccion: 13.200 EUR
+  09.01.02 Etalonaje (500/dia x 3d): 1.500
+  09.02.01 Diseno sonoro: 2.000
+  09.02.02 Edicion dialogos: 1.500
+  09.02.04 Foley: 1.000
+  09.02.05 Mezcla estereo: 2.000
+  09.02.06 VFX (5 planos simples x 500): 2.500
+  09.02.07 Titulos y creditos: 800
+  09.02.08 DCP 2K: 1.500
+  09.02.12 Coordinacion postpro: 400
+
+Cap 10 Seguros: 1.200 EUR
+  10.01.01 Responsabilidad civil (0,3%): 300
+  10.01.02 Accidentes trabajo (0,2%): 200
+  10.01.03 Interrupcion rodaje (0,5%): 400
+  10.01.04 Equipo/material: 300
+
+Cap 11 Gastos Generales: 7.800 EUR
+  11.01.01 Asesoria juridica: 500
+  11.01.03 Auditoria ICAA: 1.500
+  11.01.06 Imprevistos (10%): 5.800
+
+Cap 12 Explotacion/Publicidad: 2.300 EUR
+  12.01.01 DCP distribucion festivales: 800
+  12.02.01 Trailer: 500
+  12.02.02 Carteleria/diseno: 500
+  12.02.04 Press kit: 300
+  12.02.05 Inscripcion festivales: 200
+
 TOTAL: ~71.000 EUR` : `Largometraje ficcion "LMDS" — 30 dias rodaje, presupuesto medio
 
 Cap 01 Guion y Musica: 25.000 EUR
@@ -340,15 +427,92 @@ Cap 04 Escenografia: 115.500 EUR (DESGLOSE REAL LMDS)
     04.05.01 Material peluqueria: 1.500
     04.05.02 Material maquillaje: 1.500
 
-Cap 05 Estudios/Varios: 160.000 EUR
-Cap 06 Maquinaria: 120.000 EUR
-Cap 07 Viajes/Dietas: 95.000 EUR
-Cap 08 Soporte digital: 8.000 EUR
-Cap 09 Lab/Postproduccion: 180.000 EUR
-Cap 10 Seguros: 55.000 EUR
-Cap 11 Gastos generales: 85.000 EUR (incluye imprevistos 10%)
-Cap 12 Copias/Publicidad: 45.000 EUR
-TOTAL APROXIMADO: ~1.400.000 EUR`}
+Cap 05 Estudios/Varios Produccion: 135.000 EUR
+  05.01.01 Alquiler plato/estudio (30d x 3.000/dia): 90.000
+  05.01.02 Montaje/desmontaje plato: 5.000
+  05.02.01 Sala montaje (20 sem x 500/sem): 10.000
+  05.02.02 Sala mezclas 5.1 (3 sem x 3.000/sem): 9.000
+  05.03.01 Oficina produccion (6 meses x 2.000): 12.000
+  05.03.02 Telefonos/comunicaciones: 3.000
+  05.03.04 Material oficina/consumible: 1.500
+  05.03.05 Catering rodaje (35 pers x 30d x 13€): 13.650
+
+Cap 06 Maquinaria y Transportes: 102.000 EUR
+  06.01.01 Camara principal ARRI Alexa Mini pack: 450/dia x 35d = 15.750
+  06.01.02 2a camara RED V-Raptor: 400/dia x 15d = 6.000
+  06.01.03 Optica primos master: 300/dia x 35d = 10.500
+  06.01.04 Zoom cine complementario: 100/dia x 35d = 3.500
+  06.01.05 Kit iluminacion avanzado: 450/dia x 30d = 13.500
+  06.01.06 Kit sonido directo: 150/dia x 30d = 4.500
+  06.01.07 Dolly + via: 120/dia x 30d = 3.600
+  06.01.08 Grua: 200/dia x 8d = 1.600
+  06.01.09 Steadicam: 300/dia x 10d = 3.000
+  06.01.10 Drone + piloto: 600/dia x 3d = 1.800
+  06.01.11 Grupo electrogeno: 200/dia x 20d = 4.000
+  06.01.12 Material expendable: 5.000
+  06.02.01 Camion iluminacion/grip: 150/dia x 35d = 5.250
+  06.02.02 Furgonetas produccion (x3): 80/dia x 3 x 35d = 8.400
+  06.02.03 Furgoneta atrezzo: 100/dia x 35d = 3.500
+  06.02.04 Vehiculos actores (x2): 60/dia x 2 x 30d = 3.600
+
+Cap 07 Viajes/Dietas: 88.000 EUR
+  07.01.01 Billetes avion/tren equipo: 8.000
+  07.01.02 Combustible vehiculos: 30d x 150/dia = 4.500
+  07.01.03 Peajes/autopistas: 1.500
+  07.02.01 Hoteles equipo desplazado (10 pers x 25d x 80€): 20.000
+  07.02.02 Dietas equipo (30 pers x 30d x 55€): 49.500
+  07.02.03 Catering set complemento: 4.500
+
+Cap 08 Soporte Digital: 8.000 EUR
+  08.01.01 Tarjetas CFexpress/SSD rodaje: 2.000
+  08.01.02 Discos backup diario: 1.500
+  08.01.03 Almacenamiento NAS/RAID: 3.000
+  08.01.04 LTO backup archivo: 1.500
+
+Cap 09 Postproduccion: 155.000 EUR
+  09.01.01 Copiones/dailies: 3.000
+  09.01.02 Etalonaje HDR (1.600/dia x 10d): 16.000
+  09.02.01 Diseno sonoro (715/dia x 30d): 21.450
+  09.02.02 Edicion dialogos (680/dia x 25d): 17.000
+  09.02.03 Doblaje/ADR: 5.000
+  09.02.04 Foley: 10.000
+  09.02.05 Mezcla 5.1 Dolby: 12.000
+  09.02.06 VFX (30 planos medios x 1.500): 45.000
+  09.02.07 Titulos y creditos: 4.600
+  09.02.08 DCP 4K: 2.250
+  09.02.09 Subtitulos (90min x 10,80/min): 972
+  09.02.10 Subtitulos accesibilidad (90min x 22/min): 1.980
+  09.02.11 Master UHD/HDR: 3.500
+  09.02.12 Coordinacion postproduccion: 9.000
+
+Cap 10 Seguros: 28.000 EUR
+  10.01.01 Responsabilidad civil (0,3% ppto): 4.200
+  10.01.02 Accidentes trabajo (0,2%): 2.800
+  10.01.03 Interrupcion rodaje (0,5%): 7.000
+  10.01.04 Seguro equipo/material (0,8% valor equipos): 3.000
+  10.01.05 Buen fin/completion bond: 8.000
+  10.01.06 E&O (errores y omisiones): 3.000
+
+Cap 11 Gastos Generales: 155.000 EUR
+  11.01.01 Asesoria juridica: 8.000
+  11.01.02 Asesoria fiscal/contable: 5.000
+  11.01.03 Auditoria ICAA: 3.500
+  11.01.04 Gastos financieros: 5.000
+  11.01.05 Gastos notariales/registro: 2.500
+  11.01.06 Imprevistos (10% Cap 01-10): 131.000
+
+Cap 12 Explotacion/Publicidad: 32.000 EUR
+  12.01.01 DCP distribucion (x3 copias): 6.750
+  12.01.02 Copias festivales: 3.000
+  12.02.01 Trailer: 5.000
+  12.02.02 Carteleria/diseno grafico: 4.000
+  12.02.03 Web + redes sociales: 3.000
+  12.02.04 Press kit/EPK: 2.000
+  12.02.05 Fotografia promocional: 2.000
+  12.02.06 Estreno/premiere: 3.250
+  12.02.07 Inscripcion festivales: 3.000
+
+TOTAL APROXIMADO: ~1.500.000 EUR`}
 
 ## FORMATO DE RESPUESTA
 

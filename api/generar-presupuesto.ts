@@ -638,7 +638,7 @@ INSTRUCCIONES:
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
+      max_tokens: 64000,
       temperature: 0.2,
       stream: true,
       system: systemPrompt,

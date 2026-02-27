@@ -138,70 +138,217 @@ COORDINACION POSTPRO: Corto 1.500 | Largo 9.000
 ## DIFERENCIAS ${isCorto ? 'CORTOMETRAJE' : 'LARGOMETRAJE'}
 
 ${isCorto ? `CORTOMETRAJE:
-- Equipo reducido: ~7-10 personas clave (sin 2o ayte dir, sin auxiliares)
 - Rodaje tipico: 3-10 dias
 - Presupuesto total tipico: 15.000-150.000 EUR
-- Sin Cap 02.07/02.08 normalmente
-- Sin Segunda Unidad (03.13)
-- Postproduccion corta: 2-6 semanas montaje
-- Mezcla estereo o 5.1 sencilla
-- Master digital (sin DCP normalmente, o DCP basico)
-- Sin gastos distribucion/marketing significativos` : `LARGOMETRAJE:
-- Equipo completo: 20-30+ personas
+- Equipo reducido pero COMPLETO: ~10-15 personas clave
+- Cap 03 debe incluir TODOS los departamentos aunque sea 1 persona por depto
+- Sin Segunda Unidad (03.13), sin 03.12 normalmente
+- Postproduccion corta: 2-6 semanas montaje` : `LARGOMETRAJE:
 - Rodaje tipico: 20-50 dias
 - Presupuesto total tipico: 300.000-5.000.000 EUR
-- 2-3 ayudantes direccion, auxiliares en cada departamento
-- Segunda Unidad posible
-- Postproduccion: 3-6 meses montaje + mezcla 5.1 Dolby
-- DCP 2K/4K + masters para plataformas
-- Marketing y distribucion significativos`}
+- Equipo COMPLETO: 25-40+ personas, con ayudantes y auxiliares en cada departamento
+- Cap 03 DEBE incluir TODOS los puestos por subseccion (03.01-03.13)
+- Cada departamento tiene jefe + ayudante(s) + auxiliar(es)
+- Postproduccion: 3-6 meses montaje + mezcla 5.1 Dolby`}
 
-## EJEMPLO DE PRESUPUESTO REAL
+## REGLA CRITICA PARA CAPITULO 03 — EQUIPO TECNICO
+
+El Cap 03 es el capitulo MAS IMPORTANTE y MAS EXTENSO del presupuesto ICAA.
+DEBES generar CADA PUESTO INDIVIDUAL por subseccion, NUNCA agrupar roles.
+${isCorto ? 'Un cortometraje tiene minimo 10-15 lineas en Cap 03.' : 'Un largometraje tiene minimo 30-45 lineas en Cap 03.'}
+
+SUBSECCIONES OBLIGATORIAS con puestos minimos:
+
+03.01 DIRECCION: ${isCorto
+  ? 'Director/Realizador, 1er Ayudante Direccion'
+  : 'Director/Realizador, 1er Ayudante Direccion, 2o Ayudante Direccion, Script/Continuidad, Director de Reparto, Auxiliar Direccion'}
+03.02 PRODUCCION: ${isCorto
+  ? 'Director Produccion, Jefe Produccion, Ayudante Produccion'
+  : 'Productor Ejecutivo, Director Produccion, Jefe Produccion, 1er Ayudante Produccion, 2o Ayudante Produccion, Auxiliares Produccion (x2-3), Cajero-Pagador, Secretaria Produccion, Localizador'}
+03.03 FOTOGRAFIA: ${isCorto
+  ? 'Director Fotografia, 1er Ayudante Camara, Foquista'
+  : 'Director Fotografia, Operador Camara, 1er Ayudante Camara, 2o Ayudante Camara, Foquista, DIT, Foto Fija'}
+03.04 DECORACION: ${isCorto
+  ? 'Director Arte, Attrezzista'
+  : 'Director Arte/Decorador, Ayudante Decoracion, Ambientador, Atrecista, Auxiliar Atrezzo Rodaje, Auxiliar Atrezzo Montaje'}
+03.05 VESTUARIO: ${isCorto
+  ? 'Figurinista'
+  : 'Figurinista, Jefe Sastreria, Sastra, Ayudante Vestuario'}
+03.06 MAQUILLAJE: ${isCorto
+  ? 'Jefe Maquillaje'
+  : 'Jefe Maquillaje, Ayudante Maquillaje, Auxiliar Maquillaje'}
+03.07 PELUQUERIA: ${isCorto
+  ? 'Jefe Peluqueria'
+  : 'Jefe Peluqueria, Ayudante Peluqueria'}
+03.08 EFECTOS ESPECIALES: ${isCorto
+  ? '(solo si aplica)'
+  : 'Jefe EFX Mecanicos (si aplica)'}
+03.09 SONIDO: ${isCorto
+  ? 'Jefe Sonido, Microfonista'
+  : 'Jefe Sonido, Microfonista, Auxiliar/Refuerzos Sonido'}
+03.10 MONTAJE: ${isCorto
+  ? 'Montador'
+  : 'Montador, Ayudante Montaje'}
+03.11 ELECTRICOS/MAQUINISTAS: ${isCorto
+  ? 'Jefe Electricos, Electrico'
+  : 'Jefe Electricos, Electricos (x2), Maquinista Jefe, Ayudante Maquinista'}
+03.12 PERSONAL COMPLEMENTARIO: ${isCorto
+  ? '(opcional)'
+  : 'Asistencia Sanitaria, Peones/Cargadores'}
+03.13 SEGUNDA UNIDAD: ${isCorto
+  ? '(no aplica)'
+  : '(si el proyecto lo requiere)'}
+
+## REGLA CRITICA PARA CAPITULO 04 — ESCENOGRAFIA
+
+Cap 04 tiene 5 subsecciones obligatorias:
+04.01 DECORADOS: Construccion/montaje plato, Construccion exteriores, Construccion interiores naturales, Alquiler interiores naturales
+04.02 AMBIENTACION: Mobiliario alquilado, Atrezzo alquilado, Mobiliario adquirido, Atrezzo adquirido, Vehiculos escena, Comidas escena, Material EFX
+04.03 VESTUARIO: Vestuario alquilado, Vestuario adquirido, Zapateria, Complementos, Materiales sastreria
+04.04 SEMOVIENTES: Animales, Carruajes (si aplica)
+04.05 VARIOS: Material peluqueria, Material maquillaje
+
+## EJEMPLO DE PRESUPUESTO REAL — DESGLOSE DETALLADO
 
 ${isCorto ? `Cortometraje ficcion "ED" — 5 dias rodaje, bajo presupuesto, Madrid
+
 Cap 01 Guion y Musica: 6.500 EUR
   01.01.02 Guion original: 5.000 | 01.02.02 Compositor: 1.500
+
 Cap 02 Personal Artistico: 4.200 EUR
-  02.01 Protagonista (5 dias x 500): 2.500 | 02.03 Secundarios: 1.200 | 02.05 Figuracion: 500
-Cap 03 Equipo Tecnico: 26.800 EUR
-  03.01.01 Director: 9.426 (2 sem) | 03.02.01 Dir.Produccion: 7.908 (2 sem)
-  03.03.01 Dir.Foto: 7.908 (2 sem) | 03.09.01 Jefe Sonido: 5.272 (2 sem)
-  03.06.01 Maquillaje: 2.636 (1 sem) | 03.10.01 Montador: 5.272 (2 sem)
-  03.11.01 Jefe Electricos: 2.197 (1 sem)
-  +SS empresa 23,5%: ~6.300
+  02.01.01 Protagonista (5d x 500): 2.500
+  02.03.01 Secundario 1 (2d x 400): 800
+  02.03.02 Secundario 2 (1d x 400): 400
+  02.05.01 Figuracion: 500
+
+Cap 03 Equipo Tecnico: 26.800 EUR (con SS 23,5%)
+  03.01.01 Director/Realizador: 4.713/sem x 2 sem = 9.426
+  03.01.02 1er Ayudante Direccion: 2.636/sem x 1 sem = 2.636
+  03.02.01 Director Produccion: 3.954/sem x 2 sem = 7.908
+  03.02.03 Ayudante Produccion: 1.977/sem x 1 sem = 1.977
+  03.03.01 Director Fotografia: 3.954/sem x 2 sem = 7.908
+  03.03.03 1er Ayudante Camara: 1.977/sem x 1 sem = 1.977
+  03.04.01 Director Arte: 3.954/sem x 1 sem = 3.954
+  03.05.01 Figurinista: 2.636/sem x 1 sem = 2.636
+  03.06.01 Jefe Maquillaje: 2.636/sem x 1 sem = 2.636
+  03.07.01 Jefe Peluqueria: 2.197/sem x 1 sem = 2.197
+  03.09.01 Jefe Sonido: 2.636/sem x 1 sem = 2.636
+  03.09.02 Microfonista: 1.977/sem x 1 sem = 1.977
+  03.10.01 Montador: 2.636/sem x 2 sem = 5.272
+  03.11.01 Jefe Electricos: 2.197/sem x 1 sem = 2.197
+  03.11.02 Electrico: 1.717/sem x 1 sem = 1.717
+  Subtotal bruto: ~57.254 + SS 23,5%: ~13.455 = ~70.709
+
 Cap 04 Escenografia: 3.500 EUR
-Cap 05 Estudios/Varios: 5.000 EUR
-Cap 06 Maquinaria: 7.500 EUR (camara 5 dias, iluminacion, transporte)
-Cap 07 Viajes/Dietas: 3.800 EUR (15 pers x 5 dias x 55 dieta = 4.125, ajustado)
-Cap 08 Soporte digital: 500 EUR
-Cap 09 Postproduccion: 6.500 EUR (etalonaje 2.500 + sonido 3.000 + titulos 1.000)
-Cap 10 Seguros: 3.200 EUR
-Cap 11 Gastos generales: 2.500 EUR
-Cap 12 Explotacion: 1.000 EUR
-TOTAL: ~71.000 EUR` : `Largometraje ficcion "LMDS" — 30 dias rodaje, bajo presupuesto
+  04.01.08 Alquiler interiores naturales: 1.500
+  04.02.02 Atrezzo alquilado: 800
+  04.02.03 Mobiliario adquirido: 500
+  04.03.02 Vestuario adquirido: 500
+  04.05.02 Material maquillaje: 200
+
+Cap 05-12: ~30.800 EUR (maquinaria, dietas, postpro, seguros, generales)
+TOTAL: ~71.000 EUR` : `Largometraje ficcion "LMDS" — 30 dias rodaje, presupuesto medio
+
 Cap 01 Guion y Musica: 25.000 EUR
-  01.01.02 Guion: 18.000 | 01.02.02 Compositor: 7.000
+  01.01.02 Guion original: 18.000 | 01.02.02 Compositor: 7.000
+
 Cap 02 Personal Artistico: 85.000 EUR
-  02.01 Protagonistas (2 x 30d x 2.500): 75.000 | 02.03 Secundarios: 8.000 | 02.05 Figuracion: 2.000
-Cap 03 Equipo Tecnico: 380.000 EUR
-  03.01.01 Director: 65.000 (14 sem) | 03.01.02 1er Ayte Dir: 26.360 (10 sem)
-  03.02.01 Dir.Produccion: 55.000 (14 sem) | 03.02.02 Jefe Prod: 26.360 (10 sem)
-  03.03.01 Dir.Foto: 47.000 (12 sem) | 03.03.02 Camara: 21.000 (8 sem)
-  03.04.01 Dir.Arte: 47.000 (12 sem) | 03.05.01 Figurinista: 21.000 (8 sem)
-  03.06.01 Maquillaje: 21.000 (8 sem) | 03.07.01 Peluqueria: 17.500 (8 sem)
-  03.09.01 Sonido: 21.000 (8 sem) | 03.10.01 Montador: 39.500 (15 sem)
-  03.11 Electricos+Maquinistas: 35.000 | +Ayudantes y auxiliares: ~40.000
-  +SS empresa 23,5% sobre todo personal: ~85.000
-Cap 04 Escenografia: 45.000 EUR
-Cap 05 Estudios/Varios: 160.000 EUR (montaje 15.000 + sonido postpro 62.000 + varios 83.000)
-Cap 06 Maquinaria: 120.000 EUR (camara 30d + ilum + grip + transporte)
-Cap 07 Viajes/Dietas: 95.000 EUR (25 pers x 30d x 55 + hoteles)
+  02.01.01 Protagonista 1 (28d x 2.500): 70.000
+  02.01.02 Protagonista 2 (25d x 2.500): 62.500 (ajustar)
+  02.03.01-03 Secundarios (3 pers): 8.000
+  02.05.01 Figuracion: 2.000
+
+Cap 03 Equipo Tecnico: 461.943 EUR bruto + 117.524 SS (DESGLOSE REAL LMDS)
+  03.01 DIRECCION:
+    03.01.01 Director/Realizador: 50.000 (14 sem)
+    03.01.02 1er Ayudante Direccion: 10.000 (4 sem)
+    03.01.03 Script/Continuidad: 5.030 (2 sem)
+    03.01.04 2o Ayudante Direccion: 2.534 (1 sem)
+    03.01.05 Director de Reparto: 10.000
+    03.01.07 Auxiliar Direccion: 2.345 (1 sem)
+  03.02 PRODUCCION:
+    03.02.01 Productor Ejecutivo: 59.000 (14 sem)
+    03.02.02 Director Produccion: 47.000 (12 sem)
+    03.02.03 Jefe Produccion: 31.640 (10 sem)
+    03.02.04 1er Ayudante Produccion: 21.866 (9 sem)
+    03.02.05 2o Ayudante Produccion: 16.820 (8 sem)
+    03.02.06 Auxiliares Produccion x3: 46.230 (8 sem c/u)
+    03.02.07 Cajero-Pagador: 25.088 (10 sem)
+    03.02.08 Secretaria Produccion: 17.898 (8 sem)
+    03.02.09 Localizador: 17.892 (8 sem)
+  03.03 FOTOGRAFIA:
+    03.03.01 Director Fotografia: 22.500 (6 sem)
+    03.03.02 Operador Camara/2o Operador: 5.100 (2 sem)
+    03.03.04 Ayudantes Camara x2: 9.100 (3 sem c/u)
+    03.03.06 DIT: 6.250 (2.5 sem)
+    03.03.07 Auxiliar Camara: 2.550 (1 sem)
+  03.04 DECORACION:
+    03.04.01 Decorador/Director Arte: 19.000 (5 sem)
+    03.04.02 Ayudante Decoracion: 5.800 (3 sem)
+    03.04.03 Ambientador: 5.000 (2 sem)
+    03.04.04 Atrecista: 4.000 (2 sem)
+    03.04.05 Auxiliar Atrezzo Rodaje: 3.500 (2 sem)
+    03.04.06 Auxiliar Atrezzo Montaje: 3.500 (2 sem)
+  03.05 VESTUARIO:
+    03.05.01 Figurinista: 16.500 (5 sem)
+    03.05.02 Jefe Sastreria: 11.000 (5 sem)
+    03.05.03 Sastra: 5.000 (2 sem)
+  03.06 MAQUILLAJE:
+    03.06.01 Jefe Maquillaje: 6.547 (2.5 sem)
+    03.06.02 Ayudante Maquillaje: 5.076 (2.5 sem)
+  03.07 PELUQUERIA:
+    03.07.01 Jefe Peluqueria: 6.545 (2.5 sem)
+    03.07.02 Ayudante Peluqueria: 5.076 (2.5 sem)
+  03.08 EFECTOS ESPECIALES:
+    03.08.01 Jefe EFX Mecanicos: 2.100 (1 sem)
+  03.09 SONIDO:
+    03.09.01 Jefe Sonido: 5.500 (2 sem)
+    03.09.02 Ayudante Sonido: 3.200 (1.5 sem)
+    03.09.03 Refuerzos Sonido: 1.000
+  03.10 MONTAJE:
+    03.10.01 Montador: 12.000 (5 sem)
+    03.10.02 Ayudante Montaje: 8.400 (4 sem)
+  03.11 ELECTRICOS/MAQUINISTAS:
+    03.11.01 Jefe Electricistas: 4.000 (2 sem)
+    03.11.02 Electricistas x2: 8.640 (2 sem c/u)
+  03.12 PERSONAL COMPLEMENTARIO:
+    03.12.01 Asistencia Sanitaria: 2.500
+    03.12.03 Peones/Cargadores: 1.750
+  Subtotal bruto Cap 03: 461.943 + SS 23,5%: 117.524 + Dietas: 19.130
+
+Cap 04 Escenografia: 115.500 EUR (DESGLOSE REAL LMDS)
+  04.01 DECORADOS:
+    04.01.01 Construccion/montaje decorados plato: 50.000
+    04.01.03 Construccion exteriores: 5.000
+    04.01.04 Construccion interiores naturales: 5.000
+    04.01.08 Alquiler interiores naturales: 15.000
+  04.02 AMBIENTACION:
+    04.02.01 Mobiliario alquilado: 15.000
+    04.02.02 Atrezzo alquilado: 5.000
+    04.02.03 Mobiliario adquirido: 4.000
+    04.02.04 Atrezzo adquirido: 4.000
+    04.02.05 Jardineria: 1.000
+    04.02.07 Vehiculos en escena: 2.500
+    04.02.08 Comidas en escena: 1.000
+    04.02.09 Material efectos especiales: 5.000
+  04.03 VESTUARIO:
+    04.03.01 Vestuario alquilado: 5.000
+    04.03.02 Vestuario adquirido: 15.000
+    04.03.03 Zapateria: 3.000
+    04.03.04 Complementos: 5.000
+  04.05 VARIOS:
+    04.05.01 Material peluqueria: 1.500
+    04.05.02 Material maquillaje: 1.500
+
+Cap 05 Estudios/Varios: 160.000 EUR
+Cap 06 Maquinaria: 120.000 EUR
+Cap 07 Viajes/Dietas: 95.000 EUR
 Cap 08 Soporte digital: 8.000 EUR
-Cap 09 Lab/Efectos digitales: 180.000 EUR (etalonaje 20.000 + DCP 3.000 + VFX 150.000 + grafismo 7.000)
+Cap 09 Lab/Postproduccion: 180.000 EUR
 Cap 10 Seguros: 55.000 EUR
-Cap 11 Gastos generales: 85.000 EUR (oficina + asesoria + imprevistos 10%)
+Cap 11 Gastos generales: 85.000 EUR (incluye imprevistos 10%)
 Cap 12 Copias/Publicidad: 45.000 EUR
-TOTAL APROXIMADO: ~1.338.000 EUR`}
+TOTAL APROXIMADO: ~1.400.000 EUR`}
 
 ## FORMATO DE RESPUESTA
 

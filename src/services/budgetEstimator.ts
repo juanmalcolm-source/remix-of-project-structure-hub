@@ -5,6 +5,21 @@
  */
 
 import type { Tables } from '@/integrations/supabase/types';
+import {
+  TARIFAS_EQUIPO_TECNICO,
+  TARIFAS_GUIONISTA,
+  TARIFAS_ACTORES,
+  TARIFAS_EQUIPAMIENTO,
+  TARIFAS_POSTPRODUCCION,
+  COSTES_SOCIALES,
+  DIETAS,
+  SEGUROS,
+  PORCENTAJES,
+  RANGOS_PROYECTO,
+  TARIFAS_AUDITORIA,
+  type NivelPresupuesto,
+  type CategoriaPresupuesto,
+} from '@/data/tarifas-icaa-2025';
 
 type Character = Tables<'characters'>;
 type Location = Tables<'locations'>;
@@ -195,27 +210,21 @@ export async function generarPresupuestoConIA(
 }
 
 /**
- * Get tariff rate based on budget level - uses hardcoded rates
+ * Get actor daily rate from real tariff data
  */
-function getTarifaByLevel(codigo: string, level: BudgetLevel): number {
-  // Simplified rate lookup - returns 0 to use fallback rates
-  return 0;
+function getCategoryRate(category: string | null, level: BudgetLevel = 'medio'): number {
+  const key = (category?.toLowerCase() || 'secundario') as keyof typeof TARIFAS_ACTORES;
+  const tarifas = TARIFAS_ACTORES[key] || TARIFAS_ACTORES.secundario;
+  return tarifas[level];
 }
 
-function getCategoryRate(category: string | null, level: BudgetLevel = 'medio'): number {
-  switch (category?.toLowerCase()) {
-    case 'protagonista':
-      return getTarifaByLevel('02.01', level) || (level === 'bajo' ? 2000 : level === 'alto' ? 4000 : 3000);
-    case 'principal':
-      return getTarifaByLevel('02.02', level) || (level === 'bajo' ? 1000 : level === 'alto' ? 2000 : 1500);
-    case 'secundario':
-      return getTarifaByLevel('02.03', level) || (level === 'bajo' ? 500 : level === 'alto' ? 1000 : 800);
-    case 'figuración':
-    case 'figuracion':
-      return getTarifaByLevel('02.04', level) || (level === 'bajo' ? 100 : level === 'alto' ? 200 : 150);
-    default:
-      return getTarifaByLevel('02.03', level) || 800;
-  }
+/**
+ * Get crew weekly rate from Convenio Colectivo
+ */
+function getCrewRate(role: string, level: BudgetLevel): number {
+  const tarifa = TARIFAS_EQUIPO_TECNICO[role];
+  if (!tarifa) return 2000;
+  return level === 'alto' ? tarifa.presupuesto_estandar : tarifa.bajo_presupuesto;
 }
 
 function getLocationRate(complexity: string | null, level: BudgetLevel = 'medio'): number {
@@ -328,10 +337,11 @@ export function generarPresupuestoEstimado(
   };
   
   // ============ CHAPTER 1 - Guión y Música ============
-  const guionRate = getTarifaByLevel('01.01', level) || (level === 'bajo' ? 10000 : level === 'alto' ? 25000 : 15000);
-  addLine(1, 'Guión (derechos de autor)', 1, 1, guionRate, 0, 0, 21, 'Convenio DAMA 2024');
-  addLine(1, 'Música original', 1, 1, getTarifaByLevel('01.02', level) || 8000, 0, 0, 21, 'Mercado');
-  addLine(1, 'Derechos musicales (sincronización)', 1, 1, level === 'bajo' ? 2000 : level === 'alto' ? 8000 : 3000, 0, 0, 21, 'Estimación');
+  const guionTarifas = TARIFAS_GUIONISTA[level];
+  const guionRate = Math.round((guionTarifas.minimo + guionTarifas.maximo) / 2);
+  addLine(1, 'Guión original', 1, 1, guionRate, 0, 0, 21, 'Convenio DAMA 2025');
+  addLine(1, 'Música original (compositor)', 1, 1, level === 'bajo' ? 3000 : level === 'alto' ? 12000 : 7000, 0, 0, 21, 'Mercado');
+  addLine(1, 'Derechos musicales (sincronización)', 1, 1, level === 'bajo' ? 500 : level === 'alto' ? 5000 : 2000, 0, 0, 21, 'Dato factura real 500-5.000');
   
   // ============ CHAPTER 2 - Personal Artístico ============
   const protagonistas = characters.filter(c => c.category?.toLowerCase() === 'protagonista');
@@ -356,22 +366,60 @@ export function generarPresupuestoEstimado(
     addLine(2, 'Figuración especial', numFiguracion, 5, getCategoryRate('figuración', level), 0, 0, 21, 'Convenio figuración');
   }
   
-  // ============ CHAPTER 3 - Equipo Técnico ============
-  const directorRate = getTarifaByLevel('03.01', level) || (level === 'bajo' ? 5000 : level === 'alto' ? 10000 : 8000);
-  const prodEjecRate = getTarifaByLevel('03.02', level) || (level === 'bajo' ? 4000 : level === 'alto' ? 8000 : 6000);
-  const dopRate = getTarifaByLevel('03.04', level) || (level === 'bajo' ? 3500 : level === 'alto' ? 7000 : 5000);
-  
-  addLine(3, 'Director/a', 1, shootingWeeks + prepWeeks, directorRate, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Productor/a ejecutivo', 1, shootingWeeks + prepWeeks + 4, prodEjecRate, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Director/a de producción', 1, shootingWeeks + prepWeeks, getTarifaByLevel('03.03', level) || 4000, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Director/a de fotografía', 1, shootingWeeks + 2, dopRate, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Operador/a de cámara', 1, shootingWeeks, getTarifaByLevel('03.05', level) || 2500, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Jefe/a de sonido', 1, shootingWeeks, getTarifaByLevel('03.06', level) || 2500, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Director/a de arte', 1, shootingWeeks + 2, getTarifaByLevel('03.07', level) || 3000, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Jefe/a de maquillaje', 1, shootingWeeks, getTarifaByLevel('03.08', level) || 2000, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Jefe/a de vestuario', 1, shootingWeeks, getTarifaByLevel('03.09', level) || 2000, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Script / Continuidad', 1, shootingWeeks, getTarifaByLevel('03.10', level) || 1500, 0, 35, 21, 'Convenio técnicos 2024');
-  addLine(3, 'Montador/a', 1, postWeeks, getTarifaByLevel('03.11', level) || 3000, 0, 35, 21, 'Convenio técnicos 2024');
+  // ============ CHAPTER 3 - Equipo Técnico (Convenio Colectivo 2025) ============
+  const ssPct = COSTES_SOCIALES.seguridad_social_empresa * 100; // 23.5%
+  const src = 'Convenio Colectivo Técnicos 2025';
+
+  // Direccion
+  addLine(3, 'Director/Realizador', 1, shootingWeeks + prepWeeks, getCrewRate('director_realizador', level), 0, ssPct, 21, src);
+  addLine(3, '1er Ayudante Dirección', 1, shootingWeeks + prepWeeks, getCrewRate('primer_ayudante_direccion', level), 0, ssPct, 21, src);
+  if (totalShootingDays > 10) {
+    addLine(3, 'Script / Continuidad', 1, shootingWeeks, getCrewRate('script', level), 0, ssPct, 21, src);
+  }
+
+  // Produccion
+  addLine(3, 'Director/a de Producción', 1, shootingWeeks + prepWeeks + 4, getCrewRate('director_produccion', level), 0, ssPct, 21, src);
+  addLine(3, 'Jefe/a de Producción', 1, shootingWeeks + prepWeeks, getCrewRate('jefe_produccion', level), 0, ssPct, 21, src);
+  if (totalShootingDays > 10) {
+    addLine(3, 'Ayudante de Producción', 1, shootingWeeks + prepWeeks, getCrewRate('ayudante_produccion', level), 0, ssPct, 21, src);
+  }
+
+  // Fotografia
+  addLine(3, 'Director/a de Fotografía', 1, shootingWeeks + 2, getCrewRate('director_fotografia', level), 0, ssPct, 21, src);
+  if (totalShootingDays > 15) {
+    addLine(3, 'Operador/a de Cámara', 1, shootingWeeks, getCrewRate('camarografo', level), 0, ssPct, 21, src);
+  }
+  addLine(3, '1er Ayudante Cámara', 1, shootingWeeks, getCrewRate('primer_ayudante_camara', level), 0, ssPct, 21, src);
+
+  // Arte y decoracion
+  addLine(3, 'Director/a de Arte', 1, shootingWeeks + 2, getCrewRate('director_arte', level), 0, ssPct, 21, src);
+  if (totalShootingDays > 15) {
+    addLine(3, 'Attrezzista', 1, shootingWeeks, getCrewRate('attrezzista', level), 0, ssPct, 21, src);
+  }
+
+  // Vestuario, maquillaje, peluqueria
+  addLine(3, 'Figurinista', 1, shootingWeeks + 1, getCrewRate('figurinista', level), 0, ssPct, 21, src);
+  addLine(3, 'Jefe/a de Maquillaje', 1, shootingWeeks, getCrewRate('jefe_maquillaje', level), 0, ssPct, 21, src);
+  addLine(3, 'Jefe/a de Peluquería', 1, shootingWeeks, getCrewRate('jefe_peluqueria', level), 0, ssPct, 21, src);
+
+  // Sonido
+  addLine(3, 'Jefe/a de Sonido', 1, shootingWeeks, getCrewRate('jefe_sonido', level), 0, ssPct, 21, src);
+  if (totalShootingDays > 10) {
+    addLine(3, 'Microfonista', 1, shootingWeeks, getCrewRate('microfonista', level), 0, ssPct, 21, src);
+  }
+
+  // Montaje
+  addLine(3, 'Montador/a', 1, postWeeks, getCrewRate('montador', level), 0, ssPct, 21, src);
+  if (totalShootingDays > 20) {
+    addLine(3, 'Ayudante Montaje', 1, postWeeks, getCrewRate('ayudante_montaje', level), 0, ssPct, 21, src);
+  }
+
+  // Electricos y maquinistas
+  addLine(3, 'Jefe/a de Eléctricos', 1, shootingWeeks, getCrewRate('jefe_electricos', level), 0, ssPct, 21, src);
+  if (totalShootingDays > 10) {
+    addLine(3, 'Eléctrico', 1, shootingWeeks, getCrewRate('electrico', level), 0, ssPct, 21, src);
+    addLine(3, 'Maquinista Jefe', 1, shootingWeeks, getCrewRate('maquinista', level), 0, ssPct, 21, src);
+  }
   
   // ============ CHAPTER 4 - Escenografía ============
   if (effectiveLocations.length > 0) {
@@ -385,70 +433,116 @@ export function generarPresupuestoEstimado(
     const estimatedLocations = Math.max(5, Math.ceil(sequences.length / 4));
     addLine(4, 'Decorados y localizaciones (estimado)', estimatedLocations, 1, getLocationRate('media', level), 0, 0, 21, 'Estimación');
   }
-  
-  const attrezzoRate = level === 'bajo' ? 300 : level === 'alto' ? 800 : 500;
-  addLine(4, 'Attrezzo', 1, totalShootingDays, attrezzoRate, 0, 0, 21, 'Mercado');
-  addLine(4, 'Vestuario', characters.length || 8, 1, level === 'bajo' ? 500 : level === 'alto' ? 1200 : 800, 0, 0, 21, 'Mercado');
-  addLine(4, 'Materiales maquillaje y peluquería', 1, totalShootingDays, level === 'bajo' ? 150 : level === 'alto' ? 350 : 200, 0, 0, 21, 'Mercado');
+
+  addLine(4, 'Attrezzo', 1, totalShootingDays, level === 'bajo' ? 300 : level === 'alto' ? 800 : 500, 0, 0, 21, 'Dato factura proveedores');
+  addLine(4, 'Vestuario (compra/alquiler)', characters.length || 8, 1, level === 'bajo' ? 500 : level === 'alto' ? 1200 : 800, 0, 0, 21, 'Dato presupuestos ICAA reales');
+  addLine(4, 'Materiales maquillaje y peluquería', 1, totalShootingDays, level === 'bajo' ? 150 : level === 'alto' ? 350 : 200, 0, 0, 21, 'Dato presupuestos ICAA reales');
   
   // ============ CHAPTER 5 - Estudios y Sonorización ============
-  const platoRate = level === 'bajo' ? 2000 : level === 'alto' ? 5000 : 3000;
-  addLine(5, 'Alquiler plató / Localizaciones interiores', 1, Math.ceil(totalShootingDays * 0.3), platoRate, 0, 0, 21, 'Mercado estudios');
-  addLine(5, 'Sala de doblaje y sonorización', 1, 5, level === 'bajo' ? 1000 : level === 'alto' ? 2500 : 1500, 0, 0, 21, 'Mercado postproducción');
-  addLine(5, 'Mezclas', 1, 1, level === 'bajo' ? 5000 : level === 'alto' ? 15000 : 8000, 0, 0, 21, 'Mercado postproducción');
+  const isLargo = totalShootingDays >= 20;
+  const tipoProyecto = isLargo ? 'largometraje' : 'cortometraje';
+  const platoDays = Math.ceil(totalShootingDays * 0.3);
+  addLine(5, 'Alquiler plató / Localizaciones interiores', 1, platoDays, level === 'bajo' ? 2000 : level === 'alto' ? 5000 : 3000, 0, 0, 21, 'Mercado estudios Madrid/Barcelona');
+  addLine(5, 'Sala de sonorización (edición diálogos)', 1, isLargo ? 25 : 5, level === 'bajo' ? 500 : 680, 0, 0, 21, 'Factura Antaviana/El Colorado');
+  addLine(5, 'Mezcla 5.1', 1, 1, TARIFAS_POSTPRODUCCION.sonido.mezcla_5_1[tipoProyecto], 0, 0, 21, 'Factura Antaviana');
   
   // ============ CHAPTER 6 - Maquinaria y Transportes ============
-  const camaraRate = level === 'bajo' ? 1200 : level === 'alto' ? 3000 : 2000;
-  addLine(6, 'Equipo cámara (alquiler)', 1, totalShootingDays, camaraRate, 0, 0, 21, 'Rental houses');
-  addLine(6, 'Iluminación (alquiler)', 1, totalShootingDays, level === 'bajo' ? 800 : level === 'alto' ? 2500 : 1500, 0, 0, 21, 'Rental houses');
-  addLine(6, 'Sonido (alquiler equipos)', 1, totalShootingDays, level === 'bajo' ? 500 : level === 'alto' ? 1200 : 800, 0, 0, 21, 'Rental houses');
-  addLine(6, 'Transportes', 1, totalShootingDays, level === 'bajo' ? 800 : level === 'alto' ? 2000 : 1200, 0, 0, 21, 'Mercado transportes');
+  // Cámara: desde Blackmagic URSA (120/dia) hasta ARRI ALEXA MINI (450/dia)
+  const camaraKey = level === 'bajo' ? 'blackmagic_ursa' : level === 'alto' ? 'arri_alexa_mini' : 'red_v_raptor';
+  const camaraTarifa = TARIFAS_EQUIPAMIENTO.camara[camaraKey];
+  addLine(6, `Equipo cámara (${camaraKey.replace(/_/g, ' ')})`, 1, totalShootingDays, camaraTarifa.dia, 0, 0, 21, 'Factura By Jarana Films');
+  // Óptica
+  const opticaKey = level === 'bajo' ? 'zoom_cine' : level === 'alto' ? 'primos_master' : 'primos_medio';
+  addLine(6, `Óptica (${opticaKey.replace(/_/g, ' ')})`, 1, totalShootingDays, TARIFAS_EQUIPAMIENTO.optica[opticaKey].dia, 0, 0, 21, 'Factura By Jarana Films');
+  // Iluminación
+  const ilumKey = level === 'bajo' ? 'kit_basico' : level === 'alto' ? 'kit_avanzado' : 'kit_medio';
+  addLine(6, `Iluminación (${ilumKey.replace(/_/g, ' ')})`, 1, totalShootingDays, TARIFAS_EQUIPAMIENTO.iluminacion[ilumKey].dia, 0, 0, 21, 'Factura proveedores reales');
+  // Sonido directo
+  addLine(6, 'Sonido directo (equipos)', 1, totalShootingDays, TARIFAS_EQUIPAMIENTO.sonido.kit_directo.dia, 0, 0, 21, 'Factura proveedores reales');
+  // Grip
+  if (level !== 'bajo') {
+    addLine(6, 'Dolly / Track', 1, Math.ceil(totalShootingDays * 0.5), TARIFAS_EQUIPAMIENTO.grip.dolly_track.dia, 0, 0, 21, 'Factura proveedores reales');
+  }
+  // Transportes
+  addLine(6, 'Transportes (vehículos producción)', 1, totalShootingDays, level === 'bajo' ? 800 : level === 'alto' ? 2000 : 1200, 0, 0, 21, 'Presupuestos ICAA reales');
   
   // ============ CHAPTER 7 - Viajes, Hoteles y Comidas ============
-  addLine(7, 'Viajes equipo', 1, 1, level === 'bajo' ? 1500 : level === 'alto' ? 4000 : 2000, 0, 0, 21, 'Estimación');
-  addLine(7, 'Hoteles equipo', teamSize, totalShootingDays, level === 'bajo' ? 60 : level === 'alto' ? 120 : 80, 0, 0, 10, 'Mercado hotelero');
-  addLine(7, 'Dietas y comidas (catering)', teamSize + characters.length, totalShootingDays, level === 'bajo' ? 35 : level === 'alto' ? 70 : 50, 0, 0, 10, 'Mercado catering');
+  const crewSize = isLargo ? 25 : 12;
+  addLine(7, 'Viajes equipo', crewSize, 2, level === 'bajo' ? 80 : level === 'alto' ? 200 : 120, 0, 0, 10, 'Presupuestos ICAA reales', 'Ida y vuelta');
+  addLine(7, 'Hoteles equipo', Math.ceil(crewSize * 0.4), totalShootingDays, level === 'bajo' ? 60 : level === 'alto' ? 120 : 80, 0, 0, 10, 'Presupuestos ICAA reales', '40% del equipo desplazado');
+  addLine(7, 'Dietas completas', crewSize + characters.length, totalShootingDays, DIETAS.dieta_completa, 0, 0, 10, 'Convenio Colectivo 2025', `${DIETAS.dieta_completa} EUR/persona/dia`);
+  addLine(7, 'Catering rodaje', crewSize + characters.length, totalShootingDays, level === 'bajo' ? 15 : level === 'alto' ? 25 : 18, 0, 0, 10, 'Presupuestos ICAA reales');
   
   // ============ CHAPTER 8 - Material Sensible ============
-  addLine(8, 'Almacenamiento digital / Discos / Tarjetas', 1, 1, level === 'bajo' ? 2000 : level === 'alto' ? 5000 : 3000, 0, 0, 21, 'Mercado');
-  addLine(8, 'Copias de seguridad y archivo', 1, 1, level === 'bajo' ? 1500 : level === 'alto' ? 3500 : 2000, 0, 0, 21, 'Mercado');
+  addLine(8, 'Tarjetas / Discos / Almacenamiento digital', 1, totalShootingDays, level === 'bajo' ? 50 : level === 'alto' ? 150 : 80, 0, 0, 21, 'Presupuestos ICAA reales');
+  addLine(8, 'Copias de seguridad y archivo LTO', 1, 1, level === 'bajo' ? 800 : level === 'alto' ? 2500 : 1500, 0, 0, 21, 'Presupuestos ICAA reales');
   
   // ============ CHAPTER 9 - Laboratorio / Postproducción ============
-  addLine(9, 'Etalonaje / Corrección de color', 1, 1, level === 'bajo' ? 3000 : level === 'alto' ? 10000 : 5000, 0, 0, 21, 'Mercado postproducción');
-  addLine(9, 'DCPs y copias', 1, 1, level === 'bajo' ? 2000 : level === 'alto' ? 5000 : 3000, 0, 0, 21, 'Mercado');
-  
+  const postTarifas = TARIFAS_POSTPRODUCCION;
+  // Etalonaje
+  const etalonajeRange = postTarifas.etalonaje[tipoProyecto];
+  const etalonajeRate = level === 'bajo' ? etalonajeRange.minimo : level === 'alto' ? etalonajeRange.maximo : Math.round((etalonajeRange.minimo + etalonajeRange.maximo) / 2);
+  addLine(9, 'Etalonaje / Corrección de color', 1, 1, etalonajeRate, 0, 0, 21, 'Factura El Colorado');
+  // Diseño sonoro
+  addLine(9, 'Diseño sonoro', 1, 1, postTarifas.sonido.diseno_sonoro[tipoProyecto], 0, 0, 21, 'Factura Antaviana');
+  // Edición diálogos
+  addLine(9, 'Edición de diálogos', 1, 1, postTarifas.sonido.edicion_dialog[tipoProyecto], 0, 0, 21, 'Factura Antaviana');
+  // Foley
+  addLine(9, 'Foley', 1, 1, postTarifas.sonido.foley[tipoProyecto], 0, 0, 21, 'Factura Antaviana');
+  // Grafismo (títulos y créditos)
+  addLine(9, 'Títulos y créditos', 1, 1, postTarifas.grafismo.titulos_creditos[tipoProyecto], 0, 0, 21, 'Presupuestos ICAA reales');
+  // DCP
+  addLine(9, 'DCP', 1, 1, level === 'alto' ? postTarifas.mastering.dcp_4k : postTarifas.mastering.dcp_2k, 0, 0, 21, 'Factura proveedores reales');
+  // Master adicional
+  addLine(9, 'Master UHD Rec.709', 1, 1, postTarifas.mastering.master_uhd_709, 0, 0, 21, 'Factura proveedores reales');
+  // Coordinación postproducción
+  addLine(9, 'Coordinación postproducción', 1, 1, postTarifas.coordinacion_postpro[tipoProyecto], 0, ssPct, 21, 'Presupuestos ICAA reales');
+
   // VFX estimation based on analysis
   const hasComplexVFX = creativeAnalysis?.viability_factors_negative?.toString().toLowerCase().includes('vfx') ||
                         creativeAnalysis?.viability_factors_negative?.toString().toLowerCase().includes('efectos');
-  const vfxRate = hasComplexVFX 
-    ? (level === 'bajo' ? 10000 : level === 'alto' ? 40000 : 15000)
-    : (level === 'bajo' ? 3000 : level === 'alto' ? 10000 : 5000);
-  addLine(9, hasComplexVFX ? 'Efectos visuales (VFX)' : 'Efectos visuales básicos', 1, 1, vfxRate, 0, 0, 21, 'Mercado VFX');
+  if (hasComplexVFX) {
+    const vfxPlanos = level === 'bajo' ? 20 : level === 'alto' ? 80 : 40;
+    const vfxMediaRate = Math.round((postTarifas.vfx.plano_medio.minimo + postTarifas.vfx.plano_medio.maximo) / 2);
+    addLine(9, 'VFX (planos complejidad media)', vfxPlanos, 1, vfxMediaRate, 0, 0, 21, 'Factura Antaviana VFX');
+  } else {
+    const vfxPlanos = level === 'bajo' ? 5 : level === 'alto' ? 20 : 10;
+    const vfxSimpleRate = Math.round((postTarifas.vfx.plano_simple.minimo + postTarifas.vfx.plano_simple.maximo) / 2);
+    addLine(9, 'VFX básicos (retoques, borrados)', vfxPlanos, 1, vfxSimpleRate, 0, 0, 21, 'Factura Antaviana VFX');
+  }
+
+  // Subtítulos
+  const duracionMinutos = isLargo ? 100 : 15;
+  addLine(9, 'Subtitulado (transcripción)', duracionMinutos, 1, postTarifas.subtitulos.por_minuto_transcripcion, 0, 0, 21, 'Factura proveedores reales');
+  addLine(9, 'Subtitulado (traducción inglés)', duracionMinutos, 1, postTarifas.subtitulos.por_minuto_traduccion, 0, 0, 21, 'Factura proveedores reales');
   
   // ============ CHAPTER 10 - Seguros ============
   const subtotalForInsurance = lines.reduce((sum, l) => {
     const base = l.units * l.quantity * l.unit_price;
     return sum + base * (1 + (l.agency_percentage || 0) / 100) * (1 + (l.social_security_percentage || 0) / 100);
   }, 0);
-  
-  addLine(10, 'Seguro de responsabilidad civil', 1, 1, Math.ceil(subtotalForInsurance * 0.01), 0, 0, 21, 'Mercado seguros', '1% del subtotal');
-  addLine(10, 'Seguro de negativo / material', 1, 1, Math.ceil(subtotalForInsurance * 0.005), 0, 0, 21, 'Mercado seguros', '0.5% del subtotal');
-  addLine(10, 'Seguro de accidentes', 1, 1, level === 'bajo' ? 2000 : level === 'alto' ? 5000 : 3000, 0, 0, 21, 'Mercado seguros');
+
+  addLine(10, 'Seguro de responsabilidad civil', 1, 1, Math.ceil(subtotalForInsurance * SEGUROS.responsabilidad_civil), 0, 0, 21, 'Dato sector', `${SEGUROS.responsabilidad_civil * 100}% del presupuesto producción`);
+  addLine(10, 'Seguro de accidentes', 1, 1, Math.ceil(subtotalForInsurance * SEGUROS.accidentes), 0, 0, 21, 'Dato sector', `${SEGUROS.accidentes * 100}% del presupuesto producción`);
+  addLine(10, 'Seguro interrupción de rodaje', 1, 1, Math.ceil(subtotalForInsurance * SEGUROS.interrupcion_rodaje), 0, 0, 21, 'Dato sector', `${SEGUROS.interrupcion_rodaje * 100}% del presupuesto producción`);
+  addLine(10, 'Seguro equipo/material', 1, 1, Math.ceil(subtotalForInsurance * SEGUROS.equipo_material), 0, 0, 21, 'Dato sector', `${SEGUROS.equipo_material * 100}% del presupuesto producción`);
 
   // ============ CHAPTER 11 - Gastos Generales ============
   const subtotalForGeneral = lines.reduce((sum, l) => {
     const base = l.units * l.quantity * l.unit_price;
     return sum + base * (1 + (l.agency_percentage || 0) / 100) * (1 + (l.social_security_percentage || 0) / 100);
   }, 0);
-  
-  addLine(11, 'Gastos de oficina y comunicaciones', 1, 1, level === 'bajo' ? 2000 : level === 'alto' ? 6000 : 3000, 0, 0, 21, 'Estimación');
-  addLine(11, 'Asesoría legal y fiscal', 1, 1, level === 'bajo' ? 2500 : level === 'alto' ? 8000 : 4000, 0, 0, 21, 'Mercado');
-  addLine(11, 'Imprevistos (3%)', 1, 1, Math.ceil(subtotalForGeneral * 0.03), 0, 0, 21, 'Práctica del sector', '3% del subtotal');
+
+  addLine(11, 'Gastos generales (oficina, teléfono, copistería)', 1, 1, Math.ceil(subtotalForGeneral * PORCENTAJES.gastos_generales), 0, 0, 21, 'Estándar ICAA', `${PORCENTAJES.gastos_generales * 100}% del presupuesto producción`);
+  addLine(11, 'Asesoría legal y fiscal', 1, 1, level === 'bajo' ? 2500 : level === 'alto' ? 8000 : 4000, 0, 0, 21, 'Presupuestos ICAA reales');
+  addLine(11, 'Auditoría (coste ICAA)', 1, 1, TARIFAS_AUDITORIA[tipoProyecto], 0, 0, 21, 'Dato ICAA', isLargo ? 'Obligatoria para largos' : '');
+  addLine(11, 'Imprevistos', 1, 1, Math.ceil(subtotalForGeneral * PORCENTAJES.imprevistos), 0, 0, 21, 'Estándar ICAA', `${PORCENTAJES.imprevistos * 100}% del presupuesto producción`);
 
   // ============ CHAPTER 12 - Gastos Explotación ============
-  addLine(12, 'Copias promocionales', 1, 1, level === 'bajo' ? 3000 : level === 'alto' ? 10000 : 5000, 0, 0, 21, 'Mercado');
-  addLine(12, 'Publicidad y marketing inicial', 1, 1, level === 'bajo' ? 5000 : level === 'alto' ? 20000 : 10000, 0, 0, 21, 'Mercado');
-  addLine(12, 'Festivales y mercados', 1, 1, level === 'bajo' ? 3000 : level === 'alto' ? 10000 : 5000, 0, 0, 21, 'Estimación');
+  addLine(12, 'Copias promocionales (screeners, Blu-ray)', 1, 1, level === 'bajo' ? 1500 : level === 'alto' ? 5000 : 2500, 0, 0, 21, 'Presupuestos ICAA reales');
+  addLine(12, 'Publicidad y marketing (materiales, cartel)', 1, 1, level === 'bajo' ? 3000 : level === 'alto' ? 15000 : 7000, 0, 0, 21, 'Presupuestos ICAA reales');
+  addLine(12, 'Festivales y mercados (inscripciones, viajes)', 1, 1, level === 'bajo' ? 2000 : level === 'alto' ? 8000 : 4000, 0, 0, 21, 'Presupuestos ICAA reales');
+  addLine(12, 'Tráiler', 1, 1, level === 'bajo' ? 1500 : level === 'alto' ? 6000 : 3000, 0, 0, 21, 'Presupuestos ICAA reales');
   
   return lines;
 }

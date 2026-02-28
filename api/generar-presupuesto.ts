@@ -162,6 +162,34 @@ ESTUDIO/PLATO: 2.000-5.000 EUR/dia | Sala montaje 300-500/sem | Sala mezclas 2.0
 - Gastos generales: ~5% del presupuesto de produccion (Cap 01-10)
 - Imprevistos: ~10% (incluir en Cap 11)
 
+## LIMITES PORCENTUALES ICAA (OBLIGATORIO — VERIFICACION FORMULARIO 601)
+
+ESTOS LIMITES SON DE OBLIGADO CUMPLIMIENTO para proyectos que soliciten ayudas ICAA:
+
+1. PRODUCCION EJECUTIVA: MAXIMO 5% del Coste de Realizacion (subtotal Cap 01-10)
+   - Si el coste de realizacion es 1.386.114 EUR → produccion ejecutiva max 69.306 EUR
+2. GASTOS GENERALES (Cap 11): MAXIMO 7% del Coste de Realizacion
+   - Si el coste de realizacion es 1.386.114 EUR → gastos generales max 97.028 EUR
+3. PUBLICIDAD (Cap 12.02): MAXIMO 40% del Coste de Realizacion
+4. INTERESES PASIVOS (Cap 12.03): MAXIMO 20% del Coste de Realizacion
+5. El "COSTE DE REALIZACION" = suma Cap 01 a Cap 10 (SIN incluir Cap 11 ni Cap 12)
+6. El presupuesto debe incluir una linea "Produccion ejecutiva" en Cap 02 o Cap 03 dentro de ese 5%
+
+SIEMPRE verificar que el presupuesto generado cumple estos 4 limites porcentuales.
+Si algun capitulo excede su limite, ajustar automaticamente y generar un warning.
+
+## HORAS EXTRAS Y SABADOS (OBLIGATORIO en Cap 03)
+
+Todo presupuesto profesional DEBE incluir estas partidas en Cap 03:
+- 03.14 HORAS EXTRAS: 5-8% del total bruto del equipo tecnico (OBLIGATORIO)
+  Formula: total_bruto_cap03 x 0.06 (media del 6%)
+  Referencia RTB: 9.350 EUR sobre ~156.000 EUR bruto = 6%
+- 03.15 SABADOS Y FESTIVOS: Si hay rodaje en sabados, recargo 50-100% sobre jornal diario
+  Referencia RTB: 22.440 EUR (para 30 dias rodaje con 4-5 sabados)
+  Formula: num_sabados x promedio_jornal_diario x 1.5 x num_tecnicos_sabado
+
+NUNCA omitir horas extras — es la partida que mas se olvida y causa desfases reales.
+
 ## DIFERENCIAS ${isCorto ? 'CORTOMETRAJE' : 'LARGOMETRAJE'}
 
 ${isCorto ? `CORTOMETRAJE:
@@ -228,7 +256,7 @@ SUBSECCIONES OBLIGATORIAS con puestos minimos:
   : 'Productor Ejecutivo, Director Produccion, Jefe Produccion, 1er Ayudante Produccion, 2o Ayudante Produccion, Auxiliares Produccion (x2-3), Cajero-Pagador, Secretaria Produccion, Localizador'}
 03.03 FOTOGRAFIA: ${isCorto
   ? 'Director Fotografia, 1er Ayudante Camara, Foquista'
-  : 'Director Fotografia, Operador Camara, 1er Ayudante Camara, 2o Ayudante Camara, Foquista, DIT, Foto Fija'}
+  : 'Director Fotografia, Operador Camara, 1er Ayudante Camara, 2o Ayudante Camara, Foquista, DIT, Video Assist, Foto Fija'}
 03.04 DECORACION: ${isCorto
   ? 'Director Arte, Attrezzista'
   : 'Director Arte/Decorador, Ayudante Decoracion, Ambientador, Atrecista, Auxiliar Atrezzo Rodaje, Auxiliar Atrezzo Montaje'}
@@ -255,10 +283,16 @@ SUBSECCIONES OBLIGATORIAS con puestos minimos:
   : 'Jefe Electricos, Electricos (x2), Maquinista Jefe, Ayudante Maquinista'}
 03.12 PERSONAL COMPLEMENTARIO: ${isCorto
   ? '(opcional)'
-  : 'Asistencia Sanitaria, Peones/Cargadores'}
+  : 'Asistencia Sanitaria, Peones/Cargadores, Guardas/Vigilancia'}
 03.13 SEGUNDA UNIDAD: ${isCorto
   ? '(no aplica)'
   : '(si el proyecto lo requiere)'}
+03.14 HORAS EXTRAS: ${isCorto
+  ? '(5% del bruto equipo)'
+  : 'OBLIGATORIO — 5-8% del total bruto equipo tecnico (ref: 9.350 para ppto 492k)'}
+03.15 SABADOS/FESTIVOS: ${isCorto
+  ? '(si aplica)'
+  : 'Recargo 50-100% sobre jornal. Formula: sabados x jornal_medio x 1.5 x tecnicos (ref: 22.440 para 5 sabados)'}
 
 ## REGLA CRITICA PARA CAPITULO 04 — ESCENOGRAFIA
 
@@ -280,10 +314,13 @@ Cap 05 MINIMO ${isCorto ? '3-4' : '6-8'} lineas. NUNCA poner como una sola linea
   05.02.01 Sala montaje: 300-500 EUR/semana x semanas postpro
   05.02.02 Sala mezclas 5.1: 2.000-4.000 EUR/semana x semanas mezcla
 05.03 VARIOS PRODUCCION:
-  05.03.01 Oficina produccion: ${isCorto ? '500-1.000' : '1.500-3.000'} EUR/mes x meses preproduccion
+  05.03.01 Oficina produccion/exteriores: ${isCorto ? '500-1.000' : '20.000-25.000'} EUR total
   05.03.02 Telefonos/comunicaciones: ${isCorto ? '200-500' : '2.000-4.000'}
   05.03.04 Material oficina/consumible: ${isCorto ? '200-500' : '1.000-2.000'}
   05.03.05 Catering rodaje: 12-15 EUR/persona/dia x personas x dias rodaje
+  05.03.06 PRL (Prevencion Riesgos Laborales): ${isCorto ? '300-500' : '500-1.000'} EUR (OBLIGATORIO por ley)
+  05.03.07 Gestoria/contabilidad rodaje: ${isCorto ? '1.000-2.000' : '10.000-15.000'} EUR (separado de asesoria juridica)
+  05.03.08 Asesoria juridica produccion: ${isCorto ? '500-1.000' : '10.000-15.000'} EUR
 
 ## REGLA CRITICA PARA CAPITULO 06 — MAQUINARIA Y TRANSPORTES
 
@@ -301,23 +338,38 @@ USA las tarifas de la seccion "TARIFAS EQUIPAMIENTO".
   06.01.10 Drone + piloto: 600/dia (si aplica)
   06.01.11 Grupo electrogeno: 200/dia x dias exterior
   06.01.12 Material expendable (cintas, geles, difusores)
-06.02 TRANSPORTES:
-  06.02.01 Camion iluminacion/grip: 150/dia x dias
-  06.02.02 Furgonetas produccion: 80/dia x numero x dias
-  06.02.03 Furgoneta atrezzo: 100/dia x dias
-  06.02.04 Vehiculos actores: 60/dia x numero x dias
+  06.01.13 Grupo electrogeno combustible: 150-200 EUR/dia x dias exterior (SEPARADO del alquiler)
+  06.01.14 DIT Station/monitor: 250/dia x dias (si no incluido en camara pack)
+06.02 TRANSPORTES (desglosar cada vehiculo individual):
+  06.02.01 Camion iluminacion: 300-400/dia x dias
+  06.02.02 Camion camara: 250-350/dia x dias
+  06.02.03 Camion vestuario: 250-350/dia x dias
+  06.02.04 Camion maquinista/grip: 200-300/dia x dias
+  06.02.05 Furgonetas produccion (x2-3): 100-120/dia c/u x dias
+  06.02.06 Furgoneta atrezzo: 100/dia x dias
+  06.02.07 Coches produccion (x2-3): 60-80/dia c/u x dias
+  06.02.08 Vehiculos actores: 60/dia x numero x dias
+  06.02.09 Gasolina flota vehiculos: ${isCorto ? '200-500' : '3.000-5.000'} EUR total
+  Referencia RTB: 8 camiones+furgonetas+coches = 56.095 EUR total transportes (30d rodaje)
 
 ## REGLA CRITICA PARA CAPITULO 07 — VIAJES, DIETAS Y COMIDAS
 
-Cap 07 MINIMO ${isCorto ? '2-3' : '4-6'} lineas. USA las tarifas de DIETAS.
+Cap 07 MINIMO ${isCorto ? '2-3' : '8-12'} lineas. USA las tarifas de DIETAS.
 07.01 DESPLAZAMIENTOS:
-  07.01.01 Billetes avion/tren equipo
-  07.01.02 Combustible vehiculos: estimado 100-200 EUR/dia rodaje
-  07.01.03 Peajes/autopistas
-07.02 HOTELES Y COMIDAS:
-  07.02.01 Hoteles equipo desplazado: 60-120 EUR/noche x personas x noches
-  07.02.02 Dietas equipo: 55 EUR/dia (completa) x personas x dias rodaje
-  07.02.03 Catering set complemento
+  07.01.01 Scouting/busqueda localizaciones: ${isCorto ? '500-1.000' : '2.000-4.000'} EUR
+  07.01.02 Localizaciones tecnicas: ${isCorto ? '300-500' : '1.500-3.000'} EUR
+  07.01.03 Viajes tecnicos preproduccion: ${isCorto ? '500' : '3.000-5.000'} EUR
+  07.01.04 Viajes actores (vuelos/trenes): ${isCorto ? '500-1.000' : '5.000-8.000'} EUR
+  07.01.05 Combustible vehiculos: estimado 100-200 EUR/dia rodaje
+  07.01.06 Peajes/autopistas: ${isCorto ? '100-300' : '500-1.500'} EUR
+07.02 HOTELES Y COMIDAS (SEPARAR actores de tecnicos):
+  07.02.01 Hoteles actores: 80-120 EUR/noche x actores desplazados x noches
+  07.02.02 Hoteles tecnicos: 60-100 EUR/noche x tecnicos desplazados x noches
+  07.02.03 Comidas rodaje (catering set): 15-18 EUR/persona/dia x equipo x dias
+  07.02.04 Dietas tecnicos: 55 EUR/dia completa x personas x dias
+  07.02.05 Dietas actores: 55 EUR/dia completa x actores x dias
+  07.02.06 Comidas figuracion: 10-12 EUR/persona/dia x figurantes x dias
+  Referencia RTB: Hotel actores 19.000 + Hotel tecnicos 30.000 + Comidas 36.000 + Dietas 22.000 = 131.820 EUR (30d)
 
 ## REGLA CRITICA PARA CAPITULO 08 — SOPORTE DIGITAL
 
@@ -372,18 +424,22 @@ Cap 11 MINIMO ${isCorto ? '2-3' : '4-6'} lineas.
 
 ## REGLA CRITICA PARA CAPITULO 12 — EXPLOTACION Y PUBLICIDAD
 
-Cap 12 MINIMO ${isCorto ? '3-5' : '5-8'} lineas.
+Cap 12 MINIMO ${isCorto ? '3-5' : '6-10'} lineas.
 12.01 COPIAS/DISTRIBUCION:
   12.01.01 DCP distribucion: 1.500-2.250 EUR por copia
   12.01.02 Copias festivales: 1-3 copias adicionales
-12.02 PUBLICIDAD Y MARKETING:
+12.02 PUBLICIDAD Y MARKETING (MAXIMO 40% del coste de realizacion):
   12.02.01 Trailer: ${isCorto ? '500-1.000' : '3.000-8.000'}
-  12.02.02 Carteleria/diseno grafico: ${isCorto ? '300-800' : '2.000-5.000'}
-  12.02.03 Web + redes sociales: ${isCorto ? '200-500' : '2.000-4.000'}
-  12.02.04 Press kit/EPK: ${isCorto ? '200-400' : '1.500-3.000'}
-  12.02.05 Fotografia promocional: ${isCorto ? '200-400' : '1.500-3.000'}
-  12.02.06 Estreno/premiere: ${isCorto ? '200-500' : '2.000-5.000'}
-  12.02.07 Inscripcion festivales: ${isCorto ? '200-500' : '2.000-4.000'}
+  12.02.02 Carteleria/diseno grafico: ${isCorto ? '300-800' : '10.000-20.000'}
+  12.02.03 Campana marketing/publicidad: ${isCorto ? '500-1.000' : '30.000-80.000'}
+  12.02.04 Web + redes sociales: ${isCorto ? '200-500' : '2.000-4.000'}
+  12.02.05 Press kit/EPK: ${isCorto ? '200-400' : '1.500-3.000'}
+  12.02.06 Fotografia promocional: ${isCorto ? '200-400' : '1.500-3.000'}
+  12.02.07 Estreno/premiere: ${isCorto ? '200-500' : '2.000-5.000'}
+  12.02.08 Inscripcion festivales: ${isCorto ? '200-500' : '2.000-4.000'}
+12.03 INTERESES PASIVOS (MAXIMO 20% del coste de realizacion):
+  12.03.01 Intereses pasivos financiacion: ${isCorto ? '0' : '20.000-50.000'} EUR
+  Solo si hay financiacion bancaria o lineas de credito para la produccion
 
 ## EJEMPLO DE PRESUPUESTO REAL — DESGLOSE DETALLADO
 
@@ -475,185 +531,177 @@ Cap 12 Explotacion/Publicidad: 2.300 EUR
   12.02.04 Press kit: 300
   12.02.05 Inscripcion festivales: 200
 
-TOTAL: ~71.000 EUR` : `Largometraje ficcion "LMDS" — 30 dias rodaje, presupuesto medio
+TOTAL: ~71.000 EUR` : `Largometraje ficcion "RTB" — 30 dias rodaje, presupuesto estandar, 4K
+DATOS REALES de produccion verificada (Formulario 601 ICAA)
 
-Cap 01 Guion y Musica: 25.000 EUR
-  01.01.02 Guion original: 18.000 | 01.02.02 Compositor: 7.000
+Cap 01 Guion y Musica: 75.000 EUR
+  01.01.02 Guion original: 30.000
+  01.02.01 Derechos musicales canciones: 15.000
+  01.02.02 Compositor BSO: 30.000
 
-Cap 02 Personal Artistico: 85.000 EUR
-  02.01.01 Protagonista 1 (28d x 2.500): 70.000
-  02.01.02 Protagonista 2 (25d x 2.500): 62.500 (ajustar)
-  02.03.01-03 Secundarios (3 pers): 8.000
-  02.05.01 Figuracion: 2.000
+Cap 02 Personal Artistico: 130.112 EUR
+  02.01.01 Protagonista (30d x 1.667): 50.000
+  02.02.01 Principal "Luna" (20d x 1.000): 20.000
+  02.02.02 Principal "Amiga" (15d x 1.000): 15.000
+  02.03.01-16 Secundarios (16 actores x 2d x 1.000): 32.000
+  02.05.01 Figuracion batalla final (120 fig x 3d x 40€): 14.400
+  02.05.02 Figuracion general (15 fig x 8d x 40€): 4.712
+  02.06.01 Doble Especialista: 2.000
+  SS empresa 23,5% sobre bruto: ya incluida en cada linea
 
-Cap 03 Equipo Tecnico: 461.943 EUR bruto + 117.524 SS (DESGLOSE REAL LMDS)
+Cap 03 Equipo Tecnico: 492.245 EUR (DATOS REALES RTB con SS 23,5%)
   03.01 DIRECCION:
     03.01.01 Director/Realizador: 50.000 (14 sem)
-    03.01.02 1er Ayudante Direccion: 10.000 (4 sem)
-    03.01.03 Script/Continuidad: 5.030 (2 sem)
-    03.01.04 2o Ayudante Direccion: 2.534 (1 sem)
-    03.01.05 Director de Reparto: 10.000
-    03.01.07 Auxiliar Direccion: 2.345 (1 sem)
+    03.01.02 1er Ayudante Direccion: 12.320 (4 sem)
+    03.01.03 2o Ayudante Direccion: 7.360 (3 sem)
+    03.01.04 Script/Continuidad: 5.890 (2 sem)
+    03.01.05 Director de Reparto/Casting: 10.000
   03.02 PRODUCCION:
-    03.02.01 Productor Ejecutivo: 59.000 (14 sem)
-    03.02.02 Director Produccion: 47.000 (12 sem)
-    03.02.03 Jefe Produccion: 31.640 (10 sem)
-    03.02.04 1er Ayudante Produccion: 21.866 (9 sem)
-    03.02.05 2o Ayudante Produccion: 16.820 (8 sem)
-    03.02.06 Auxiliares Produccion x3: 46.230 (8 sem c/u)
-    03.02.07 Cajero-Pagador: 25.088 (10 sem)
-    03.02.08 Secretaria Produccion: 17.898 (8 sem)
-    03.02.09 Localizador: 17.892 (8 sem)
+    03.02.01 Produccion ejecutiva: 60.000 (max 5% coste realizacion = 69.306)
+    03.02.02 Director Produccion: 30.400 (8 sem)
+    03.02.03 Jefe Produccion: 12.375 (5 sem)
+    03.02.04 1er Ayudante Produccion: 9.500 (5 sem)
+    03.02.05 2o Ayudante Produccion: 7.140 (5 sem)
+    03.02.06 Auxiliares Produccion x6: 19.050 (5 sem x 635/sem c/u)
+    03.02.09 Localizador: 5.000
   03.03 FOTOGRAFIA:
-    03.03.01 Director Fotografia: 22.500 (6 sem)
-    03.03.02 Operador Camara/2o Operador: 5.100 (2 sem)
-    03.03.04 Ayudantes Camara x2: 9.100 (3 sem c/u)
-    03.03.06 DIT: 6.250 (2.5 sem)
-    03.03.07 Auxiliar Camara: 2.550 (1 sem)
+    03.03.01 Director Fotografia: 17.500 (5 sem)
+    03.03.03 Foquista/1er Ayte Camara: 6.380 (4 sem)
+    03.03.04 Auxiliar Camara: 4.640 (4 sem)
+    03.03.06 DIT: 4.640 (4 sem)
+    03.03.07 Video Assist: 3.190 (4 sem)
   03.04 DECORACION:
-    03.04.01 Decorador/Director Arte: 19.000 (5 sem)
-    03.04.02 Ayudante Decoracion: 5.800 (3 sem)
-    03.04.03 Ambientador: 5.000 (2 sem)
-    03.04.04 Atrecista: 4.000 (2 sem)
-    03.04.05 Auxiliar Atrezzo Rodaje: 3.500 (2 sem)
-    03.04.06 Auxiliar Atrezzo Montaje: 3.500 (2 sem)
+    03.04.01 Director Arte: 12.320 (4 sem)
+    03.04.02 Ayudante Decoracion: 9.360 (4 sem)
+    03.04.04 Regidor: 7.680 (4 sem)
+    03.04.05 Ayte Atrezzo 1: 4.760 (4 sem)
+    03.04.06 Ayte Atrezzo 2: 2.380 (2 sem)
   03.05 VESTUARIO:
-    03.05.01 Figurinista: 16.500 (5 sem)
-    03.05.02 Jefe Sastreria: 11.000 (5 sem)
-    03.05.03 Sastra: 5.000 (2 sem)
+    03.05.01 Figurinista: 12.320 (4 sem)
+    03.05.02 Ayudante Vestuario 1: 10.080 (6 sem)
+    03.05.03 Ayudante Vestuario 2: 4.760 (4 sem)
   03.06 MAQUILLAJE:
-    03.06.01 Jefe Maquillaje: 6.547 (2.5 sem)
-    03.06.02 Ayudante Maquillaje: 5.076 (2.5 sem)
+    03.06.01 Jefa Maquillaje: 12.880 (4 sem x 3.220/sem)
+    03.06.02 Ayudante Maquillaje: 7.200 (4 sem)
   03.07 PELUQUERIA:
-    03.07.01 Jefe Peluqueria: 6.545 (2.5 sem)
-    03.07.02 Ayudante Peluqueria: 5.076 (2.5 sem)
+    03.07.01 Jefa Peluqueria: 12.880 (4 sem)
+    03.07.02 Ayudante Peluqueria: 7.200 (4 sem)
   03.08 EFECTOS ESPECIALES:
-    03.08.01 Jefe EFX Mecanicos: 2.100 (1 sem)
+    03.08.01 EFX mecanicos/SFX set: 5.000
   03.09 SONIDO:
-    03.09.01 Jefe Sonido: 5.500 (2 sem)
-    03.09.02 Ayudante Sonido: 3.200 (1.5 sem)
-    03.09.03 Refuerzos Sonido: 1.000
+    03.09.01 Jefe Sonido: 9.000 (3 sem x 3.000/sem)
+    03.09.02 Microfonista 1: 5.000 (4 sem)
+    03.09.03 Microfonista 2: 5.000 (4 sem)
   03.10 MONTAJE:
     03.10.01 Montador: 12.000 (5 sem)
-    03.10.02 Ayudante Montaje: 8.400 (4 sem)
+    03.10.02 Ayudante Montaje: 9.600 (4 sem)
   03.11 ELECTRICOS/MAQUINISTAS:
-    03.11.01 Jefe Electricistas: 4.000 (2 sem)
-    03.11.02 Electricistas x2: 8.640 (2 sem c/u)
-  03.12 PERSONAL COMPLEMENTARIO:
-    03.12.01 Asistencia Sanitaria: 2.500
-    03.12.03 Peones/Cargadores: 1.750
-  Subtotal bruto Cap 03: 461.943 + SS 23,5%: 117.524 + Dietas: 19.130
+    03.11.01 Jefe Electricistas: 10.500 (3 sem)
+    03.11.02 Electrico 1: 6.400 (4 sem)
+    03.11.03 Electricos 2-4 (x3): 18.000 (4 sem x 1.500/sem c/u)
+    03.11.05 Jefe Maquinistas: 5.940 (3 sem)
+    03.11.06 Ayudante Maquinista: 4.860 (3 sem)
+  03.12 COMPLEMENTARIO:
+    03.12.01 Guardas/vigilancia (x4): 4.800 (30d x 40/dia c/u)
+  03.14 HORAS EXTRAS: 9.350 (~6% del bruto)
+  03.15 SABADOS/FESTIVOS: 22.440 (5 sabados x recargo)
+  Subtotal bruto Cap 03: 492.245 (incluye SS 23,5%)
 
-Cap 04 Escenografia: 115.500 EUR (DESGLOSE REAL LMDS)
+Cap 04 Escenografia: 119.850 EUR (DATOS REALES RTB)
   04.01 DECORADOS:
-    04.01.01 Construccion/montaje decorados plato: 50.000
-    04.01.03 Construccion exteriores: 5.000
-    04.01.04 Construccion interiores naturales: 5.000
-    04.01.08 Alquiler interiores naturales: 15.000
+    04.01.03 Construccion exteriores: 10.000
+    04.01.04 Construccion interiores: 10.000
+    04.01.08 Alquiler interiores naturales: 18.000
   04.02 AMBIENTACION:
-    04.02.01 Mobiliario alquilado: 15.000
-    04.02.02 Atrezzo alquilado: 5.000
-    04.02.03 Mobiliario adquirido: 4.000
-    04.02.04 Atrezzo adquirido: 4.000
-    04.02.05 Jardineria: 1.000
-    04.02.07 Vehiculos en escena: 2.500
-    04.02.08 Comidas en escena: 1.000
-    04.02.09 Material efectos especiales: 5.000
+    04.02.01 Mobiliario alquilado: 8.000
+    04.02.02 Atrezzo alquilado: 6.000
+    04.02.03 Mobiliario adquirido: 2.000
+    04.02.04 Atrezzo adquirido: 5.000
+    04.02.09 Material EFX maquillaje protesico: 10.000
   04.03 VESTUARIO:
-    04.03.01 Vestuario alquilado: 5.000
-    04.03.02 Vestuario adquirido: 15.000
-    04.03.03 Zapateria: 3.000
-    04.03.04 Complementos: 5.000
-  04.05 VARIOS:
-    04.05.01 Material peluqueria: 1.500
-    04.05.02 Material maquillaje: 1.500
+    04.03.01 Vestuario alquilado: 36.000 (pelicula de epoca/fantasia)
+    04.03.02 Vestuario adquirido: 8.850
+    04.03.04 Complementos: 4.000
+  04.04 SEMOVIENTES:
+    04.04.01 Animales: 2.000
 
-Cap 05 Estudios/Varios Produccion: 135.000 EUR
-  05.01.01 Alquiler plato/estudio (30d x 3.000/dia): 90.000
-  05.01.02 Montaje/desmontaje plato: 5.000
-  05.02.01 Sala montaje (20 sem x 500/sem): 10.000
-  05.02.02 Sala mezclas 5.1 (3 sem x 3.000/sem): 9.000
-  05.03.01 Oficina produccion (6 meses x 2.000): 12.000
-  05.03.02 Telefonos/comunicaciones: 3.000
-  05.03.04 Material oficina/consumible: 1.500
-  05.03.05 Catering rodaje (35 pers x 30d x 13€): 13.650
+Cap 05 Estudios/Varios Produccion: 103.390 EUR (DATOS REALES RTB)
+  05.02.01 Sala montaje: 3.000
+  05.02.02 Sala efectos sonoros: 30.000
+  05.03.01 Oficina exteriores produccion: 24.500
+  05.03.06 PRL (Prevencion Riesgos Laborales): 590 (OBLIGATORIO)
+  05.03.07 Gestoria/contabilidad: 12.500
+  05.03.08 Asesoria juridica produccion: 15.000
+  05.03.05 Catering rodaje: 17.800
 
-Cap 06 Maquinaria y Transportes: 102.000 EUR
-  06.01.01 Camara principal ARRI Alexa Mini pack: 450/dia x 35d = 15.750
-  06.01.02 2a camara RED V-Raptor: 400/dia x 15d = 6.000
-  06.01.03 Optica primos master: 300/dia x 35d = 10.500
-  06.01.04 Zoom cine complementario: 100/dia x 35d = 3.500
-  06.01.05 Kit iluminacion avanzado: 450/dia x 30d = 13.500
-  06.01.06 Kit sonido directo: 150/dia x 30d = 4.500
-  06.01.07 Dolly + via: 120/dia x 30d = 3.600
-  06.01.08 Grua: 200/dia x 8d = 1.600
-  06.01.09 Steadicam: 300/dia x 10d = 3.000
-  06.01.10 Drone + piloto: 600/dia x 3d = 1.800
-  06.01.11 Grupo electrogeno: 200/dia x 20d = 4.000
-  06.01.12 Material expendable: 5.000
-  06.02.01 Camion iluminacion/grip: 150/dia x 35d = 5.250
-  06.02.02 Furgonetas produccion (x3): 80/dia x 3 x 35d = 8.400
-  06.02.03 Furgoneta atrezzo: 100/dia x 35d = 3.500
-  06.02.04 Vehiculos actores (x2): 60/dia x 2 x 30d = 3.600
+Cap 06 Maquinaria y Transportes: 178.265 EUR (DATOS REALES RTB)
+  06.01 MAQUINARIA:
+    06.01.01 Pack camara principal (4K): 45.000 (30d alquiler pack completo)
+    06.01.05 Kit iluminacion: 20.000 (30d)
+    06.01.06 Kit sonido directo: 6.550 (30d)
+    06.01.07 Grip/maquinistas: 8.000 (30d)
+    06.01.09 Steadicam + operador: 8.000 (10d x 800/dia)
+    06.01.11 Grupo electrogeno alquiler: 11.500 (30d)
+    06.01.13 Combustible generador: 4.950 (30d x 165/dia)
+    06.01.14 DIT Station/monitor: 6.000
+    06.01.10 Dron + piloto: 3.000 (3d x 1.000)
+  06.02 TRANSPORTES (flota real):
+    06.02.01 Coches produccion (x2): 7.000 (35d x 100/dia)
+    06.02.05 Furgonetas (x3): 14.415 (35d x ~137/dia)
+    06.02.02 Camion camara: 9.000 (30d x 300/dia)
+    06.02.03 Camion vestuario: 9.000 (30d x 300/dia)
+    06.02.01b Camion iluminacion: 12.695 (30d x 423/dia)
+    06.02.04 Camion maquinista: 4.000 (20d x 200/dia)
+    06.02.09 Gasolina flota: 4.400
+    06.02.10 Parking rodaje: 4.755
 
-Cap 07 Viajes/Dietas: 88.000 EUR
-  07.01.01 Billetes avion/tren equipo: 8.000
-  07.01.02 Combustible vehiculos: 30d x 150/dia = 4.500
-  07.01.03 Peajes/autopistas: 1.500
-  07.02.01 Hoteles equipo desplazado (10 pers x 25d x 80€): 20.000
-  07.02.02 Dietas equipo (30 pers x 30d x 55€): 49.500
-  07.02.03 Catering set complemento: 4.500
+Cap 07 Viajes/Dietas: 131.820 EUR (DATOS REALES RTB)
+  07.01.01 Scouting localizaciones: 3.000
+  07.01.02 Localizaciones tecnicas: 2.000
+  07.01.03 Viajes tecnicos preproduccion: 4.000
+  07.01.04 Viajes actores: 6.880
+  07.02.01 Hotel actores (protagonistas/principales): 19.000
+  07.02.02 Hotel tecnicos desplazados: 30.000
+  07.02.03 Comidas rodaje equipo (30 pers x 30d x 40€): 36.000
+  07.02.04 Dietas tecnicos: 18.000
+  07.02.05 Dietas actores: 4.000
+  07.02.06 Comidas figuracion (batalla): 5.940
+  07.02.07 Gastos extras manutenc: 3.000
 
-Cap 08 Soporte Digital: 8.000 EUR
-  08.01.01 Tarjetas CFexpress/SSD rodaje: 2.000
-  08.01.02 Discos backup diario: 1.500
-  08.01.03 Almacenamiento NAS/RAID: 3.000
-  08.01.04 LTO backup archivo: 1.500
+Cap 08 Soporte Digital: 4.000 EUR
+  08.01.02 Discos DIT/backup diario: 4.000
 
-Cap 09 Postproduccion: 155.000 EUR
-  09.01.01 Copiones/dailies: 3.000
-  09.01.02 Etalonaje HDR (1.600/dia x 10d): 16.000
-  09.02.01 Diseno sonoro (715/dia x 30d): 21.450
-  09.02.02 Edicion dialogos (680/dia x 25d): 17.000
-  09.02.03 Doblaje/ADR: 5.000
-  09.02.04 Foley: 10.000
-  09.02.05 Mezcla 5.1 Dolby: 12.000
-  09.02.06 VFX (30 planos medios x 1.500): 45.000
-  09.02.07 Titulos y creditos: 4.600
-  09.02.08 DCP 4K: 2.250
-  09.02.09 Subtitulos (90min x 10,80/min): 972
-  09.02.10 Subtitulos accesibilidad (90min x 22/min): 1.980
-  09.02.11 Master UHD/HDR: 3.500
-  09.02.12 Coordinacion postproduccion: 9.000
+Cap 09 Postproduccion: 78.000 EUR (DATOS REALES RTB)
+  09.02.06 VFX: 20.000
+  09.02.13 Laboratorio digital (etalonaje + dailies + master): 50.000
+  09.02.07 Titulos credito: 5.000
+  09.02.09 Subtitulado: 3.000
 
-Cap 10 Seguros: 28.000 EUR
-  10.01.01 Responsabilidad civil (0,3% ppto): 4.200
-  10.01.02 Accidentes trabajo (0,2%): 2.800
-  10.01.03 Interrupcion rodaje (0,5%): 7.000
-  10.01.04 Seguro equipo/material (0,8% valor equipos): 3.000
-  10.01.05 Buen fin/completion bond: 8.000
-  10.01.06 E&O (errores y omisiones): 3.000
+Cap 10 Seguros: 73.432 EUR (DATOS REALES RTB)
+  10.01.01 Responsabilidad civil: 8.000
+  10.02.01 Seguridad Social complementaria: 65.432 (23,5% sobre masa salarial)
 
-Cap 11 Gastos Generales: 155.000 EUR
-  11.01.01 Asesoria juridica: 8.000
-  11.01.02 Asesoria fiscal/contable: 5.000
-  11.01.03 Auditoria ICAA: 3.500
-  11.01.04 Gastos financieros: 5.000
-  11.01.05 Gastos notariales/registro: 2.500
-  11.01.06 Imprevistos (10% Cap 01-10): 131.000
+Cap 11 Gastos Generales: 88.000 EUR (max 7% coste realizacion = 97.028)
+  11.01.01 Oficina produccion: 18.600
+  11.01.02 Personal administrativo: 20.000
+  11.01.03 Suministros/servicios: 20.000
+  11.01.04 Asesorias/auditorias: 10.000
+  11.01.05 Gastos varios: 19.400
 
-Cap 12 Explotacion/Publicidad: 32.000 EUR
-  12.01.01 DCP distribucion (x3 copias): 6.750
-  12.01.02 Copias festivales: 3.000
-  12.02.01 Trailer: 5.000
-  12.02.02 Carteleria/diseno grafico: 4.000
-  12.02.03 Web + redes sociales: 3.000
-  12.02.04 Press kit/EPK: 2.000
-  12.02.05 Fotografia promocional: 2.000
-  12.02.06 Estreno/premiere: 3.250
-  12.02.07 Inscripcion festivales: 3.000
+Cap 12 Explotacion/Publicidad: 158.390 EUR
+  12.01.01 Copias DCP distribucion: 13.390
+  12.02.01 Diseno grafico/carteleria: 15.000
+  12.02.02 Campana marketing/publicidad: 80.000
+  12.03.01 Intereses pasivos: 50.000 (max 20% coste realizacion)
 
-TOTAL APROXIMADO: ~1.500.000 EUR`}
+COSTE DE REALIZACION (Cap 01-10): 1.386.114 EUR
+TOTAL PRESUPUESTO: 1.692.504 EUR
+
+VERIFICACION LIMITES ICAA:
+  Prod.ejecutiva 60.000 < max 69.306 (5%) OK
+  Gastos generales 88.000 < max 97.028 (7%) OK
+  Publicidad 95.000 < max 554.446 (40%) OK
+  Intereses pasivos 50.000 < max 277.223 (20%) OK`}
 
 ## FORMATO DE RESPUESTA
 
@@ -694,7 +742,12 @@ REGLAS:
 - units = numero de personas, quantity = semanas/dias de contrato, unit_price = tarifa semanal/diaria
 - Genera MINIMO ${isCorto ? '35' : '80'} partidas detalladas cubriendo TODOS los 12 capitulos
 - El total debe ser coherente con los rangos tipicos del tipo de proyecto
-- Incluye notas justificativas para partidas significativas`;
+- Incluye notas justificativas para partidas significativas
+- SIEMPRE incluir partidas de Horas Extras (03.14) y Sabados (03.15) en Cap 03
+- SIEMPRE incluir PRL en Cap 05 (obligatorio por ley)
+- VERIFICAR que Prod.Ejecutiva < 5%, Gastos Generales < 7%, Publicidad < 40%, Intereses < 20% del coste de realizacion
+- El Coste de Realizacion = suma Cap 01-10 (SIN Cap 11-12)
+- Si alguna partida excede su limite ICAA, incluir un warning en la respuesta`;
 }
 
 // ── Handler ─────────────────────────────────────────────────────────

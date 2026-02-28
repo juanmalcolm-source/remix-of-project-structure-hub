@@ -52,18 +52,21 @@ export async function generateWithAI({ prompt, systemPrompt, maxTokens }: AIGene
 
     const decoder = new TextDecoder();
     let fullText = '';
+    let buffer = ''; // Buffer for incomplete SSE lines split across chunks
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep the last (potentially incomplete) line in buffer
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('data: ')) {
           try {
-            const parsed = JSON.parse(line.slice(6));
+            const parsed = JSON.parse(trimmed.slice(6));
             if (parsed.type === 'delta' && parsed.text) {
               fullText += parsed.text;
             } else if (parsed.type === 'error') {

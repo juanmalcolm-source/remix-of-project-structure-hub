@@ -466,7 +466,8 @@ export default function PresupuestoICAA() {
       const aiResponse: AIBudgetResponse = await generarPresupuestoConIA(
         projectId,
         input,
-        budgetLevel
+        budgetLevel,
+        project?.project_type || 'largometraje'
       );
 
       // Save the budget lines

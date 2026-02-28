@@ -140,13 +140,14 @@ export function calcularLineaCompleta(
 export async function generarPresupuestoConIA(
   projectId: string,
   input: BudgetEstimationInput,
-  budgetLevel: BudgetLevel = 'medio'
+  budgetLevel: BudgetLevel = 'medio',
+  projectType: string = 'largometraje'
 ): Promise<AIBudgetResponse> {
   // Prepare data for the edge function
   const requestData = {
     projectId,
-    projectTitle: 'Proyecto', // Will be fetched from project if needed
-    projectType: 'largometraje',
+    projectTitle: 'Proyecto',
+    projectType,
     budgetLevel,
     estimatedShootingDays: input.estimatedShootingDays || calcularDiasRodajeEstimados(input.sequences),
     characters: input.characters.map(c => ({
@@ -566,18 +567,21 @@ async function readSSEStream(response: Response): Promise<string> {
 
   const decoder = new TextDecoder();
   let fullText = '';
+  let buffer = ''; // Buffer for incomplete SSE lines split across chunks
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split('\n');
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || ''; // Keep the last (potentially incomplete) line in buffer
 
     for (const line of lines) {
-      if (line.startsWith('data: ')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('data: ')) {
         try {
-          const parsed = JSON.parse(line.slice(6));
+          const parsed = JSON.parse(trimmed.slice(6));
           if (parsed.type === 'delta' && parsed.text) {
             fullText += parsed.text;
           } else if (parsed.type === 'error') {

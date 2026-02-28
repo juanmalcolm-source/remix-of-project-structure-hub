@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  generateSmartShootingPlan, 
-  saveShootingPlan, 
+import {
+  generateSmartShootingPlan,
+  saveShootingPlan,
   loadShootingPlan,
   ProposedShootingDay,
   PlanGenerationOptions,
@@ -13,6 +13,7 @@ import {
   recalculateDayTime,
   calculateDayTimeWithLocationOptimization,
 } from "@/services/shootingPlanService";
+import { generarPlanRodajeConIA, type AIShootingPlanResponse } from "@/services/shootingPlanAIService";
 import { toast } from "sonner";
 
 // Helper to get unique locations from scenes
@@ -22,6 +23,7 @@ function getUniqueLocations(scenes: SceneForPlanning[]): string[] {
 
 export function useShootingPlan(projectId: string) {
   const queryClient = useQueryClient();
+  const [aiSummary, setAiSummary] = useState<AIShootingPlanResponse['summary'] | null>(null);
 
   // Query for sequences with shooting data
   const { data: sequences = [], isLoading: sequencesLoading } = useQuery({
@@ -443,6 +445,39 @@ export function useShootingPlan(projectId: string) {
     },
   });
 
+  // AI-powered plan generation mutation
+  const generatePlanAIMutation = useMutation({
+    mutationFn: async (options: {
+      productionType: string;
+      targetHoursPerDay: number;
+      maxEighthsPerDay: number;
+      separateDayNight: boolean;
+    }) => {
+      const aiResponse = await generarPlanRodajeConIA(
+        projectId,
+        sequences,
+        locations,
+        options
+      );
+
+      // Save the generated plan using the same pipeline as the algorithmic generator
+      const result = await saveShootingPlan(projectId, aiResponse.shootingDays);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      return aiResponse;
+    },
+    onSuccess: (aiResponse) => {
+      setAiSummary(aiResponse.summary);
+      queryClient.invalidateQueries({ queryKey: ['shooting_days', projectId] });
+      toast.success(`Plan de rodaje IA generado: ${aiResponse.summary.totalDays} días de rodaje`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Error IA: ${error.message}`);
+    },
+  });
+
   return {
     sequences,
     locations,
@@ -451,6 +486,9 @@ export function useShootingPlan(projectId: string) {
     isLoading: sequencesLoading || locationsLoading || daysLoading,
     generatePlan: generatePlanMutation.mutate,
     isGenerating: generatePlanMutation.isPending,
+    generatePlanWithAI: generatePlanAIMutation.mutate,
+    isGeneratingAI: generatePlanAIMutation.isPending,
+    aiSummary,
     updateDay: updateDayMutation.mutate,
     deleteDay: deleteDayMutation.mutate,
     addDay: addDayMutation.mutate,

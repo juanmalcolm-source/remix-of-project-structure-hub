@@ -561,18 +561,13 @@ export function calcularDiasRodajeEstimados(sequences: Sequence[]): number {
 
 // ── SSE stream reading helpers ────────────────────────────────────────
 
-async function readSSEStream(response: Response): Promise<string> {
+export async function readSSEStream(response: Response): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('No se pudo leer la respuesta del servidor');
 
   const decoder = new TextDecoder();
   let fullText = '';
   let buffer = '';
-  let eventCount = 0;
-  let progressCount = 0;
-  let deltaCount = 0;
-
-  console.log('[SSE] Starting stream read...');
 
   while (true) {
     const { done, value } = await reader.read();
@@ -585,20 +580,14 @@ async function readSSEStream(response: Response): Promise<string> {
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.startsWith('data: ')) {
-        eventCount++;
         try {
           const parsed = JSON.parse(trimmed.slice(6));
           if (parsed.type === 'complete' && parsed.text) {
-            console.log(`[SSE] ✅ COMPLETE event received: ${parsed.text.length} chars (after ${progressCount} heartbeats, ${deltaCount} deltas)`);
             return parsed.text;
           } else if (parsed.type === 'delta' && parsed.text) {
-            deltaCount++;
             fullText += parsed.text;
           } else if (parsed.type === 'progress') {
-            progressCount++;
-            console.log(`[SSE] Heartbeat #${progressCount}: ${parsed.length} chars accumulated on server`);
-          } else if (parsed.type === 'done') {
-            console.log(`[SSE] DONE event. Total deltas: ${deltaCount}, fullText length: ${fullText.length}`);
+            continue;
           } else if (parsed.type === 'error') {
             throw new Error(parsed.error || 'Error en la generación');
           }
@@ -612,54 +601,27 @@ async function readSSEStream(response: Response): Promise<string> {
     }
   }
 
-  console.log(`[SSE] Stream ended WITHOUT complete event. Events: ${eventCount}, Deltas: ${deltaCount}, Text: ${fullText.length} chars`);
-  if (fullText.length === 0) {
-    console.error('[SSE] ⚠️ NO data received! Old server version? Check Vercel deployment.');
-  }
-
   return fullText;
 }
 
 function extractBudgetJson(raw: string): AIBudgetResponse {
-  console.log(`[Budget] extractBudgetJson: raw text ${raw.length} chars, first 200: ${raw.slice(0, 200)}`);
   const trimmed = raw.trim();
 
   // 1) Direct parse
-  try {
-    const result = JSON.parse(trimmed);
-    const lineCount = result.budgetLines?.length || 0;
-    console.log(`[Budget] ✅ Parsed directly: ${lineCount} budget lines`);
-    // Count per chapter
-    const chapters: Record<number, number> = {};
-    (result.budgetLines || []).forEach((l: { chapter?: number }) => {
-      const ch = l.chapter || 0;
-      chapters[ch] = (chapters[ch] || 0) + 1;
-    });
-    console.log('[Budget] Lines per chapter:', chapters);
-    return result;
-  } catch { /* continue */ }
+  try { return JSON.parse(trimmed); } catch { /* continue */ }
 
   // 2) Markdown fences
   const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
   if (fenceMatch) {
-    try {
-      const result = JSON.parse(fenceMatch[1].trim());
-      console.log(`[Budget] Parsed from markdown fence: ${result.budgetLines?.length || 0} lines`);
-      return result;
-    } catch { /* continue */ }
+    try { return JSON.parse(fenceMatch[1].trim()); } catch { /* continue */ }
   }
 
   // 3) Outermost braces
   const braceStart = trimmed.indexOf('{');
   const braceEnd = trimmed.lastIndexOf('}');
   if (braceStart >= 0 && braceEnd > braceStart) {
-    try {
-      const result = JSON.parse(trimmed.slice(braceStart, braceEnd + 1));
-      console.log(`[Budget] Parsed from braces: ${result.budgetLines?.length || 0} lines`);
-      return result;
-    } catch { /* continue */ }
+    try { return JSON.parse(trimmed.slice(braceStart, braceEnd + 1)); } catch { /* continue */ }
   }
 
-  console.error(`[Budget] ❌ Failed to parse. Raw text: ${raw.slice(0, 500)}...`);
   throw new Error('La IA no generó un presupuesto válido. Inténtalo de nuevo.');
 }

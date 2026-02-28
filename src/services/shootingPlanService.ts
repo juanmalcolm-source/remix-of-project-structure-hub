@@ -958,8 +958,10 @@ export function generateSmartShootingPlan(
   
   // 1. Prepare scenes for planning
   const scenes: SceneForPlanning[] = sequences.map((seq) => {
+    // Match location: FK first (location_id), then fallback to substring match
     const locationMatch = locations.find(
-      (loc) => seq.description?.toLowerCase().includes(loc.name.toLowerCase()) ||
+      (loc) => (seq.location_id && loc.id === seq.location_id) ||
+               seq.description?.toLowerCase().includes(loc.name.toLowerCase()) ||
                seq.title?.toLowerCase().includes(loc.name.toLowerCase())
     );
     

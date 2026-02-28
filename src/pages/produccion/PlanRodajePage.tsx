@@ -48,6 +48,8 @@ export default function PlanRodajePage() {
     isLoading: planLoading,
     generatePlan,
     isGenerating,
+    generatePlanWithAI,
+    isGeneratingAI,
     deleteDay,
     addDay,
     moveScene,
@@ -69,6 +71,15 @@ export default function PlanRodajePage() {
 
   const handleGeneratePlan = (options: PlanGenerationOptions) => {
     generatePlan(options);
+  };
+
+  const handleGenerateAIPlan = (options: {
+    productionType: string;
+    targetHoursPerDay: number;
+    maxEighthsPerDay: number;
+    separateDayNight: boolean;
+  }) => {
+    generatePlanWithAI(options);
   };
 
   const handleDeleteDay = (dayNumber: number) => {
@@ -253,6 +264,8 @@ export default function PlanRodajePage() {
                   <ShootingPlanGenerator
                     onGenerate={handleGeneratePlan}
                     isGenerating={isGenerating}
+                    onGenerateAI={handleGenerateAIPlan}
+                    isGeneratingAI={isGeneratingAI}
                     totalScenes={sequences.length}
                     totalLocations={locations.length}
                     hasZoneData={hasZoneData}

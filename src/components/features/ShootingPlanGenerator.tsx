@@ -7,11 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Wand2, 
-  Loader2, 
-  Info, 
-  ChevronRight, 
+import {
+  Wand2,
+  Loader2,
+  Info,
+  ChevronRight,
   ChevronLeft,
   Film,
   Clock,
@@ -20,7 +20,8 @@ import {
   Users,
   Zap,
   Calendar,
-  Map
+  Map,
+  Sparkles,
 } from "lucide-react";
 import { PlanGenerationOptions } from "@/services/shootingPlanService";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,8 @@ interface ShootingPlanGeneratorProps {
   totalLocations: number;
   totalPages?: number;
   hasZoneData?: boolean; // True if locations have zone assignments
+  onGenerateAI?: (options: { productionType: string; targetHoursPerDay: number; maxEighthsPerDay: number; separateDayNight: boolean }) => void;
+  isGeneratingAI?: boolean;
 }
 
 type ProductionType = 'cortometraje' | 'largometraje' | 'serie' | 'bajo_presupuesto';
@@ -77,6 +80,8 @@ export function ShootingPlanGenerator({
   totalLocations,
   totalPages = 0,
   hasZoneData = false,
+  onGenerateAI,
+  isGeneratingAI = false,
 }: ShootingPlanGeneratorProps) {
   const [step, setStep] = useState(1);
   const [productionType, setProductionType] = useState<ProductionType>('largometraje');
@@ -103,10 +108,19 @@ export function ShootingPlanGenerator({
       maxEighthsPerDay: eighthsPerDay,
       separateDayNight: hasNightScenes,
       optimizeByProximity: prioritizeBy === 'proximity',
-      targetHoursPerDay: hoursPerDay, // NUEVO: pasar horas objetivo
+      targetHoursPerDay: hoursPerDay,
     };
-    console.log('[ShootingPlanGenerator] Generating with options:', options);
     onGenerate(options);
+  };
+
+  const handleGenerateAI = () => {
+    if (!onGenerateAI) return;
+    onGenerateAI({
+      productionType,
+      targetHoursPerDay: hoursPerDay,
+      maxEighthsPerDay: eighthsPerDay,
+      separateDayNight: hasNightScenes,
+    });
   };
 
   const totalSteps = 3;
@@ -439,23 +453,45 @@ export function ShootingPlanGenerator({
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           ) : (
-            <Button 
-              onClick={handleGenerate}
-              disabled={isGenerating || totalScenes === 0}
-              className="min-w-[180px]"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  Generar Plan
-                </>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || isGeneratingAI || totalScenes === 0}
+                variant="outline"
+                className="min-w-[160px]"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Generar Plan
+                  </>
+                )}
+              </Button>
+              {onGenerateAI && (
+                <Button
+                  onClick={handleGenerateAI}
+                  disabled={isGenerating || isGeneratingAI || totalScenes === 0}
+                  className="min-w-[180px] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+                >
+                  {isGeneratingAI ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      IA analizando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generar con IA
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+            </div>
           )}
         </div>
 

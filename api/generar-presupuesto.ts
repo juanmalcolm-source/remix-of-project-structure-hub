@@ -126,6 +126,33 @@ DCP: 2K 1.500 | 4K 2.250 | IMF Netflix 1.800
 SUBTITULOS: Transcripcion 4,80/min | Traduccion 10,80/min | Accesibilidad 22/min
 COORDINACION POSTPRO: Corto 1.500 | Largo 9.000
 
+## TARIFAS GUION Y MUSICA (datos mercado espanol 2025)
+
+GUIONISTA (total por proyecto, segun nivel):
+  Nivel alto: 30.000-60.000 EUR | Medio: 15.000-30.000 EUR | Bajo: 5.000-15.000 EUR
+COMPOSITOR BSO ORIGINAL: Largo 5.000-15.000 | Corto 1.000-3.000
+DERECHOS MUSICALES: Tema original 2.000-8.000 | Libreria royalty-free 300-1.000
+STORYBOARD: 1.500-3.000 EUR (si aplica)
+INTERPRETES/GRABACION ORQUESTA: 3.000-15.000 EUR (si aplica)
+
+## TARIFAS PERSONAL ARTISTICO (EUR/dia rodaje, mercado espanol 2025)
+
+Nivel ${budgetLevel}:
+  PROTAGONISTA: ${budgetLevel === 'bajo' ? '1.500' : budgetLevel === 'medio' ? '2.500' : '4.000'} EUR/dia
+  PRINCIPAL: ${budgetLevel === 'bajo' ? '800' : budgetLevel === 'medio' ? '1.500' : '2.500'} EUR/dia
+  SECUNDARIO: ${budgetLevel === 'bajo' ? '400' : budgetLevel === 'medio' ? '800' : '1.500'} EUR/dia
+  FIGURACION: ${budgetLevel === 'bajo' ? '80' : budgetLevel === 'medio' ? '120' : '200'} EUR/dia
+  AGENCIA: +10-15% sobre cachet | SS empresa 23,5% sobre total bruto
+
+## TARIFAS ADICIONALES
+
+DIETAS: Completa 55 EUR/dia | Media dieta 15 EUR | Km coche 0,26 EUR/km
+HOTELES: 60-120 EUR/noche segun ciudad
+CATERING RODAJE: 12-15 EUR/persona/dia
+AUDITORIA ICAA: Corto 1.000 EUR | Largo 3.600 EUR
+SOPORTE DIGITAL: CFexpress 150-300/tarjeta | SSD 200-500 | NAS/RAID 2.000-5.000 | LTO 80/cinta
+ESTUDIO/PLATO: 2.000-5.000 EUR/dia | Sala montaje 300-500/sem | Sala mezclas 2.000-4.000/sem
+
 ## REGLAS DE CALCULO OBLIGATORIAS
 
 - Seguridad Social empresa: 23,5% sobre remuneracion bruta (Cap 10.02 o incluido en Cap 03)
@@ -150,6 +177,40 @@ ${isCorto ? `CORTOMETRAJE:
 - Cap 03 DEBE incluir TODOS los puestos por subseccion (03.01-03.13)
 - Cada departamento tiene jefe + ayudante(s) + auxiliar(es)
 - Postproduccion: 3-6 meses montaje + mezcla 5.1 Dolby`}
+
+## REGLA CRITICA PARA CAPITULO 01 — GUION Y MUSICA
+
+Cap 01 DEBE tener MINIMO ${isCorto ? '2-3' : '3-6'} lineas individuales.
+NUNCA poner "Guion y Musica" como una sola linea resumen.
+USA las tarifas de referencia de la seccion anterior.
+
+Subsecciones obligatorias:
+01.01 GUION:
+  01.01.01 Derechos autor obra preexistente (si es adaptacion)
+  01.01.02 Guion original: ${budgetLevel === 'bajo' ? '5.000-15.000' : budgetLevel === 'medio' ? '15.000-30.000' : '30.000-60.000'} EUR
+  01.01.03 Dialogos adicionales (si aplica)
+  01.01.04 Storyboard: 1.500-3.000 (si aplica)
+01.02 MUSICA:
+  01.02.01 Derechos musicales temas existentes (si aplica)
+  01.02.02 Compositor BSO original: ${isCorto ? '1.000-3.000' : '5.000-15.000'} EUR
+  01.02.03 Interpretes/grabacion orquesta (si aplica)
+01.03 OBRAS EXTERNAS: Derechos literarios, derechos remake (si aplica)
+
+## REGLA CRITICA PARA CAPITULO 02 — PERSONAL ARTISTICO
+
+Cap 02 DEBE desglosar CADA ACTOR individualmente. NUNCA agrupar "secundarios" en una sola linea.
+CALCULO: cachet/dia x dias rodaje. Si agencia: +10-15%. SS empresa: 23,5% sobre bruto total.
+USA las tarifas de la seccion "TARIFAS PERSONAL ARTISTICO".
+${isCorto ? 'Un cortometraje tiene minimo 3-5 lineas en Cap 02.' : 'Un largometraje tiene minimo 6-12 lineas en Cap 02.'}
+
+Subsecciones obligatorias:
+02.01 PROTAGONISTAS: 1 linea POR protagonista — cachet/dia x dias + agencia
+02.02 PRINCIPALES: 1 linea POR actor principal
+02.03 SECUNDARIOS: 1 linea POR actor secundario
+02.04 PEQUENAS PARTES: Pueden agruparse por grupo (ej: 5 pequenas partes x 2d x 400)
+02.05 FIGURACION: Por jornada tipo (ej: 15 figurantes x 5 dias x ${budgetLevel === 'bajo' ? '80' : budgetLevel === 'medio' ? '120' : '200'} EUR)
+02.06 ESPECIALISTAS: Dobles, coordinador stunts (si hay accion)
+02.08 DOBLAJE/ADR: Solo si hay postproduccion doblaje
 
 ## REGLA CRITICA PARA CAPITULO 03 — EQUIPO TECNICO
 
@@ -208,41 +269,121 @@ Cap 04 tiene 5 subsecciones obligatorias:
 04.04 SEMOVIENTES: Animales, Carruajes (si aplica)
 04.05 VARIOS: Material peluqueria, Material maquillaje
 
-## REGLA CRITICA PARA CAPITULOS 05-12
+## REGLA CRITICA PARA CAPITULO 05 — ESTUDIOS/VARIOS PRODUCCION
 
-Cada capitulo DEBE tener lineas individuales con cuenta CC.SS, concepto, y calculo.
-NUNCA poner un capitulo como una sola linea resumen.
+Cap 05 MINIMO ${isCorto ? '3-4' : '6-8'} lineas. NUNCA poner como una sola linea.
+05.01 ESTUDIOS RODAJE:
+  05.01.01 Alquiler plato/estudio: 2.000-5.000 EUR/dia x dias rodaje interior
+  05.01.02 Montaje/desmontaje decorados plato
+  05.01.03 Fluido electrico estudio
+05.02 MONTAJE Y SONORIZACION:
+  05.02.01 Sala montaje: 300-500 EUR/semana x semanas postpro
+  05.02.02 Sala mezclas 5.1: 2.000-4.000 EUR/semana x semanas mezcla
+05.03 VARIOS PRODUCCION:
+  05.03.01 Oficina produccion: ${isCorto ? '500-1.000' : '1.500-3.000'} EUR/mes x meses preproduccion
+  05.03.02 Telefonos/comunicaciones: ${isCorto ? '200-500' : '2.000-4.000'}
+  05.03.04 Material oficina/consumible: ${isCorto ? '200-500' : '1.000-2.000'}
+  05.03.05 Catering rodaje: 12-15 EUR/persona/dia x personas x dias rodaje
 
-Cap 05 ESTUDIOS/VARIOS PRODUCCION:
-  05.01 Estudios rodaje: Plato/estudio (tarifa/dia x dias), montaje/desmontaje plato
-  05.02 Montaje/sonorizacion: Sala montaje (sem), sala mezclas
-  05.03 Varios produccion: Catering rodaje (personas x dias x 12-15€), oficina produccion, material consumible, copias guion
+## REGLA CRITICA PARA CAPITULO 06 — MAQUINARIA Y TRANSPORTES
 
-Cap 06 MAQUINARIA Y TRANSPORTES — CALCULAR: tarifa/dia x dias rodaje
-  06.01 Maquinaria: Camara pack (120-450/dia segun nivel), optica (100-300/dia), iluminacion (80-450/dia), sonido directo (150/dia), dolly (120/dia), grua (200/dia si aplica), steadicam (300/dia), drone+piloto (600/dia), generador (200/dia exterior), material expendable
-  06.02 Transportes: Camion iluminacion (150/dia), furgonetas produccion (80/dia x numero), furgoneta atrezzo, vehiculos actores
+Cap 06 MINIMO ${isCorto ? '5-7' : '10-15'} lineas. FORMULA: tarifa/dia x dias rodaje.
+USA las tarifas de la seccion "TARIFAS EQUIPAMIENTO".
+06.01 MAQUINARIA:
+  06.01.01 Camara principal: ${budgetLevel === 'bajo' ? 'Blackmagic URSA 120/dia' : budgetLevel === 'medio' ? 'RED V-Raptor 400/dia' : 'ARRI Alexa Mini 450/dia'} x dias
+  06.01.02 2a camara (largo): segun necesidad
+  06.01.03 Optica: ${budgetLevel === 'bajo' ? 'zoom cine 100/dia' : budgetLevel === 'medio' ? 'primos medio 150/dia' : 'primos master 300/dia'} x dias
+  06.01.05 Kit iluminacion: ${budgetLevel === 'bajo' ? 'basico 80/dia' : budgetLevel === 'medio' ? 'medio 200/dia' : 'avanzado 450/dia'} x dias
+  06.01.06 Kit sonido directo: 150/dia x dias
+  06.01.07 Dolly + via: 120/dia x dias necesarios
+  06.01.08 Grua: 200/dia (si aplica)
+  06.01.09 Steadicam: 300/dia (si aplica)
+  06.01.10 Drone + piloto: 600/dia (si aplica)
+  06.01.11 Grupo electrogeno: 200/dia x dias exterior
+  06.01.12 Material expendable (cintas, geles, difusores)
+06.02 TRANSPORTES:
+  06.02.01 Camion iluminacion/grip: 150/dia x dias
+  06.02.02 Furgonetas produccion: 80/dia x numero x dias
+  06.02.03 Furgoneta atrezzo: 100/dia x dias
+  06.02.04 Vehiculos actores: 60/dia x numero x dias
 
-Cap 07 VIAJES/DIETAS — CALCULAR: segun equipo desplazado
-  07.01 Desplazamientos: Billetes avion/tren, combustible, peajes
-  07.02 Hoteles/comidas: Hoteles (personas x dias x 80€), dietas (55€/dia x personas x dias)
+## REGLA CRITICA PARA CAPITULO 07 — VIAJES, DIETAS Y COMIDAS
 
-Cap 08 SOPORTE DIGITAL:
-  08.01 Tarjetas CFexpress/SSD, discos backup diario, almacenamiento NAS/RAID, LTO archivo
+Cap 07 MINIMO ${isCorto ? '2-3' : '4-6'} lineas. USA las tarifas de DIETAS.
+07.01 DESPLAZAMIENTOS:
+  07.01.01 Billetes avion/tren equipo
+  07.01.02 Combustible vehiculos: estimado 100-200 EUR/dia rodaje
+  07.01.03 Peajes/autopistas
+07.02 HOTELES Y COMIDAS:
+  07.02.01 Hoteles equipo desplazado: 60-120 EUR/noche x personas x noches
+  07.02.02 Dietas equipo: 55 EUR/dia (completa) x personas x dias rodaje
+  07.02.03 Catering set complemento
 
-Cap 09 POSTPRODUCCION — USAR TARIFAS REALES de la seccion anterior:
-  09.01 Etalonaje (1.600/dia largo, 500/dia corto), copiones/dailies
-  09.02 Diseno sonoro (715/dia), edicion dialogos (680/dia), foley, mezcla 5.1, VFX (300-8.000/plano segun complejidad), titulos/creditos, DCP (1.500-2.250), subtitulos, coordinacion postpro, master UHD
+## REGLA CRITICA PARA CAPITULO 08 — SOPORTE DIGITAL
 
-Cap 10 SEGUROS — CALCULAR como % del presupuesto:
-  10.01.01 RC: 0,3% del total | 10.01.02 Accidentes: 0,2% | 10.01.03 Interrupcion rodaje: 0,5% | 10.01.04 Equipo/material: 0,8% valor equipos
+Cap 08 MINIMO ${isCorto ? '2' : '3-4'} lineas.
+08.01 SOPORTE:
+  08.01.01 Tarjetas CFexpress/SSD rodaje: 150-300 EUR/tarjeta x cantidad
+  08.01.02 Discos backup diario: 200-500 EUR/unidad x cantidad
+  08.01.03 Almacenamiento NAS/RAID: 2.000-5.000 EUR (largo)
+  08.01.04 LTO backup archivo: 80 EUR/cinta x cantidad (largo)
 
-Cap 11 GASTOS GENERALES:
-  11.01 Asesoria juridica, asesoria fiscal, auditoria ICAA (1.500 corto, 3.500 largo), gastos financieros
-  11.02 Imprevistos: 10% del subtotal Cap 01-10
+## REGLA CRITICA PARA CAPITULO 09 — POSTPRODUCCION
 
-Cap 12 EXPLOTACION/PUBLICIDAD:
-  12.01 Copias: DCP distribucion, copias festivales
-  12.02 Publicidad: Trailer, carteleria, web, press kit, estreno
+Cap 09 MINIMO ${isCorto ? '6-8' : '10-14'} lineas. USA LAS TARIFAS REALES de la seccion "TARIFAS POSTPRODUCCION".
+NUNCA inventar precios — usa los datos de facturas Antaviana/El Colorado.
+09.01 LABORATORIO/ETALONAJE:
+  09.01.01 Copiones/dailies: ${isCorto ? '500-1.000' : '2.000-4.000'}
+  09.01.02 Etalonaje: ${isCorto ? '500/dia x 3-5 dias = 1.500-2.500' : '1.600/dia x 8-15 dias = 12.800-24.000'}
+09.02 EFECTOS DIGITALES Y VARIOS:
+  09.02.01 Diseno sonoro: ${isCorto ? '2.000' : '715/dia x 30 dias = 21.450'}
+  09.02.02 Edicion dialogos: ${isCorto ? '1.500' : '680/dia x 25 dias = 17.000'}
+  09.02.03 Doblaje/ADR: segun necesidad
+  09.02.04 Foley: ${isCorto ? '1.000' : '10.000'}
+  09.02.05 Mezcla ${isCorto ? 'estereo: 2.000-3.000' : '5.1 Dolby: 12.000'}
+  09.02.06 VFX: 300-800/plano simple, 800-2.500/medio, 2.500-8.000/complejo
+  09.02.07 Titulos y creditos: ${isCorto ? '800' : '4.600'}
+  09.02.08 DCP: 2K 1.500, 4K 2.250
+  09.02.09 Subtitulos: transcripcion 4,80/min, traduccion 10,80/min
+  09.02.10 Subtitulos accesibilidad: 22/min
+  09.02.11 Master UHD/HDR: 800-3.500
+  09.02.12 Coordinacion postproduccion: ${isCorto ? '1.500' : '9.000'}
+
+## REGLA CRITICA PARA CAPITULO 10 — SEGUROS
+
+Cap 10 MINIMO ${isCorto ? '3-4' : '4-6'} lineas. CALCULAR como % del presupuesto total produccion.
+10.01 SEGUROS PRODUCCION:
+  10.01.01 Responsabilidad civil: 0,3% del presupuesto total
+  10.01.02 Accidentes trabajo: 0,2% del presupuesto total
+  10.01.03 Interrupcion rodaje: 0,5% del presupuesto total
+  10.01.04 Seguro equipo/material: 0,8% del valor de equipos alquilados
+  ${isCorto ? '' : '10.01.05 Buen fin / Completion bond: 5.000-10.000\n  10.01.06 E&O (errores y omisiones): 2.000-4.000'}
+
+## REGLA CRITICA PARA CAPITULO 11 — GASTOS GENERALES
+
+Cap 11 MINIMO ${isCorto ? '2-3' : '4-6'} lineas.
+11.01 GASTOS GENERALES:
+  11.01.01 Asesoria juridica: ${isCorto ? '500-1.000' : '5.000-10.000'}
+  11.01.02 Asesoria fiscal/contable: ${isCorto ? '300-500' : '3.000-6.000'}
+  11.01.03 Auditoria ICAA: ${isCorto ? '1.000' : '3.600'} (tarifa oficial)
+  ${isCorto ? '' : '11.01.04 Gastos financieros: 3.000-6.000\n  11.01.05 Gastos notariales/registro: 1.500-3.000'}
+11.02 IMPREVISTOS:
+  11.02.01 Imprevistos: 10% del subtotal Cap 01-10 (OBLIGATORIO)
+
+## REGLA CRITICA PARA CAPITULO 12 — EXPLOTACION Y PUBLICIDAD
+
+Cap 12 MINIMO ${isCorto ? '3-5' : '5-8'} lineas.
+12.01 COPIAS/DISTRIBUCION:
+  12.01.01 DCP distribucion: 1.500-2.250 EUR por copia
+  12.01.02 Copias festivales: 1-3 copias adicionales
+12.02 PUBLICIDAD Y MARKETING:
+  12.02.01 Trailer: ${isCorto ? '500-1.000' : '3.000-8.000'}
+  12.02.02 Carteleria/diseno grafico: ${isCorto ? '300-800' : '2.000-5.000'}
+  12.02.03 Web + redes sociales: ${isCorto ? '200-500' : '2.000-4.000'}
+  12.02.04 Press kit/EPK: ${isCorto ? '200-400' : '1.500-3.000'}
+  12.02.05 Fotografia promocional: ${isCorto ? '200-400' : '1.500-3.000'}
+  12.02.06 Estreno/premiere: ${isCorto ? '200-500' : '2.000-5.000'}
+  12.02.07 Inscripcion festivales: ${isCorto ? '200-500' : '2.000-4.000'}
 
 ## EJEMPLO DE PRESUPUESTO REAL — DESGLOSE DETALLADO
 
@@ -551,7 +692,7 @@ REGLAS:
 - Aplica tarifas del Convenio Colectivo para todo el personal tecnico
 - Incluye social_security_percentage (23.5) para TODAS las partidas de personal
 - units = numero de personas, quantity = semanas/dias de contrato, unit_price = tarifa semanal/diaria
-- Genera MINIMO ${isCorto ? '25' : '60'} partidas detalladas cubriendo TODOS los capitulos
+- Genera MINIMO ${isCorto ? '35' : '80'} partidas detalladas cubriendo TODOS los 12 capitulos
 - El total debe ser coherente con los rangos tipicos del tipo de proyecto
 - Incluye notas justificativas para partidas significativas`;
 }

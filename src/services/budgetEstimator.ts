@@ -567,7 +567,7 @@ async function readSSEStream(response: Response): Promise<string> {
 
   const decoder = new TextDecoder();
   let fullText = '';
-  let buffer = ''; // Buffer for incomplete SSE lines split across chunks
+  let buffer = '';
 
   while (true) {
     const { done, value } = await reader.read();
@@ -575,21 +575,27 @@ async function readSSEStream(response: Response): Promise<string> {
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
-    buffer = lines.pop() || ''; // Keep the last (potentially incomplete) line in buffer
+    buffer = lines.pop() || '';
 
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.startsWith('data: ')) {
         try {
           const parsed = JSON.parse(trimmed.slice(6));
-          if (parsed.type === 'delta' && parsed.text) {
+          if (parsed.type === 'complete' && parsed.text) {
+            // Server accumulated ALL text — return it directly
+            return parsed.text;
+          } else if (parsed.type === 'delta' && parsed.text) {
+            // Fallback: backward compat with delta streaming
             fullText += parsed.text;
+          } else if (parsed.type === 'progress') {
+            // Server heartbeat — ignore silently
+            continue;
           } else if (parsed.type === 'error') {
             throw new Error(parsed.error || 'Error en la generación');
           }
         } catch (e) {
           if (e instanceof Error && e.message !== 'Error en la generación') {
-            // Ignore JSON parse errors on SSE lines
             continue;
           }
           throw e;

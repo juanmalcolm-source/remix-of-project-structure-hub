@@ -798,7 +798,7 @@ INSTRUCCIONES:
     );
   }
 
-  // Stream SSE deltas TO the client to keep Vercel connection alive
+  // Accumulate ALL text server-side, send ONE complete event to avoid browser SSE data loss
   const reader = anthropicResponse.body!.getReader();
   const decoder = new TextDecoder();
 
@@ -806,6 +806,16 @@ INSTRUCCIONES:
     async start(controller) {
       const encoder = new TextEncoder();
       let buffer = '';
+      let fullText = '';
+
+      // Heartbeat every 5s to keep Vercel/browser connection alive
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'progress', length: fullText.length })}\n\n`)
+          );
+        } catch { clearInterval(heartbeat); }
+      }, 5000);
 
       try {
         while (true) {
@@ -825,14 +835,9 @@ INSTRUCCIONES:
                 const parsed = JSON.parse(data);
 
                 if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: parsed.delta.text })}\n\n`)
-                  );
-                } else if (parsed.type === 'message_stop') {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-                  );
+                  fullText += parsed.delta.text;
                 } else if (parsed.type === 'error') {
+                  clearInterval(heartbeat);
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ type: 'error', error: parsed.error?.message || 'Error' })}\n\n`)
                   );
@@ -843,7 +848,18 @@ INSTRUCCIONES:
             }
           }
         }
+
+        clearInterval(heartbeat);
+
+        // Send ALL accumulated text in ONE event
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'complete', text: fullText })}\n\n`)
+        );
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+        );
       } catch (err) {
+        clearInterval(heartbeat);
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: 'error', error: err instanceof Error ? err.message : 'Error en el stream' })}\n\n`)
         );

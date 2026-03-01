@@ -104,21 +104,29 @@ export interface SceneTimeBreakdown {
 
 export interface ProposedShootingDay {
   dayNumber: number;
-  locations: string[];           // CAMBIO: Array de localizaciones
+  locations: string[];           // Array de localizaciones
   location: string;              // Localización principal (para compatibilidad)
   locationId: string | null;
   timeOfDay: string;
   scenes: SceneForPlanning[];
   totalEighths: number;
   estimatedHours: number;
-  targetHours: number;           // NUEVO: Objetivo de horas (ej. 10h)
-  remainingHours: number;        // NUEVO: Horas restantes/sobrantes
+  targetHours: number;           // Objetivo de horas (ej. 10h)
+  remainingHours: number;        // Horas restantes/sobrantes
   characters: string[];
   warnings: string[];
   // Campos de tiempo desglosados
   totalSetupMinutes?: number;
   totalShootingMinutes?: number;
   totalMinutes?: number;
+  // Campos profesionales (prompt mejorado v2)
+  companyMoves?: number;
+  mealBreakAfterScene?: number;
+  coverSets?: { sceneId: string; title: string; reason: string }[];
+  specialEquipment?: string[];
+  callTimeNotes?: string;
+  weatherRisk?: 'bajo' | 'medio' | 'alto';
+  notes?: string;
 }
 
 export interface PlanGenerationOptions {

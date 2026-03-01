@@ -36,6 +36,15 @@ export interface AIShootingPlanResponse {
       lastDay: number;
       waitDays: number;
     }>;
+    // Campos profesionales v2
+    contingencyDays?: number;
+    contingencyRationale?: string;
+    equipmentDays?: {
+      crane?: number[];
+      steadicam?: number[];
+      drone?: number[];
+    };
+    nightBlocks?: { startDay: number; endDay: number; nights: number }[];
   };
 }
 
@@ -56,6 +65,11 @@ interface AISceneInput {
   setup_time_minutes?: number;
   shooting_time_minutes?: number;
   total_time_minutes?: number;
+  // Nuevos campos para prompt mejorado
+  dia_ficcion?: number | null;
+  requiere_grua?: boolean;
+  planos_especiales?: boolean;
+  vehiculos_movimiento?: boolean;
 }
 
 interface AILocationInput {
@@ -65,6 +79,8 @@ interface AILocationInput {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  production_notes?: string | null;
+  special_needs?: string | null;
 }
 
 interface AICharacterInput {
@@ -72,6 +88,7 @@ interface AICharacterInput {
   name: string;
   category: string | null;
   scenes_count: number;
+  edad_aproximada?: string | null;
 }
 
 interface AIDistanceInput {
@@ -138,6 +155,12 @@ function prepareScenesForAI(
 
     const timeBreakdown = calculateSceneShootingTimeDetailed(sceneForTime);
 
+    // Extraer flags de equipamiento de complejidad_factores
+    const factores = sceneForTime.complejidad_factores || {};
+    const requiere_grua = factores.requiere_grua === true;
+    const planos_especiales = factores.planos_especiales === true;
+    const vehiculos_movimiento = factores.vehiculos_movimiento === true;
+
     return {
       id: seq.id,
       sequence_number: seq.sequence_number,
@@ -155,6 +178,11 @@ function prepareScenesForAI(
       setup_time_minutes: timeBreakdown.setupMinutes,
       shooting_time_minutes: timeBreakdown.shootingMinutes,
       total_time_minutes: timeBreakdown.totalMinutes,
+      // Nuevos campos para prompt mejorado
+      dia_ficcion: seq.dia_ficcion ?? null,
+      requiere_grua,
+      planos_especiales,
+      vehiculos_movimiento,
     };
   });
 }
@@ -170,6 +198,8 @@ function prepareLocationsForAI(locations: Tables<'locations'>[]): AILocationInpu
     address: loc.address,
     latitude: loc.latitude,
     longitude: loc.longitude,
+    production_notes: loc.production_notes ?? null,
+    special_needs: loc.special_needs ?? null,
   }));
 }
 
@@ -180,10 +210,10 @@ async function loadCharactersForAI(
   projectId: string,
   sequences: Tables<'sequences'>[]
 ): Promise<AICharacterInput[]> {
-  // Try to load from characters table
+  // Try to load from characters table (con edad_aproximada para detectar menores)
   const { data: chars } = await supabase
     .from('characters')
-    .select('id, name, category')
+    .select('id, name, category, edad_aproximada')
     .eq('project_id', projectId);
 
   // Count scenes per character from sequences
@@ -201,6 +231,7 @@ async function loadCharactersForAI(
       name: c.name,
       category: c.category,
       scenes_count: sceneCounts.get(c.name) || 0,
+      edad_aproximada: c.edad_aproximada ?? null,
     }));
   }
 
@@ -210,6 +241,7 @@ async function loadCharactersForAI(
     name,
     category: null,
     scenes_count: count,
+    edad_aproximada: null,
   }));
 }
 

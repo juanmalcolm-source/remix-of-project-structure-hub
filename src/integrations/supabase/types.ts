@@ -231,6 +231,8 @@ export type Database = {
           concept: string
           created_at: string
           id: string
+          irpf_cost: number | null
+          irpf_percentage: number | null
           notes: string | null
           project_id: string
           quantity: number | null
@@ -254,6 +256,8 @@ export type Database = {
           concept: string
           created_at?: string
           id?: string
+          irpf_cost?: number | null
+          irpf_percentage?: number | null
           notes?: string | null
           project_id: string
           quantity?: number | null
@@ -277,6 +281,8 @@ export type Database = {
           concept?: string
           created_at?: string
           id?: string
+          irpf_cost?: number | null
+          irpf_percentage?: number | null
           notes?: string | null
           project_id?: string
           quantity?: number | null

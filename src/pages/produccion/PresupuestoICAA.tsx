@@ -84,6 +84,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Personnel chapters that support SS/IRPF calculations
+const PERSONNEL_CHAPTERS = [2, 3];
+const DEFAULT_SS_PERCENTAGE = 33.1;
+const DEFAULT_IRPF_PERCENTAGE = 15;
+const SS_CAP_PER_PERSON = 2976.02; // Monthly cap for SS base
+
 interface LocalBudgetLine {
   id: string;
   accountNumber: string;
@@ -93,6 +99,11 @@ interface LocalBudgetLine {
   unitPrice: number;
   agencyPercentage: number;
   total: number;
+  // Personnel chapter fields (Cap 02, 03)
+  ssPercentage: number;
+  ssCost: number;
+  irpfPercentage: number;
+  irpfCost: number;
   isNew?: boolean;
 }
 
@@ -116,6 +127,10 @@ interface BudgetVersionSnapshot {
       unitPrice: number;
       agencyPercentage: number;
       total: number;
+      ssPercentage?: number;
+      ssCost?: number;
+      irpfPercentage?: number;
+      irpfCost?: number;
     }[];
   }[];
 }
@@ -214,6 +229,7 @@ const getDefaultLines = (chapterId: number): LocalBudgetLine[] => {
     ],
   };
 
+  const isPersonnel = PERSONNEL_CHAPTERS.includes(chapterId);
   return (templates[chapterId] || []).map((t, i) => ({
     id: `new-${chapterId}-${i}`,
     accountNumber: t.accountNumber || '',
@@ -223,22 +239,46 @@ const getDefaultLines = (chapterId: number): LocalBudgetLine[] => {
     unitPrice: 0,
     agencyPercentage: 0,
     total: 0,
+    ssPercentage: isPersonnel ? DEFAULT_SS_PERCENTAGE : 0,
+    ssCost: 0,
+    irpfPercentage: isPersonnel ? DEFAULT_IRPF_PERCENTAGE : 0,
+    irpfCost: 0,
     isNew: true,
   }));
 };
 
+// Calculate SS cost with cap per person
+const calculateSSCost = (remuneration: number, ssPercentage: number): number => {
+  if (ssPercentage <= 0 || remuneration <= 0) return 0;
+  const ssCost = remuneration * (ssPercentage / 100);
+  return Math.min(ssCost, SS_CAP_PER_PERSON);
+};
+
+// Calculate IRPF cost (no cap, straight percentage on remuneration)
+const calculateIRPFCost = (remuneration: number, irpfPercentage: number): number => {
+  if (irpfPercentage <= 0 || remuneration <= 0) return 0;
+  return remuneration * (irpfPercentage / 100);
+};
+
 // Convert DB line to local format
-const dbToLocal = (line: DBBudgetLine): LocalBudgetLine => ({
-  id: line.id,
-  accountNumber: line.account_number || '',
-  concept: line.concept,
-  units: Number(line.units) || 1,
-  quantity: Number(line.quantity) || 1,
-  unitPrice: Number(line.unit_price) || 0,
-  agencyPercentage: Number(line.agency_percentage) || 0,
-  total: Number(line.total) || 0,
-  isNew: false,
-});
+const dbToLocal = (line: DBBudgetLine): LocalBudgetLine => {
+  const isPersonnel = PERSONNEL_CHAPTERS.includes(line.chapter);
+  return {
+    id: line.id,
+    accountNumber: line.account_number || '',
+    concept: line.concept,
+    units: Number(line.units) || 1,
+    quantity: Number(line.quantity) || 1,
+    unitPrice: Number(line.unit_price) || 0,
+    agencyPercentage: Number(line.agency_percentage) || 0,
+    total: Number(line.total) || 0,
+    ssPercentage: Number(line.social_security_percentage) || (isPersonnel ? DEFAULT_SS_PERCENTAGE : 0),
+    ssCost: Number(line.social_security_cost) || 0,
+    irpfPercentage: Number(line.irpf_percentage) || (isPersonnel ? DEFAULT_IRPF_PERCENTAGE : 0),
+    irpfCost: Number(line.irpf_cost) || 0,
+    isNew: false,
+  };
+};
 
 // Group DB lines by chapter
 const groupByChapter = (dbLines: DBBudgetLine[]): BudgetChapter[] => {
@@ -511,6 +551,7 @@ export default function PresupuestoICAA() {
     setIsSaving(true);
     try {
       // Exclude 'total' as it's a generated column in the database
+      const isPersonnel = PERSONNEL_CHAPTERS.includes(chapterId);
       const lineData = {
         account_number: line.accountNumber,
         concept: line.concept,
@@ -519,6 +560,11 @@ export default function PresupuestoICAA() {
         unit_price: line.unitPrice,
         agency_percentage: line.agencyPercentage,
         chapter: chapterId,
+        // Personnel SS/IRPF fields
+        social_security_percentage: isPersonnel ? line.ssPercentage : 0,
+        social_security_cost: isPersonnel ? line.ssCost : 0,
+        irpf_percentage: isPersonnel ? line.irpfPercentage : 0,
+        irpf_cost: isPersonnel ? line.irpfCost : 0,
       };
 
       if (line.isNew || line.id.startsWith('new-')) {
@@ -567,15 +613,23 @@ export default function PresupuestoICAA() {
   const handleUpdateLine = (chapterId: number, lineId: string, field: keyof LocalBudgetLine, value: string | number) => {
     setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
-      
+
       return {
         ...ch,
         lines: ch.lines.map(line => {
           if (line.id !== lineId) return line;
-          
+
           const updated = { ...line, [field]: value };
-          // Recalculate total
-          updated.total = updated.units * updated.quantity * updated.unitPrice * (1 + updated.agencyPercentage / 100);
+          // Recalculate total (ICAA line total = units * quantity * unitPrice * (1 + agency%))
+          const remuneration = updated.units * updated.quantity * updated.unitPrice;
+          updated.total = remuneration * (1 + updated.agencyPercentage / 100);
+
+          // Recalculate SS and IRPF for personnel chapters (costs go to Ch.10, not line total)
+          if (PERSONNEL_CHAPTERS.includes(chapterId)) {
+            updated.ssCost = calculateSSCost(remuneration, updated.ssPercentage);
+            updated.irpfCost = calculateIRPFCost(remuneration, updated.irpfPercentage);
+          }
+
           return updated;
         })
       };
@@ -589,7 +643,8 @@ export default function PresupuestoICAA() {
   const addLine = (chapterId: number) => {
     setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
-      
+
+      const isPersonnel = PERSONNEL_CHAPTERS.includes(chapterId);
       const newLine: LocalBudgetLine = {
         id: `new-${chapterId}-${Date.now()}`,
         accountNumber: `${chapterId.toString().padStart(2, '0')}.${(ch.lines.length + 1).toString().padStart(2, '0')}`,
@@ -599,9 +654,13 @@ export default function PresupuestoICAA() {
         unitPrice: 0,
         agencyPercentage: 0,
         total: 0,
+        ssPercentage: isPersonnel ? DEFAULT_SS_PERCENTAGE : 0,
+        ssCost: 0,
+        irpfPercentage: isPersonnel ? DEFAULT_IRPF_PERCENTAGE : 0,
+        irpfCost: 0,
         isNew: true,
       };
-      
+
       return { ...ch, lines: [...ch.lines, newLine] };
     }));
   };
@@ -878,6 +937,10 @@ export default function PresupuestoICAA() {
           unitPrice: l.unitPrice,
           agencyPercentage: l.agencyPercentage,
           total: l.total,
+          ssPercentage: l.ssPercentage,
+          ssCost: l.ssCost,
+          irpfPercentage: l.irpfPercentage,
+          irpfCost: l.irpfCost,
         })),
       }));
 
@@ -916,7 +979,7 @@ export default function PresupuestoICAA() {
       }
 
       // Convert snapshot back to budget_lines format for bulk insert
-      const lines: { chapter: number; account_number: string; concept: string; units: number; quantity: number; unit_price: number; agency_percentage: number }[] = [];
+      const lines: { chapter: number; account_number: string; concept: string; units: number; quantity: number; unit_price: number; agency_percentage: number; social_security_percentage?: number; social_security_cost?: number; irpf_percentage?: number; irpf_cost?: number }[] = [];
       for (const ch of json.chapters) {
         for (const line of ch.lines) {
           lines.push({
@@ -927,6 +990,10 @@ export default function PresupuestoICAA() {
             quantity: line.quantity,
             unit_price: line.unitPrice,
             agency_percentage: line.agencyPercentage,
+            social_security_percentage: line.ssPercentage ?? 0,
+            social_security_cost: line.ssCost ?? 0,
+            irpf_percentage: line.irpfPercentage ?? 0,
+            irpf_cost: line.irpfCost ?? 0,
           });
         }
       }
@@ -986,10 +1053,43 @@ export default function PresupuestoICAA() {
     );
   };
 
-  const getChapterTotal = (chapter: BudgetChapter) => 
+  const getChapterTotal = (chapter: BudgetChapter) =>
     chapter.lines.reduce((sum, line) => sum + line.total, 0);
 
-  const grandTotal = chapters.reduce((sum, ch) => sum + getChapterTotal(ch), 0);
+  // Calculate accumulated SS costs for personnel chapters → flows to Chapter 10
+  const getChapterSSTotal = (chapterId: number) => {
+    const ch = chapters.find(c => c.id === chapterId);
+    if (!ch) return 0;
+    return ch.lines.reduce((sum, line) => sum + (line.ssCost || 0), 0);
+  };
+
+  // Calculate accumulated IRPF costs for personnel chapters → flows to Chapter 10
+  const getChapterIRPFTotal = (chapterId: number) => {
+    const ch = chapters.find(c => c.id === chapterId);
+    if (!ch) return 0;
+    return ch.lines.reduce((sum, line) => sum + (line.irpfCost || 0), 0);
+  };
+
+  // Total SS from all personnel chapters (for Chapter 10)
+  const totalSSCap02 = getChapterSSTotal(2);
+  const totalSSCap03 = getChapterSSTotal(3);
+  const totalIRPFCap02 = getChapterIRPFTotal(2);
+  const totalIRPFCap03 = getChapterIRPFTotal(3);
+  const totalSSAllPersonnel = totalSSCap02 + totalSSCap03;
+  const totalIRPFAllPersonnel = totalIRPFCap02 + totalIRPFCap03;
+
+  // Chapter 10 effective total includes auto-calculated SS/IRPF lines
+  const getChapter10EffectiveTotal = () => {
+    const ch10 = chapters.find(c => c.id === 10);
+    const manualTotal = ch10 ? getChapterTotal(ch10) : 0;
+    return manualTotal + totalSSAllPersonnel + totalIRPFAllPersonnel;
+  };
+
+  // Grand total includes Chapter 10 auto-lines
+  const grandTotal = chapters.reduce((sum, ch) => {
+    if (ch.id === 10) return sum + getChapter10EffectiveTotal();
+    return sum + getChapterTotal(ch);
+  }, 0);
 
   // Calculate executive summary stats
   const shootingDays = (() => {
@@ -1500,7 +1600,7 @@ export default function PresupuestoICAA() {
                 <ScrollArea className="w-full whitespace-nowrap">
                   <TabsList className="inline-flex h-auto p-1 bg-muted/50 w-max">
                     {chapters.map((chapter) => {
-                      const chapterTotal = getChapterTotal(chapter);
+                      const chapterTotal = chapter.id === 10 ? getChapter10EffectiveTotal() : getChapterTotal(chapter);
                       const hasData = chapterTotal > 0;
                       const compareTotal = getCompareChapterTotal(chapter.id);
                       return (
@@ -1532,8 +1632,15 @@ export default function PresupuestoICAA() {
                       <span className="flex items-center gap-2">
                         {chapter.name}
                         <Badge variant="secondary">{chapter.lines.length} partidas</Badge>
+                        {PERSONNEL_CHAPTERS.includes(chapter.id) && (
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                            SS+IRPF → Cap.10
+                          </Badge>
+                        )}
                       </span>
-                      <span className="font-bold text-primary">{formatCurrency(getChapterTotal(chapter))}</span>
+                      <span className="font-bold text-primary">
+                        {formatCurrency(chapter.id === 10 ? getChapter10EffectiveTotal() : getChapterTotal(chapter))}
+                      </span>
                     </CardTitle>
                   </CardHeader>
                   
@@ -1547,6 +1654,14 @@ export default function PresupuestoICAA() {
                           <TableHead className="w-20 text-right">X</TableHead>
                           <TableHead className="w-28 text-right">€/Ud</TableHead>
                           <TableHead className="w-20 text-right">AG%</TableHead>
+                          {PERSONNEL_CHAPTERS.includes(chapter.id) && (
+                            <>
+                              <TableHead className="w-20 text-right">SS%</TableHead>
+                              <TableHead className="w-24 text-right">SS €</TableHead>
+                              <TableHead className="w-20 text-right">IRPF%</TableHead>
+                              <TableHead className="w-24 text-right">IRPF €</TableHead>
+                            </>
+                          )}
                           <TableHead className="w-28 text-right">TOTAL</TableHead>
                           <TableHead className="w-10"></TableHead>
                         </TableRow>
@@ -1605,12 +1720,40 @@ export default function PresupuestoICAA() {
                                 className="w-16 text-right"
                               />
                             </TableCell>
+                            {PERSONNEL_CHAPTERS.includes(chapter.id) && (
+                              <>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    value={line.ssPercentage}
+                                    onChange={(e) => handleUpdateLine(chapter.id, line.id, 'ssPercentage', parseFloat(e.target.value) || 0)}
+                                    onBlur={() => handleLineBlur(chapter.id, line)}
+                                    className="w-16 text-right"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground">
+                                  {formatCurrency(line.ssCost)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    value={line.irpfPercentage}
+                                    onChange={(e) => handleUpdateLine(chapter.id, line.id, 'irpfPercentage', parseFloat(e.target.value) || 0)}
+                                    onBlur={() => handleLineBlur(chapter.id, line)}
+                                    className="w-16 text-right"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right text-sm text-muted-foreground">
+                                  {formatCurrency(line.irpfCost)}
+                                </TableCell>
+                              </>
+                            )}
                             <TableCell className="text-right font-semibold">
                               {formatCurrency(line.total)}
                             </TableCell>
                             <TableCell>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => handleDeleteLine(chapter.id, line.id)}
                               >
@@ -1619,6 +1762,85 @@ export default function PresupuestoICAA() {
                             </TableCell>
                           </TableRow>
                         ))}
+
+                        {/* Personnel chapters: show SS/IRPF summary row */}
+                        {PERSONNEL_CHAPTERS.includes(chapter.id) && chapter.lines.some(l => l.ssCost > 0 || l.irpfCost > 0) && (
+                          <TableRow className="bg-amber-50/50 dark:bg-amber-950/20 border-t-2">
+                            <TableCell colSpan={6} className="text-right text-sm font-medium text-amber-700 dark:text-amber-400">
+                              Totales SS + IRPF (→ Cap. 10):
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-medium text-amber-700 dark:text-amber-400">
+                              {/* SS% column - empty */}
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-bold text-amber-700 dark:text-amber-400">
+                              {formatCurrency(getChapterSSTotal(chapter.id))}
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-medium text-amber-700 dark:text-amber-400">
+                              {/* IRPF% column - empty */}
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-bold text-amber-700 dark:text-amber-400">
+                              {formatCurrency(getChapterIRPFTotal(chapter.id))}
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-bold text-amber-700 dark:text-amber-400">
+                              {formatCurrency(getChapterSSTotal(chapter.id) + getChapterIRPFTotal(chapter.id))}
+                            </TableCell>
+                            <TableCell />
+                          </TableRow>
+                        )}
+
+                        {/* Chapter 10: show auto-calculated SS/IRPF lines from personnel chapters */}
+                        {chapter.id === 10 && (totalSSAllPersonnel > 0 || totalIRPFAllPersonnel > 0) && (
+                          <>
+                            <TableRow className="bg-blue-50/50 dark:bg-blue-950/20 border-t-2">
+                              <TableCell colSpan={6} className="text-sm font-medium">
+                                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                                  <Badge variant="outline" className="text-xs border-blue-300 text-blue-600">Auto</Badge>
+                                  Líneas calculadas desde Capítulos 02 y 03
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-blue-700 dark:text-blue-400">
+                                {formatCurrency(totalSSAllPersonnel + totalIRPFAllPersonnel)}
+                              </TableCell>
+                              <TableCell />
+                            </TableRow>
+                            {totalSSCap02 > 0 && (
+                              <TableRow className="bg-blue-50/30 dark:bg-blue-950/10">
+                                <TableCell className="font-mono text-sm text-muted-foreground pl-8">10.A1</TableCell>
+                                <TableCell className="text-sm text-muted-foreground" colSpan={4}>SS Personal Artístico (Cap. 02)</TableCell>
+                                <TableCell />
+                                <TableCell className="text-right text-sm font-medium">{formatCurrency(totalSSCap02)}</TableCell>
+                                <TableCell />
+                              </TableRow>
+                            )}
+                            {totalSSCap03 > 0 && (
+                              <TableRow className="bg-blue-50/30 dark:bg-blue-950/10">
+                                <TableCell className="font-mono text-sm text-muted-foreground pl-8">10.A2</TableCell>
+                                <TableCell className="text-sm text-muted-foreground" colSpan={4}>SS Equipo Técnico (Cap. 03)</TableCell>
+                                <TableCell />
+                                <TableCell className="text-right text-sm font-medium">{formatCurrency(totalSSCap03)}</TableCell>
+                                <TableCell />
+                              </TableRow>
+                            )}
+                            {totalIRPFCap02 > 0 && (
+                              <TableRow className="bg-blue-50/30 dark:bg-blue-950/10">
+                                <TableCell className="font-mono text-sm text-muted-foreground pl-8">10.A3</TableCell>
+                                <TableCell className="text-sm text-muted-foreground" colSpan={4}>IRPF Personal Artístico (Cap. 02)</TableCell>
+                                <TableCell />
+                                <TableCell className="text-right text-sm font-medium">{formatCurrency(totalIRPFCap02)}</TableCell>
+                                <TableCell />
+                              </TableRow>
+                            )}
+                            {totalIRPFCap03 > 0 && (
+                              <TableRow className="bg-blue-50/30 dark:bg-blue-950/10">
+                                <TableCell className="font-mono text-sm text-muted-foreground pl-8">10.A4</TableCell>
+                                <TableCell className="text-sm text-muted-foreground" colSpan={4}>IRPF Equipo Técnico (Cap. 03)</TableCell>
+                                <TableCell />
+                                <TableCell className="text-right text-sm font-medium">{formatCurrency(totalIRPFCap03)}</TableCell>
+                                <TableCell />
+                              </TableRow>
+                            )}
+                          </>
+                        )}
                       </TableBody>
                     </Table>
 
@@ -1655,7 +1877,9 @@ export default function PresupuestoICAA() {
                         </div>
                         <div className="text-right">
                           <span className="text-sm text-muted-foreground mr-4">Subtotal {chapter.name.split(' - ')[0]}:</span>
-                          <span className="text-lg font-bold">{formatCurrency(getChapterTotal(chapter))}</span>
+                          <span className="text-lg font-bold">
+                            {formatCurrency(chapter.id === 10 ? getChapter10EffectiveTotal() : getChapterTotal(chapter))}
+                          </span>
                         </div>
                       </div>
                     </div>

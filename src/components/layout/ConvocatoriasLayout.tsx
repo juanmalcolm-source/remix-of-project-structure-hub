@@ -10,6 +10,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
+import { ExpertChatWrapper } from '@/components/expert';
 import { cn } from '@/lib/utils';
 
 interface ConvocatoriasLayoutProps {
@@ -147,7 +148,11 @@ export default function ConvocatoriasLayout({
             {lastSaved && !isSaving && <div className="text-sm text-muted-foreground">Guardado {lastSaved.toLocaleTimeString()}</div>}
           </div>
         </div>
-        <div className="p-6 lg:p-8 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">{children}</div>
+        <div className="p-6 lg:p-8 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+          <ExpertChatWrapper projectId={projectId!} expertType="convocatorias">
+            {children}
+          </ExpertChatWrapper>
+        </div>
       </main>
     </div>
   );

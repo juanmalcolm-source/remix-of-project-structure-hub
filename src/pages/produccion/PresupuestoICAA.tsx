@@ -88,6 +88,7 @@ import {
   ICAA_CHAPTERS,
   UNIT_TYPES,
   SS_TOTAL_BY_CONTRACT,
+  getCrewPhaseDefaults,
   type UnitType,
   type ContractType,
 } from '@/constants/budgetDefaults';
@@ -235,26 +236,30 @@ const getDefaultLines = (chapterId: number): LocalBudgetLine[] => {
   };
 
   const isPersonnel = (PERSONNEL_CHAPTERS as readonly number[]).includes(chapterId);
-  return (templates[chapterId] || []).map((t, i) => ({
-    id: `new-${chapterId}-${i}`,
-    accountNumber: t.accountNumber || '',
-    concept: t.concept || '',
-    units: 1,
-    quantity: 1,
-    unitPrice: 0,
-    agencyPercentage: 0,
-    total: 0,
-    ssPercentage: isPersonnel ? getDefaultSSRate(chapterId) : 0,
-    ssCost: 0,
-    irpfPercentage: isPersonnel ? getDefaultIRPFRate(chapterId) : 0,
-    irpfCost: 0,
-    unitType: getDefaultUnitType(chapterId),
-    preWeeks: 0,
-    rodWeeks: 0,
-    postWeeks: 0,
-    contractType: getDefaultContractType(),
-    isNew: true,
-  }));
+  return (templates[chapterId] || []).map((t, i) => {
+    const phaseDefaults = t.concept ? getCrewPhaseDefaults(t.concept, chapterId) : null;
+    const contractType = phaseDefaults?.contractType ?? getDefaultContractType();
+    return {
+      id: `new-${chapterId}-${i}`,
+      accountNumber: t.accountNumber || '',
+      concept: t.concept || '',
+      units: 1,
+      quantity: 1,
+      unitPrice: 0,
+      agencyPercentage: 0,
+      total: 0,
+      ssPercentage: isPersonnel ? getDefaultSSRate(chapterId, contractType) : 0,
+      ssCost: 0,
+      irpfPercentage: isPersonnel ? getDefaultIRPFRate(chapterId) : 0,
+      irpfCost: 0,
+      unitType: phaseDefaults?.unitType ?? getDefaultUnitType(chapterId),
+      preWeeks: phaseDefaults?.preWeeks ?? 0,
+      rodWeeks: phaseDefaults?.rodWeeks ?? 0,
+      postWeeks: phaseDefaults?.postWeeks ?? 0,
+      contractType,
+      isNew: true,
+    };
+  });
 };
 
 // Convert DB line to local format

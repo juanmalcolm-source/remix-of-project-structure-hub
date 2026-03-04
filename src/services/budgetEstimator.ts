@@ -20,6 +20,11 @@ import {
   type NivelPresupuesto,
   type CategoriaPresupuesto,
 } from '@/data/tarifas-icaa-2025';
+import {
+  getCrewPhaseDefaults,
+  scaleWeeksToProject,
+  SS_TOTAL_BY_CONTRACT,
+} from '@/constants/budgetDefaults';
 
 type Character = Tables<'characters'>;
 type Location = Tables<'locations'>;
@@ -54,10 +59,18 @@ export interface EstimatedBudgetLine {
   unit_price: number;
   agency_percentage: number;
   social_security_percentage?: number;
+  irpf_percentage?: number;
+  irpf_cost?: number;
+  social_security_cost?: number;
   vat_percentage?: number;
   tariff_source?: string;
   notes?: string;
   budget_level?: string;
+  unit_type?: string;
+  pre_weeks?: number;
+  rod_weeks?: number;
+  post_weeks?: number;
+  contract_type?: string;
 }
 
 export interface AIBudgetResponse {
@@ -306,21 +319,29 @@ export function generarPresupuestoEstimado(
   let lineCounter: Record<number, number> = {};
   
   const addLine = (
-    chapter: number, 
-    concept: string, 
-    units: number, 
-    quantity: number, 
-    unitPrice: number, 
+    chapter: number,
+    concept: string,
+    units: number,
+    quantity: number,
+    unitPrice: number,
     agencyPct: number = 0,
     ssPct: number = 0,
     vatPct: number = 21,
     source: string = 'Estimación local',
-    notes: string = ''
+    notes: string = '',
+    extras?: {
+      unit_type?: string;
+      pre_weeks?: number;
+      rod_weeks?: number;
+      post_weeks?: number;
+      contract_type?: string;
+      irpf_percentage?: number;
+    }
   ) => {
     if (!lineCounter[chapter]) lineCounter[chapter] = 1;
     const lineNum = lineCounter[chapter]++;
     const accountNumber = `${chapter.toString().padStart(2, '0')}.${lineNum.toString().padStart(2, '0')}`;
-    
+
     lines.push({
       chapter,
       account_number: accountNumber,
@@ -334,6 +355,7 @@ export function generarPresupuestoEstimado(
       tariff_source: source,
       notes,
       budget_level: level,
+      ...extras,
     });
   };
   
@@ -354,73 +376,100 @@ export function generarPresupuestoEstimado(
     const days = char.shooting_days || Math.ceil(totalShootingDays * 0.8);
     const rate = getCategoryRate(char.category, level);
     const agency = char.agency_percentage || 15;
-    addLine(2, char.name, 1, days, rate, agency, 0, 21, 'Convenio actores 2024', `Categoría: ${char.category}`);
+    addLine(2, char.name, 1, days, rate, agency, 0, 21, 'Convenio actores 2024', `Categoría: ${char.category}`, {
+      unit_type: 'TA', contract_type: 'indefinido', irpf_percentage: 2,
+    });
   });
-  
+
   if (secundarios.length > 0) {
     const avgDays = Math.ceil(secundarios.reduce((sum, c) => sum + (c.shooting_days || 2), 0) / secundarios.length);
-    addLine(2, `Secundarios (${secundarios.length} personajes)`, secundarios.length, avgDays, getCategoryRate('secundario', level), 15, 0, 21, 'Convenio actores 2024');
+    addLine(2, `Secundarios (${secundarios.length} personajes)`, secundarios.length, avgDays, getCategoryRate('secundario', level), 15, 0, 21, 'Convenio actores 2024', '', {
+      unit_type: 'TA', contract_type: 'indefinido', irpf_percentage: 2,
+    });
   }
-  
+
   if (figuracion.length > 0 || sequences.length > 5) {
     const numFiguracion = figuracion.length || Math.ceil(sequences.length / 3);
-    addLine(2, 'Figuración especial', numFiguracion, 5, getCategoryRate('figuración', level), 0, 0, 21, 'Convenio figuración');
+    addLine(2, 'Figuración especial', numFiguracion, 5, getCategoryRate('figuración', level), 0, 0, 21, 'Convenio figuración', '', {
+      unit_type: 'JORNADAS', contract_type: 'temporal', irpf_percentage: 2,
+    });
   }
-  
+
   // ============ CHAPTER 3 - Equipo Técnico (Convenio Colectivo 2025) ============
-  const ssPct = COSTES_SOCIALES.seguridad_social_empresa * 100; // 23.5%
+  const ssPctIndef = SS_TOTAL_BY_CONTRACT.indefinido;
   const src = 'Convenio Colectivo Técnicos 2025';
 
+  // Helper: add crew line with phase defaults from CREW_PHASE_DEFAULTS
+  const addCrewLine = (
+    concept: string,
+    tarifaKey: string,
+    minShootingDays: number = 0,
+  ) => {
+    if (minShootingDays > 0 && totalShootingDays < minShootingDays) return;
+
+    const phaseDefaults = getCrewPhaseDefaults(concept, 3);
+    const rate = getCrewRate(tarifaKey, level);
+
+    if (phaseDefaults && phaseDefaults.unitType === 'TA') {
+      // Tanto alzado: precio = tarifa * semanas totales estimadas (como referencia)
+      const estWeeks = shootingWeeks + prepWeeks + Math.ceil(postWeeks * 0.3);
+      addLine(3, concept, 1, 1, rate * estWeeks, 0, ssPctIndef, 21, src, '', {
+        unit_type: 'TA', contract_type: 'indefinido',
+        pre_weeks: 0, rod_weeks: 0, post_weeks: 0, irpf_percentage: 15,
+      });
+    } else if (phaseDefaults) {
+      const scaled = scaleWeeksToProject(phaseDefaults, shootingWeeks);
+      const totalWeeks = scaled.preWeeks + scaled.rodWeeks + scaled.postWeeks;
+      addLine(3, concept, 1, totalWeeks, rate, 0, ssPctIndef, 21, src, '', {
+        unit_type: 'SEM', contract_type: phaseDefaults.contractType,
+        pre_weeks: scaled.preWeeks, rod_weeks: scaled.rodWeeks, post_weeks: scaled.postWeeks,
+        irpf_percentage: 15,
+      });
+    } else {
+      // Fallback: rodaje only
+      addLine(3, concept, 1, shootingWeeks, rate, 0, ssPctIndef, 21, src, '', {
+        unit_type: 'SEM', contract_type: 'indefinido',
+        pre_weeks: 0, rod_weeks: shootingWeeks, post_weeks: 0, irpf_percentage: 15,
+      });
+    }
+  };
+
   // Direccion
-  addLine(3, 'Director/Realizador', 1, shootingWeeks + prepWeeks, getCrewRate('director_realizador', level), 0, ssPct, 21, src);
-  addLine(3, '1er Ayudante Dirección', 1, shootingWeeks + prepWeeks, getCrewRate('primer_ayudante_direccion', level), 0, ssPct, 21, src);
-  if (totalShootingDays > 10) {
-    addLine(3, 'Script / Continuidad', 1, shootingWeeks, getCrewRate('script', level), 0, ssPct, 21, src);
-  }
+  addCrewLine('Director/Realizador', 'director_realizador');
+  addCrewLine('1er Ayudante Dirección', 'primer_ayudante_direccion');
+  addCrewLine('Script / Continuidad', 'script', 10);
 
   // Produccion
-  addLine(3, 'Director/a de Producción', 1, shootingWeeks + prepWeeks + 4, getCrewRate('director_produccion', level), 0, ssPct, 21, src);
-  addLine(3, 'Jefe/a de Producción', 1, shootingWeeks + prepWeeks, getCrewRate('jefe_produccion', level), 0, ssPct, 21, src);
-  if (totalShootingDays > 10) {
-    addLine(3, 'Ayudante de Producción', 1, shootingWeeks + prepWeeks, getCrewRate('ayudante_produccion', level), 0, ssPct, 21, src);
-  }
+  addCrewLine('Director/a de Producción', 'director_produccion');
+  addCrewLine('Jefe/a de Producción', 'jefe_produccion');
+  addCrewLine('Ayudante de Producción', 'ayudante_produccion', 10);
 
   // Fotografia
-  addLine(3, 'Director/a de Fotografía', 1, shootingWeeks + 2, getCrewRate('director_fotografia', level), 0, ssPct, 21, src);
-  if (totalShootingDays > 15) {
-    addLine(3, 'Operador/a de Cámara', 1, shootingWeeks, getCrewRate('camarografo', level), 0, ssPct, 21, src);
-  }
-  addLine(3, '1er Ayudante Cámara', 1, shootingWeeks, getCrewRate('primer_ayudante_camara', level), 0, ssPct, 21, src);
+  addCrewLine('Director/a de Fotografía', 'director_fotografia');
+  addCrewLine('Operador/a de Cámara', 'camarografo', 15);
+  addCrewLine('1er Ayudante Cámara', 'primer_ayudante_camara');
 
   // Arte y decoracion
-  addLine(3, 'Director/a de Arte', 1, shootingWeeks + 2, getCrewRate('director_arte', level), 0, ssPct, 21, src);
-  if (totalShootingDays > 15) {
-    addLine(3, 'Attrezzista', 1, shootingWeeks, getCrewRate('attrezzista', level), 0, ssPct, 21, src);
-  }
+  addCrewLine('Director/a de Arte', 'director_arte');
+  addCrewLine('Attrezzista', 'attrezzista', 15);
 
   // Vestuario, maquillaje, peluqueria
-  addLine(3, 'Figurinista', 1, shootingWeeks + 1, getCrewRate('figurinista', level), 0, ssPct, 21, src);
-  addLine(3, 'Jefe/a de Maquillaje', 1, shootingWeeks, getCrewRate('jefe_maquillaje', level), 0, ssPct, 21, src);
-  addLine(3, 'Jefe/a de Peluquería', 1, shootingWeeks, getCrewRate('jefe_peluqueria', level), 0, ssPct, 21, src);
+  addCrewLine('Figurinista', 'figurinista');
+  addCrewLine('Jefe/a de Maquillaje', 'jefe_maquillaje');
+  addCrewLine('Jefe/a de Peluquería', 'jefe_peluqueria');
 
   // Sonido
-  addLine(3, 'Jefe/a de Sonido', 1, shootingWeeks, getCrewRate('jefe_sonido', level), 0, ssPct, 21, src);
-  if (totalShootingDays > 10) {
-    addLine(3, 'Microfonista', 1, shootingWeeks, getCrewRate('microfonista', level), 0, ssPct, 21, src);
-  }
+  addCrewLine('Jefe/a de Sonido', 'jefe_sonido');
+  addCrewLine('Microfonista', 'microfonista', 10);
 
-  // Montaje
-  addLine(3, 'Montador/a', 1, postWeeks, getCrewRate('montador', level), 0, ssPct, 21, src);
-  if (totalShootingDays > 20) {
-    addLine(3, 'Ayudante Montaje', 1, postWeeks, getCrewRate('ayudante_montaje', level), 0, ssPct, 21, src);
-  }
+  // Montaje y postproduccion
+  addCrewLine('Montador/a', 'montador');
+  addCrewLine('Ayudante Montaje', 'ayudante_montaje', 20);
 
   // Electricos y maquinistas
-  addLine(3, 'Jefe/a de Eléctricos', 1, shootingWeeks, getCrewRate('jefe_electricos', level), 0, ssPct, 21, src);
-  if (totalShootingDays > 10) {
-    addLine(3, 'Eléctrico', 1, shootingWeeks, getCrewRate('electrico', level), 0, ssPct, 21, src);
-    addLine(3, 'Maquinista Jefe', 1, shootingWeeks, getCrewRate('maquinista', level), 0, ssPct, 21, src);
-  }
+  addCrewLine('Jefe/a de Eléctricos', 'jefe_electricos');
+  addCrewLine('Eléctrico', 'electrico', 10);
+  addCrewLine('Maquinista', 'maquinista', 10);
   
   // ============ CHAPTER 4 - Escenografía ============
   if (effectiveLocations.length > 0) {

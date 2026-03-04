@@ -233,14 +233,19 @@ export type Database = {
           id: string
           irpf_cost: number | null
           irpf_percentage: number | null
+          contract_type: string | null
           notes: string | null
+          post_weeks: number | null
+          pre_weeks: number | null
           project_id: string
           quantity: number | null
+          rod_weeks: number | null
           social_security_cost: number | null
           social_security_percentage: number | null
           tariff_source: string | null
           total: number | null
           unit_price: number | null
+          unit_type: string | null
           units: number | null
           updated_at: string
           vat_amount: number | null
@@ -254,18 +259,23 @@ export type Database = {
           budget_level?: string | null
           chapter: number
           concept: string
+          contract_type?: string | null
           created_at?: string
           id?: string
           irpf_cost?: number | null
           irpf_percentage?: number | null
           notes?: string | null
+          post_weeks?: number | null
+          pre_weeks?: number | null
           project_id: string
           quantity?: number | null
+          rod_weeks?: number | null
           social_security_cost?: number | null
           social_security_percentage?: number | null
           tariff_source?: string | null
           total?: number | null
           unit_price?: number | null
+          unit_type?: string | null
           units?: number | null
           updated_at?: string
           vat_amount?: number | null
@@ -279,18 +289,23 @@ export type Database = {
           budget_level?: string | null
           chapter?: number
           concept?: string
+          contract_type?: string | null
           created_at?: string
           id?: string
           irpf_cost?: number | null
           irpf_percentage?: number | null
           notes?: string | null
+          post_weeks?: number | null
+          pre_weeks?: number | null
           project_id?: string
           quantity?: number | null
+          rod_weeks?: number | null
           social_security_cost?: number | null
           social_security_percentage?: number | null
           tariff_source?: string | null
           total?: number | null
           unit_price?: number | null
+          unit_type?: string | null
           units?: number | null
           updated_at?: string
           vat_amount?: number | null

@@ -49,11 +49,11 @@ import {
   useDeleteBudgetVersion,
 } from '@/hooks/useBudgetVersions';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  generarPresupuestoEstimado, 
+import {
+  generarPresupuestoEstimado,
   generarPresupuestoConIA,
-  checkDataAvailability, 
-  type BudgetEstimationInput, 
+  checkDataAvailability,
+  type BudgetEstimationInput,
   type DataAvailability,
   type BudgetLevel,
   type AIBudgetResponse
@@ -83,12 +83,22 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-
-// Personnel chapters that support SS/IRPF calculations
-const PERSONNEL_CHAPTERS = [2, 3];
-const DEFAULT_SS_PERCENTAGE = 33.1;
-const DEFAULT_IRPF_PERCENTAGE = 15;
-const SS_CAP_PER_PERSON = 2976.02; // Monthly cap for SS base
+import {
+  PERSONNEL_CHAPTERS,
+  ICAA_CHAPTERS,
+  UNIT_TYPES,
+  SS_TOTAL_BY_CONTRACT,
+  type UnitType,
+  type ContractType,
+} from '@/constants/budgetDefaults';
+import {
+  recalculatePersonnelCosts,
+  getDefaultSSRate,
+  getDefaultIRPFRate,
+  getDefaultUnitType,
+  getDefaultContractType,
+  calculateTotalPeriods,
+} from '@/services/ssIrpfCalculator';
 
 interface LocalBudgetLine {
   id: string;
@@ -104,6 +114,12 @@ interface LocalBudgetLine {
   ssCost: number;
   irpfPercentage: number;
   irpfCost: number;
+  // New fields: unit type, phases, contract
+  unitType: UnitType;
+  preWeeks: number;
+  rodWeeks: number;
+  postWeeks: number;
+  contractType: ContractType;
   isNew?: boolean;
 }
 
@@ -131,25 +147,14 @@ interface BudgetVersionSnapshot {
       ssCost?: number;
       irpfPercentage?: number;
       irpfCost?: number;
+      unitType?: UnitType;
+      preWeeks?: number;
+      rodWeeks?: number;
+      postWeeks?: number;
+      contractType?: ContractType;
     }[];
   }[];
 }
-
-// ICAA Official 12 Chapters
-const ICAA_CHAPTERS = [
-  { id: 1, name: 'CAP. 01 - Guión y Música' },
-  { id: 2, name: 'CAP. 02 - Personal Artístico' },
-  { id: 3, name: 'CAP. 03 - Equipo Técnico' },
-  { id: 4, name: 'CAP. 04 - Escenografía' },
-  { id: 5, name: 'CAP. 05 - Estudios Rodaje/Sonorización y Varios Producción' },
-  { id: 6, name: 'CAP. 06 - Maquinaria, Rodaje y Transportes' },
-  { id: 7, name: 'CAP. 07 - Viajes, Hoteles y Comidas' },
-  { id: 8, name: 'CAP. 08 - Película Virgen' },
-  { id: 9, name: 'CAP. 09 - Laboratorio' },
-  { id: 10, name: 'CAP. 10 - Seguros' },
-  { id: 11, name: 'CAP. 11 - Gastos Generales' },
-  { id: 12, name: 'CAP. 12 - Gastos Explotación, Comercio y Financiación' },
-];
 
 // Default line templates per chapter
 const getDefaultLines = (chapterId: number): LocalBudgetLine[] => {
@@ -229,7 +234,7 @@ const getDefaultLines = (chapterId: number): LocalBudgetLine[] => {
     ],
   };
 
-  const isPersonnel = PERSONNEL_CHAPTERS.includes(chapterId);
+  const isPersonnel = (PERSONNEL_CHAPTERS as readonly number[]).includes(chapterId);
   return (templates[chapterId] || []).map((t, i) => ({
     id: `new-${chapterId}-${i}`,
     accountNumber: t.accountNumber || '',
@@ -239,30 +244,24 @@ const getDefaultLines = (chapterId: number): LocalBudgetLine[] => {
     unitPrice: 0,
     agencyPercentage: 0,
     total: 0,
-    ssPercentage: isPersonnel ? DEFAULT_SS_PERCENTAGE : 0,
+    ssPercentage: isPersonnel ? getDefaultSSRate(chapterId) : 0,
     ssCost: 0,
-    irpfPercentage: isPersonnel ? DEFAULT_IRPF_PERCENTAGE : 0,
+    irpfPercentage: isPersonnel ? getDefaultIRPFRate(chapterId) : 0,
     irpfCost: 0,
+    unitType: getDefaultUnitType(chapterId),
+    preWeeks: 0,
+    rodWeeks: 0,
+    postWeeks: 0,
+    contractType: getDefaultContractType(),
     isNew: true,
   }));
 };
 
-// Calculate SS cost with cap per person
-const calculateSSCost = (remuneration: number, ssPercentage: number): number => {
-  if (ssPercentage <= 0 || remuneration <= 0) return 0;
-  const ssCost = remuneration * (ssPercentage / 100);
-  return Math.min(ssCost, SS_CAP_PER_PERSON);
-};
-
-// Calculate IRPF cost (no cap, straight percentage on remuneration)
-const calculateIRPFCost = (remuneration: number, irpfPercentage: number): number => {
-  if (irpfPercentage <= 0 || remuneration <= 0) return 0;
-  return remuneration * (irpfPercentage / 100);
-};
-
 // Convert DB line to local format
 const dbToLocal = (line: DBBudgetLine): LocalBudgetLine => {
-  const isPersonnel = PERSONNEL_CHAPTERS.includes(line.chapter);
+  const isPersonnel = (PERSONNEL_CHAPTERS as readonly number[]).includes(line.chapter);
+  const unitType = (line.unit_type as UnitType) || getDefaultUnitType(line.chapter);
+  const contractType = (line.contract_type as ContractType) || getDefaultContractType();
   return {
     id: line.id,
     accountNumber: line.account_number || '',
@@ -272,10 +271,15 @@ const dbToLocal = (line: DBBudgetLine): LocalBudgetLine => {
     unitPrice: Number(line.unit_price) || 0,
     agencyPercentage: Number(line.agency_percentage) || 0,
     total: Number(line.total) || 0,
-    ssPercentage: Number(line.social_security_percentage) || (isPersonnel ? DEFAULT_SS_PERCENTAGE : 0),
+    ssPercentage: Number(line.social_security_percentage) || (isPersonnel ? getDefaultSSRate(line.chapter, contractType) : 0),
     ssCost: Number(line.social_security_cost) || 0,
-    irpfPercentage: Number(line.irpf_percentage) || (isPersonnel ? DEFAULT_IRPF_PERCENTAGE : 0),
+    irpfPercentage: Number(line.irpf_percentage) || (isPersonnel ? getDefaultIRPFRate(line.chapter) : 0),
     irpfCost: Number(line.irpf_cost) || 0,
+    unitType,
+    preWeeks: Number(line.pre_weeks) || 0,
+    rodWeeks: Number(line.rod_weeks) || 0,
+    postWeeks: Number(line.post_weeks) || 0,
+    contractType,
     isNew: false,
   };
 };
@@ -551,7 +555,7 @@ export default function PresupuestoICAA() {
     setIsSaving(true);
     try {
       // Exclude 'total' as it's a generated column in the database
-      const isPersonnel = PERSONNEL_CHAPTERS.includes(chapterId);
+      const isPersonnel = (PERSONNEL_CHAPTERS as readonly number[]).includes(chapterId);
       const lineData = {
         account_number: line.accountNumber,
         concept: line.concept,
@@ -565,6 +569,12 @@ export default function PresupuestoICAA() {
         social_security_cost: isPersonnel ? line.ssCost : 0,
         irpf_percentage: isPersonnel ? line.irpfPercentage : 0,
         irpf_cost: isPersonnel ? line.irpfCost : 0,
+        // New fields
+        unit_type: line.unitType,
+        pre_weeks: line.preWeeks,
+        rod_weeks: line.rodWeeks,
+        post_weeks: line.postWeeks,
+        contract_type: line.contractType,
       };
 
       if (line.isNew || line.id.startsWith('new-')) {
@@ -620,14 +630,48 @@ export default function PresupuestoICAA() {
           if (line.id !== lineId) return line;
 
           const updated = { ...line, [field]: value };
-          // Recalculate total (ICAA line total = units * quantity * unitPrice * (1 + agency%))
-          const remuneration = updated.units * updated.quantity * updated.unitPrice;
-          updated.total = remuneration * (1 + updated.agencyPercentage / 100);
 
-          // Recalculate SS and IRPF for personnel chapters (costs go to Ch.10, not line total)
-          if (PERSONNEL_CHAPTERS.includes(chapterId)) {
-            updated.ssCost = calculateSSCost(remuneration, updated.ssPercentage);
-            updated.irpfCost = calculateIRPFCost(remuneration, updated.irpfPercentage);
+          // When contract type changes, update SS% to match
+          if (field === 'contractType') {
+            const ct = value as ContractType;
+            updated.ssPercentage = SS_TOTAL_BY_CONTRACT[ct] ?? updated.ssPercentage;
+          }
+
+          // When unit type changes to T/A, reset phase fields
+          if (field === 'unitType' && value === 'TA') {
+            updated.preWeeks = 0;
+            updated.rodWeeks = 0;
+            updated.postWeeks = 0;
+          }
+
+          const isPersonnel = (PERSONNEL_CHAPTERS as readonly number[]).includes(chapterId);
+
+          if (isPersonnel) {
+            // Use the calculator service for personnel chapters
+            const result = recalculatePersonnelCosts({
+              unitType: updated.unitType,
+              unitPrice: updated.unitPrice,
+              units: updated.units,
+              quantity: updated.quantity,
+              agencyPercentage: updated.agencyPercentage,
+              ssPercentage: updated.ssPercentage,
+              irpfPercentage: updated.irpfPercentage,
+              preWeeks: updated.preWeeks,
+              rodWeeks: updated.rodWeeks,
+              postWeeks: updated.postWeeks,
+              chapter: chapterId,
+            });
+
+            updated.ssCost = result.ssCost;
+            updated.irpfCost = result.irpfCost;
+            updated.units = result.effectiveUnits;
+            updated.quantity = result.effectiveQuantity;
+            // Total = remuneration (for the DB GENERATED column: units * quantity * unit_price * (1 + ag%))
+            updated.total = result.grossRemuneration;
+          } else {
+            // Non-personnel: standard calculation
+            const remuneration = updated.units * updated.quantity * updated.unitPrice;
+            updated.total = remuneration * (1 + updated.agencyPercentage / 100);
           }
 
           return updated;
@@ -644,7 +688,7 @@ export default function PresupuestoICAA() {
     setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
 
-      const isPersonnel = PERSONNEL_CHAPTERS.includes(chapterId);
+      const isPersonnel = (PERSONNEL_CHAPTERS as readonly number[]).includes(chapterId);
       const newLine: LocalBudgetLine = {
         id: `new-${chapterId}-${Date.now()}`,
         accountNumber: `${chapterId.toString().padStart(2, '0')}.${(ch.lines.length + 1).toString().padStart(2, '0')}`,
@@ -654,10 +698,15 @@ export default function PresupuestoICAA() {
         unitPrice: 0,
         agencyPercentage: 0,
         total: 0,
-        ssPercentage: isPersonnel ? DEFAULT_SS_PERCENTAGE : 0,
+        ssPercentage: isPersonnel ? getDefaultSSRate(chapterId) : 0,
         ssCost: 0,
-        irpfPercentage: isPersonnel ? DEFAULT_IRPF_PERCENTAGE : 0,
+        irpfPercentage: isPersonnel ? getDefaultIRPFRate(chapterId) : 0,
         irpfCost: 0,
+        unitType: getDefaultUnitType(chapterId),
+        preWeeks: 0,
+        rodWeeks: 0,
+        postWeeks: 0,
+        contractType: getDefaultContractType(),
         isNew: true,
       };
 
@@ -941,6 +990,11 @@ export default function PresupuestoICAA() {
           ssCost: l.ssCost,
           irpfPercentage: l.irpfPercentage,
           irpfCost: l.irpfCost,
+          unitType: l.unitType,
+          preWeeks: l.preWeeks,
+          rodWeeks: l.rodWeeks,
+          postWeeks: l.postWeeks,
+          contractType: l.contractType,
         })),
       }));
 
@@ -979,7 +1033,7 @@ export default function PresupuestoICAA() {
       }
 
       // Convert snapshot back to budget_lines format for bulk insert
-      const lines: { chapter: number; account_number: string; concept: string; units: number; quantity: number; unit_price: number; agency_percentage: number; social_security_percentage?: number; social_security_cost?: number; irpf_percentage?: number; irpf_cost?: number }[] = [];
+      const lines: { chapter: number; account_number: string; concept: string; units: number; quantity: number; unit_price: number; agency_percentage: number; social_security_percentage?: number; social_security_cost?: number; irpf_percentage?: number; irpf_cost?: number; unit_type?: string; pre_weeks?: number; rod_weeks?: number; post_weeks?: number; contract_type?: string }[] = [];
       for (const ch of json.chapters) {
         for (const line of ch.lines) {
           lines.push({
@@ -994,6 +1048,11 @@ export default function PresupuestoICAA() {
             social_security_cost: line.ssCost ?? 0,
             irpf_percentage: line.irpfPercentage ?? 0,
             irpf_cost: line.irpfCost ?? 0,
+            unit_type: line.unitType ?? 'SEM',
+            pre_weeks: line.preWeeks ?? 0,
+            rod_weeks: line.rodWeeks ?? 0,
+            post_weeks: line.postWeeks ?? 0,
+            contract_type: line.contractType ?? 'indefinido',
           });
         }
       }
@@ -1632,7 +1691,7 @@ export default function PresupuestoICAA() {
                       <span className="flex items-center gap-2">
                         {chapter.name}
                         <Badge variant="secondary">{chapter.lines.length} partidas</Badge>
-                        {PERSONNEL_CHAPTERS.includes(chapter.id) && (
+                        {(PERSONNEL_CHAPTERS as readonly number[]).includes(chapter.id) && (
                           <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
                             SS+IRPF → Cap.10
                           </Badge>
@@ -1650,11 +1709,30 @@ export default function PresupuestoICAA() {
                         <TableRow>
                           <TableHead className="w-24">Núm.</TableHead>
                           <TableHead>Concepto</TableHead>
-                          <TableHead className="w-20 text-right">UD</TableHead>
-                          <TableHead className="w-20 text-right">X</TableHead>
+                          {(PERSONNEL_CHAPTERS as readonly number[]).includes(chapter.id) && (
+                            <>
+                              <TableHead className="w-24">Tipo</TableHead>
+                              <TableHead className="w-20">Contrato</TableHead>
+                            </>
+                          )}
+                          {/* Cap 03: PRE/ROD/POST columns */}
+                          {chapter.id === 3 && (
+                            <>
+                              <TableHead className="w-16 text-right">PRE</TableHead>
+                              <TableHead className="w-16 text-right">ROD</TableHead>
+                              <TableHead className="w-16 text-right">POST</TableHead>
+                            </>
+                          )}
+                          {/* Cap 02 or non-personnel: UD/X columns */}
+                          {chapter.id !== 3 && (
+                            <>
+                              <TableHead className="w-20 text-right">UD</TableHead>
+                              <TableHead className="w-20 text-right">X</TableHead>
+                            </>
+                          )}
                           <TableHead className="w-28 text-right">€/Ud</TableHead>
                           <TableHead className="w-20 text-right">AG%</TableHead>
-                          {PERSONNEL_CHAPTERS.includes(chapter.id) && (
+                          {(PERSONNEL_CHAPTERS as readonly number[]).includes(chapter.id) && (
                             <>
                               <TableHead className="w-20 text-right">SS%</TableHead>
                               <TableHead className="w-24 text-right">SS €</TableHead>
@@ -1667,7 +1745,14 @@ export default function PresupuestoICAA() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {chapter.lines.map((line) => (
+                        {chapter.lines.map((line) => {
+                          const isPersonnelCh = (PERSONNEL_CHAPTERS as readonly number[]).includes(chapter.id);
+                          const isTantoAlzado = line.unitType === 'TA';
+                          const totalPeriods = chapter.id === 3 && !isTantoAlzado
+                            ? calculateTotalPeriods(line.unitType, line.preWeeks, line.rodWeeks, line.postWeeks)
+                            : line.units * line.quantity;
+
+                          return (
                           <TableRow key={line.id}>
                             <TableCell>
                               <Input
@@ -1684,24 +1769,122 @@ export default function PresupuestoICAA() {
                                 onBlur={() => handleLineBlur(chapter.id, line)}
                               />
                             </TableCell>
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                value={line.units}
-                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'units', parseFloat(e.target.value) || 0)}
-                                onBlur={() => handleLineBlur(chapter.id, line)}
-                                className="w-16 text-right"
-                              />
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                value={line.quantity}
-                                onChange={(e) => handleUpdateLine(chapter.id, line.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                onBlur={() => handleLineBlur(chapter.id, line)}
-                                className="w-16 text-right"
-                              />
-                            </TableCell>
+                            {/* Personnel: Unit Type + Contract Type selectors */}
+                            {isPersonnelCh && (
+                              <>
+                                <TableCell>
+                                  <Select
+                                    value={line.unitType}
+                                    onValueChange={(v) => {
+                                      handleUpdateLine(chapter.id, line.id, 'unitType', v);
+                                      // Auto-save after change
+                                      setTimeout(() => {
+                                        const ch = chapters.find(c => c.id === chapter.id);
+                                        const updatedLine = ch?.lines.find(l => l.id === line.id);
+                                        if (updatedLine) handleLineBlur(chapter.id, updatedLine);
+                                      }, 100);
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-24 h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Object.entries(UNIT_TYPES).map(([key, label]) => (
+                                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={line.contractType}
+                                    onValueChange={(v) => {
+                                      handleUpdateLine(chapter.id, line.id, 'contractType', v);
+                                      setTimeout(() => {
+                                        const ch = chapters.find(c => c.id === chapter.id);
+                                        const updatedLine = ch?.lines.find(l => l.id === line.id);
+                                        if (updatedLine) handleLineBlur(chapter.id, updatedLine);
+                                      }, 100);
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-20 h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="indefinido">Indef.</SelectItem>
+                                      <SelectItem value="temporal">Temp.</SelectItem>
+                                      <SelectItem value="autonomo">Autón.</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                              </>
+                            )}
+                            {/* Cap 03: PRE/ROD/POST inputs or "T/A" label */}
+                            {chapter.id === 3 && (
+                              isTantoAlzado ? (
+                                <>
+                                  <TableCell colSpan={3} className="text-center text-xs text-muted-foreground italic">
+                                    Tanto Alzado
+                                  </TableCell>
+                                </>
+                              ) : (
+                                <>
+                                  <TableCell className="text-right">
+                                    <Input
+                                      type="number"
+                                      value={line.preWeeks}
+                                      onChange={(e) => handleUpdateLine(chapter.id, line.id, 'preWeeks', parseFloat(e.target.value) || 0)}
+                                      onBlur={() => handleLineBlur(chapter.id, line)}
+                                      className="w-14 text-right text-xs"
+                                      placeholder="0"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Input
+                                      type="number"
+                                      value={line.rodWeeks}
+                                      onChange={(e) => handleUpdateLine(chapter.id, line.id, 'rodWeeks', parseFloat(e.target.value) || 0)}
+                                      onBlur={() => handleLineBlur(chapter.id, line)}
+                                      className="w-14 text-right text-xs"
+                                      placeholder="0"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Input
+                                      type="number"
+                                      value={line.postWeeks}
+                                      onChange={(e) => handleUpdateLine(chapter.id, line.id, 'postWeeks', parseFloat(e.target.value) || 0)}
+                                      onBlur={() => handleLineBlur(chapter.id, line)}
+                                      className="w-14 text-right text-xs"
+                                      placeholder="0"
+                                    />
+                                  </TableCell>
+                                </>
+                              )
+                            )}
+                            {/* Cap 02 or non-personnel: UD/X */}
+                            {chapter.id !== 3 && (
+                              <>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    value={line.units}
+                                    onChange={(e) => handleUpdateLine(chapter.id, line.id, 'units', parseFloat(e.target.value) || 0)}
+                                    onBlur={() => handleLineBlur(chapter.id, line)}
+                                    className="w-16 text-right"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    value={line.quantity}
+                                    onChange={(e) => handleUpdateLine(chapter.id, line.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                    onBlur={() => handleLineBlur(chapter.id, line)}
+                                    className="w-16 text-right"
+                                  />
+                                </TableCell>
+                              </>
+                            )}
                             <TableCell className="text-right">
                               <Input
                                 type="number"
@@ -1720,7 +1903,7 @@ export default function PresupuestoICAA() {
                                 className="w-16 text-right"
                               />
                             </TableCell>
-                            {PERSONNEL_CHAPTERS.includes(chapter.id) && (
+                            {isPersonnelCh && (
                               <>
                                 <TableCell className="text-right">
                                   <Input
@@ -1761,12 +1944,13 @@ export default function PresupuestoICAA() {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
 
                         {/* Personnel chapters: show SS/IRPF summary row */}
-                        {PERSONNEL_CHAPTERS.includes(chapter.id) && chapter.lines.some(l => l.ssCost > 0 || l.irpfCost > 0) && (
+                        {(PERSONNEL_CHAPTERS as readonly number[]).includes(chapter.id) && chapter.lines.some(l => l.ssCost > 0 || l.irpfCost > 0) && (
                           <TableRow className="bg-amber-50/50 dark:bg-amber-950/20 border-t-2">
-                            <TableCell colSpan={6} className="text-right text-sm font-medium text-amber-700 dark:text-amber-400">
+                            <TableCell colSpan={chapter.id === 3 ? 9 : 8} className="text-right text-sm font-medium text-amber-700 dark:text-amber-400">
                               Totales SS + IRPF (→ Cap. 10):
                             </TableCell>
                             <TableCell className="text-right text-sm font-medium text-amber-700 dark:text-amber-400">

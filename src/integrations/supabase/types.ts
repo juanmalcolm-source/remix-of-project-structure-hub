@@ -229,11 +229,9 @@ export type Database = {
           budget_level: string | null
           chapter: number
           concept: string
+          contract_type: string | null
           created_at: string
           id: string
-          irpf_cost: number | null
-          irpf_percentage: number | null
-          contract_type: string | null
           notes: string | null
           post_weeks: number | null
           pre_weeks: number | null
@@ -262,8 +260,6 @@ export type Database = {
           contract_type?: string | null
           created_at?: string
           id?: string
-          irpf_cost?: number | null
-          irpf_percentage?: number | null
           notes?: string | null
           post_weeks?: number | null
           pre_weeks?: number | null
@@ -292,8 +288,6 @@ export type Database = {
           contract_type?: string | null
           created_at?: string
           id?: string
-          irpf_cost?: number | null
-          irpf_percentage?: number | null
           notes?: string | null
           post_weeks?: number | null
           pre_weeks?: number | null

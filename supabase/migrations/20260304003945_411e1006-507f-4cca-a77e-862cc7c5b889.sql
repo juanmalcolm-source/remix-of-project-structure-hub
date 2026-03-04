@@ -1,0 +1,1 @@
+ALTER TABLE budget_lines ADD COLUMN IF NOT EXISTS unit_type text DEFAULT 'SEM', ADD COLUMN IF NOT EXISTS pre_weeks numeric DEFAULT 0, ADD COLUMN IF NOT EXISTS rod_weeks numeric DEFAULT 0, ADD COLUMN IF NOT EXISTS post_weeks numeric DEFAULT 0, ADD COLUMN IF NOT EXISTS contract_type text DEFAULT 'indefinido';

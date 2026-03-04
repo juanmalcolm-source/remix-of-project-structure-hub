@@ -73,7 +73,46 @@ function sleep(ms: number): Promise<void> {
 /**
  * Limpia JSON de markdown fences y extrae el objeto JSON
  */
-function limpiarYParsearJSON(text: string): Record<string, unknown> {
+/**
+ * Intenta reparar JSON truncado cerrando llaves y corchetes abiertos.
+ * Útil cuando max_tokens corta la respuesta a mitad del JSON.
+ */
+function repairTruncatedJSON(text: string): string {
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escape = false;
+
+  for (const ch of text) {
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') openBraces++;
+    else if (ch === '}') openBraces--;
+    else if (ch === '[') openBrackets++;
+    else if (ch === ']') openBrackets--;
+  }
+
+  if (openBraces === 0 && openBrackets === 0) return text; // JSON ya cerrado
+
+  let repaired = text.trimEnd();
+  // Quitar coma o dos puntos trailing
+  if (repaired.endsWith(',') || repaired.endsWith(':')) {
+    repaired = repaired.slice(0, -1);
+  }
+  // Si estamos dentro de un string, cerrarlo
+  if (inString) {
+    repaired += '"';
+  }
+  // Cerrar estructuras abiertas (corchetes primero, luego llaves)
+  while (openBrackets > 0) { repaired += ']'; openBrackets--; }
+  while (openBraces > 0) { repaired += '}'; openBraces--; }
+
+  return repaired;
+}
+
+function limpiarYParsearJSON(text: string, wasTruncated: boolean = false): Record<string, unknown> {
   let jsonStr = text.trim();
 
   // Limpiar markdown fences
@@ -87,13 +126,34 @@ function limpiarYParsearJSON(text: string): Record<string, unknown> {
   }
   jsonStr = jsonStr.trim();
 
+  // Si fue truncado, intentar reparar antes de parsear
+  if (wasTruncated) {
+    console.warn('Intentando reparar JSON truncado por max_tokens');
+    jsonStr = repairTruncatedJSON(jsonStr);
+  }
+
   try {
     return JSON.parse(jsonStr);
   } catch {
+    // Si no fue truncado antes, intentar reparar ahora como fallback
+    if (!wasTruncated) {
+      try {
+        const repaired = repairTruncatedJSON(jsonStr);
+        return JSON.parse(repaired);
+      } catch {
+        // continuar al siguiente fallback
+      }
+    }
     // Fallback: buscar JSON con regex
     const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        // Si el match tampoco parsea, intentar reparar
+        const repaired = repairTruncatedJSON(jsonMatch[0]);
+        return JSON.parse(repaired);
+      }
     }
     throw new Error('No se encontró JSON válido en la respuesta');
   }
@@ -203,9 +263,16 @@ async function llamarVercelAPI(
 
       console.log(`Stream completado: ${fullText.length} caracteres recibidos`);
 
+      // Detectar si fue truncado por max_tokens
+      const wasTruncated = streamMetadata &&
+        (streamMetadata as Record<string, unknown>).stop_reason === 'max_tokens';
+      if (wasTruncated) {
+        console.warn('Respuesta truncada por max_tokens — intentando reparar JSON');
+      }
+
       let analisis: Record<string, unknown>;
       try {
-        analisis = limpiarYParsearJSON(fullText);
+        analisis = limpiarYParsearJSON(fullText, !!wasTruncated);
       } catch (jsonErr) {
         console.error('Error parseando JSON del stream:', jsonErr);
         console.error('Primeros 300 chars:', fullText.substring(0, 300));
@@ -219,11 +286,6 @@ async function llamarVercelAPI(
             accion: 'Reintentar'
           }
         );
-      }
-
-      // Verificar si Claude fue cortado por max_tokens
-      if (streamMetadata && (streamMetadata as Record<string, unknown>).stop_reason === 'max_tokens') {
-        console.warn('Respuesta truncada por max_tokens — se intentará usar lo disponible');
       }
 
       return {

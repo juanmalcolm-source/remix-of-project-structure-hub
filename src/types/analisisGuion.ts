@@ -267,7 +267,8 @@ export interface Secuencia {
   vehiculos?: string[];
   efectos_especiales?: string[];
   complejidad_rodaje: 'Baja' | 'Media' | 'Alta';
-  // Campos profesionales de tiempo
+  score_complejidad?: number;
+  // Campos profesionales de tiempo (legacy — ahora simplificados en el prompt)
   complexity_factor?: number; // 1.0, 1.2, 2.0, 3.0
   complexity_reason?: string;
   setup_time_minutes?: number;

@@ -216,7 +216,13 @@ export async function createProjectFromAnalysis(
       sequence_number: seq.numero_secuencia || index + 1,
       title: seq.encabezado || `Secuencia ${index + 1}`,
       description: seq.localizacion || '',
-      estimated_duration_minutes: Math.ceil(seq.duracion_estimada_minutos || seq.paginas_octavos || 1),
+      estimated_duration_minutes: Math.ceil(
+        seq.duracion_estimada_minutos || (seq.paginas_octavos ? seq.paginas_octavos / 8 : 1)
+      ),
+      page_eighths: seq.paginas_octavos || null,
+      int_ext: seq.set_type || null,
+      time_of_day: seq.momento_dia || null,
+      scene_complexity: seq.complejidad_rodaje || null,
       characters_in_scene: seq.personajes || [],
       wardrobe: seq.vestuario || [],
       attrezzo: seq.attrezzo || [],

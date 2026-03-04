@@ -276,16 +276,11 @@ Devuelve SOLO un JSON válido con esta estructura COMPLETA:
     {
       "numero_secuencia": number,
       "numero_escena": "string",
-      "encabezado": "string",
+      "encabezado": "string (cabecera completa: INT/EXT. LUGAR - MOMENTO)",
       "localizacion": "string",
       "set_type": "INT|EXT",
       "momento_dia": "string",
       "paginas_octavos": number,
-      "complexity_factor": number,
-      "complexity_reason": "string",
-      "setup_time_minutes": number,
-      "shooting_time_minutes": number,
-      "total_time_minutes": number,
       "duracion_estimada_minutos": number,
       "personajes": ["strings"],
       "attrezzo": ["strings"],
@@ -293,31 +288,8 @@ Devuelve SOLO un JSON válido con esta estructura COMPLETA:
       "vehiculos": ["strings"],
       "efectos_especiales": ["strings"],
       "complejidad_rodaje": "Baja|Media|Alta",
-      "notas_direccion": "string",
-      "analisis_complejidad": {
-        "tipo_escena": "dialogo_estatico|movimiento|accion|intimista|accion_compleja",
-        "factores": {
-          "num_personajes": number,
-          "movimiento_camara": boolean,
-          "accion_fisica": boolean,
-          "stunts": boolean,
-          "efectos_especiales": boolean,
-          "ninos": boolean,
-          "animales": boolean,
-          "vehiculos_movimiento": boolean,
-          "coordinacion_extras": number,
-          "iluminacion_compleja": boolean,
-          "escena_noche": boolean,
-          "exteriores_clima": boolean,
-          "dialogo_extenso": boolean,
-          "requiere_grua": boolean,
-          "planos_especiales": boolean
-        },
-        "score_complejidad": number,
-        "categoria": "Baja|Media|Alta",
-        "tiempo_setup_estimado_minutos": number,
-        "paginas_por_dia_sugerido": number
-      }
+      "score_complejidad": number,
+      "notas_direccion": "string (breve, 1 frase)"
     }
   ],
   "relaciones_personajes": [
@@ -388,7 +360,9 @@ INSTRUCCIONES CRÍTICAS:
 11. Para personajes PROTAGONISTA: ghost, stakes, transformacion y necesidad_dramatica son OBLIGATORIOS — si el guión no los define claramente, indica "No explicitado en el guión — recomendación: desarrollar"
 12. comparables: MÍNIMO 3 películas/series REALES con año de estreno
 13. Sé EXHAUSTIVO y PROFESIONAL — este análisis vale dinero
-14. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
+14. CRÍTICO - DESGLOSE DE SECUENCIAS: Genera UNA entrada en desglose_secuencias por CADA escena/encabezado del guión (INT/EXT). Un largometraje típico tiene 80-130 escenas. NO agrupes múltiples escenas en una sola entrada. NO resumas. Cada cambio de cabecera = una nueva entrada. La suma de paginas_octavos de todas las secuencias debe aproximarse a paginas_totales × 8.
+15. duracion_estimada_minutos de cada secuencia = paginas_octavos / 8 (1 página ≈ 1 minuto)
+16. Devuelve SOLO el JSON, sin markdown ni explicaciones`;
 
     console.log(`Enviando a Claude Sonnet (${paginasEstimadas} páginas estimadas)...`);
 
@@ -402,7 +376,7 @@ INSTRUCCIONES CRÍTICAS:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 32000,
+        max_tokens: 128000,
         temperature: 0.3,
         system: systemPrompt,
         messages: [{ role: 'user', content: contextoProduccion }],

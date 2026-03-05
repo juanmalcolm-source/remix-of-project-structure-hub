@@ -116,6 +116,7 @@ Devuelve SOLO JSON válido (sin markdown) con esta estructura. El orden del JSON
     {
       "nombre": "string",
       "tipo": "INT|EXT",
+      "momento_dia": "DÍA|NOCHE|ATARDECER|AMANECER",
       "descripcion": "string (breve)",
       "escenas": [numbers],
       "paginas_totales": number,
@@ -136,6 +137,11 @@ Devuelve SOLO JSON válido (sin markdown) con esta estructura. El orden del JSON
       "importancia_trama": "Alta|Media|Baja",
       "arco_dramatico": "string",
       "relaciones_clave": ["string"],
+      "motivaciones": "string (solo PROTAGONISTA/PRINCIPAL)",
+      "conflictos": "string (solo PROTAGONISTA/PRINCIPAL)",
+      "necesidad_dramatica": "string (solo PROTAGONISTA/PRINCIPAL)",
+      "flaw_principal": "string (solo PROTAGONISTA/PRINCIPAL)",
+      "funcion_narrativa": "string (mentor|sombra|heraldo|guardian|embaucador|aliado — solo PROTAGONISTA/PRINCIPAL)",
       "ghost": "string (solo protagonistas)",
       "stakes": "string (solo protagonistas)",
       "transformacion": "string (solo protagonistas)"
@@ -155,21 +161,37 @@ Devuelve SOLO JSON válido (sin markdown) con esta estructura. El orden del JSON
     "puntos_de_giro": [
       { "nombre": "string", "pagina_aproximada": number, "descripcion": "string" }
     ],
+    "curva_emocional": [
+      { "momento": "string", "emocion": "string", "intensidad": number }
+    ],
     "errores_narrativos": [
-      { "tipo": "string", "gravedad": "critico|importante|menor", "pagina_aproximada": number, "descripcion": "string", "sugerencia_correccion": "string" }
+      { "tipo": "plot_hole|inconsistencia|ritmo|personaje|dialogo|estructura|logica", "gravedad": "critico|importante|menor|sugerencia", "ubicacion": "string", "pagina_aproximada": number, "descripcion": "string", "sugerencia_correccion": "string" }
     ],
     "conflictos": {
-      "conflicto_principal": { "tipo": "string", "descripcion": "string", "personajes_involucrados": ["string"], "resuelto": true },
-      "mapa_tensiones": [{ "pagina_aproximada": number, "nivel_tension": number, "descripcion": "string" }]
+      "conflicto_principal": { "tipo": "persona_vs_persona|persona_vs_sociedad|persona_vs_naturaleza|persona_vs_si_mismo|persona_vs_destino|persona_vs_tecnologia", "descripcion": "string", "personajes_involucrados": ["string"], "detonante": "string", "desarrollo": "string", "resolucion": "string", "resuelto": boolean },
+      "conflictos_secundarios": [{ "tipo": "string", "descripcion": "string", "personajes_involucrados": ["string"], "detonante": "string", "desarrollo": "string", "resolucion": "string", "resuelto": boolean }],
+      "conflictos_internos": [{ "personaje": "string", "conflicto": "string", "manifestacion": "string", "evolucion": "string" }],
+      "mapa_tensiones": [{ "pagina_aproximada": number, "nivel_tension": number, "descripcion": "string", "conflicto_asociado": "string" }]
     },
-    "ritmo": { "ritmo_general": "lento|moderado|rapido|variable", "observaciones": "string" },
-    "tematica": { "tema_principal": "string", "temas_secundarios": ["string"], "mensaje_universal": "string" }
+    "ritmo": {
+      "ritmo_general": "lento|moderado|rapido|variable",
+      "observaciones": "string",
+      "secciones_lentas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }],
+      "secciones_rapidas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }],
+      "equilibrio_dialogo_accion": "string"
+    },
+    "tematica": {
+      "tema_principal": { "nombre": "string", "descripcion": "string", "como_se_desarrolla": "string", "escenas_clave": ["string"] },
+      "temas_secundarios": [{ "nombre": "string", "descripcion": "string", "como_se_desarrolla": "string", "escenas_clave": ["string"] }],
+      "simbolismos": [{ "elemento": "string", "significado": "string", "apariciones": ["string"] }],
+      "mensaje_universal": "string"
+    }
   },
   "analisis_dafo": {
-    "fortalezas": [{ "titulo": "string", "descripcion": "string" }],
-    "debilidades": [{ "titulo": "string", "descripcion": "string" }],
-    "oportunidades": [{ "titulo": "string", "descripcion": "string" }],
-    "amenazas": [{ "titulo": "string", "descripcion": "string" }],
+    "fortalezas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
+    "debilidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
+    "oportunidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
+    "amenazas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
     "score_narrativo": number,
     "score_comercial": number,
     "score_festival": number,
@@ -181,26 +203,39 @@ Devuelve SOLO JSON válido (sin markdown) con esta estructura. El orden del JSON
   "potencial_mercado": {
     "territorios_principales": ["string"],
     "genero_tendencia": "en_alza|estable|en_baja",
+    "ventanas_distribucion": ["string"],
     "festivales_sugeridos": ["string"],
     "plataformas_potenciales": ["string"]
   },
   "viabilidad": {
     "fortalezas": ["strings"],
     "debilidades": ["strings"],
-    "sugerencias_mejora": ["strings"]
-  }
+    "sugerencias_mejora": ["strings"],
+    "factores_positivos": ["strings"],
+    "factores_negativos": ["strings"]
+  },
+  "relaciones_personajes": [
+    { "personaje_a": "string", "personaje_b": "string", "tipo_relacion": "aliado|antagonista|mentor|romantica|familiar|profesional|rival|protector", "descripcion": "string", "evolucion": "string" }
+  ]
 }
 
 INSTRUCCIONES:
 1. LOGLINE: UNA FRASE, máx 30 palabras. SYNOPSIS: UN PÁRRAFO, 100-150 palabras.
 2. desglose_secuencias: UNA entrada por CADA INT/EXT del guión. La suma de paginas_octavos ÷ 8 ≈ paginas_totales.
 3. localizaciones: Lista TODAS las localizaciones únicas. nombre debe coincidir con localizacion de desglose_secuencias.
-4. Errores narrativos ESPECÍFICOS con sugerencias útiles. mapa_tensiones: mínimo 8 puntos.
-5. Scores: score_narrativo/comercial/festival (0-100) con rúbricas estrictas.
-6. festivales_sugeridos: MÍNIMO 3 REALES (1 español + 1 internacional). comparables: MÍNIMO 3 REALES con año.
-7. territorios_principales: MÍNIMO 2 (siempre España).
-8. Para PROTAGONISTAS: ghost, stakes, transformacion son OBLIGATORIOS.
-9. Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
+4. curva_emocional: MÍNIMO 8 puntos, intensidad 1-10. Cubre toda la historia (inicio → clímax → desenlace).
+5. Errores narrativos ESPECÍFICOS con sugerencias útiles. mapa_tensiones: mínimo 8 puntos con conflicto_asociado.
+6. conflictos: detonante/desarrollo/resolución OBLIGATORIOS para conflicto_principal. Incluir conflictos_secundarios y conflictos_internos.
+7. ritmo: equilibrio_dialogo_accion OBLIGATORIO. Incluir secciones_lentas y secciones_rapidas con sugerencias.
+8. tematica: tema_principal DEBE ser un OBJETO con {nombre, descripcion, como_se_desarrolla, escenas_clave}. NO un string. simbolismos: MÍNIMO 2.
+9. DAFO: impacto (alto|medio|bajo) y categoria (narrativa|produccion|mercado|audiencia) OBLIGATORIOS en cada elemento.
+10. Scores: score_narrativo/comercial/festival (0-100) con rúbricas estrictas.
+11. festivales_sugeridos: MÍNIMO 3 REALES (1 español + 1 internacional). comparables: MÍNIMO 3 REALES con año.
+12. territorios_principales: MÍNIMO 2 (siempre España). ventanas_distribucion: MÍNIMO 2.
+13. Para PROTAGONISTAS: ghost, stakes, transformacion, motivaciones, flaw_principal, funcion_narrativa, necesidad_dramatica son OBLIGATORIOS.
+14. relaciones_personajes: Incluir las relaciones principales entre personajes.
+15. viabilidad: Incluir factores_positivos y factores_negativos.
+16. Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
 
     // Llamar a Anthropic con streaming para evitar timeouts de Vercel
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {

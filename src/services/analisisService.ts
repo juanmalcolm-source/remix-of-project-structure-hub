@@ -1,14 +1,14 @@
 import { AnalisisGuion } from '@/types/analisisGuion';
 
-// Timeout de 270s (4.5 min) — cortar antes del límite de Vercel (300s)
+// Timeout de 270s (4.5 min) por fase — cortar antes del límite de Vercel (300s)
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000;
-const CLIENT_TIMEOUT_MS = 270_000; // 4.5 minutos
+const CLIENT_TIMEOUT_MS = 270_000; // 4.5 minutos por fase
 const STREAM_STALL_TIMEOUT_MS = 60_000; // 60s sin datos = stream muerto
 
 interface AnalisisResponse {
   success: boolean;
-  analisis?: AnalisisGuion;
+  analisis?: Record<string, unknown>;
   error?: string;
   metadata?: {
     modelo: string;
@@ -35,49 +35,34 @@ export class AnalisisError extends Error {
   }
 }
 
-/**
- * Valida que la respuesta del análisis tenga la estructura correcta
- */
-function validarAnalisis(data: unknown): data is AnalisisResponse {
-  if (!data || typeof data !== 'object') {
-    return false;
-  }
+// ═══════════════════════════════════════════════════════════════
+// VALIDACIÓN POR FASE
+// ═══════════════════════════════════════════════════════════════
 
-  const response = data as AnalisisResponse;
-
-  if (!response.success) {
-    return true; // Si success es false, es válido (es un error controlado)
-  }
-
-  if (!response.analisis) {
-    return false;
-  }
-
-  const analisis = response.analisis;
-
-  // Validar estructura básica
+function validarFase1(data: Record<string, unknown>): boolean {
   return (
-    analisis.informacion_general !== undefined &&
-    Array.isArray(analisis.personajes) &&
-    Array.isArray(analisis.localizaciones) &&
-    Array.isArray(analisis.desglose_secuencias) &&
-    analisis.resumen_produccion !== undefined
+    data.informacion_general !== undefined &&
+    Array.isArray(data.desglose_secuencias) &&
+    Array.isArray(data.personajes) &&
+    Array.isArray(data.localizaciones) &&
+    data.resumen_produccion !== undefined
   );
 }
 
-/**
- * Espera un tiempo determinado
- */
+function validarFase2(data: Record<string, unknown>): boolean {
+  return data.analisis_narrativo !== undefined;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS JSON
+// ═══════════════════════════════════════════════════════════════
+
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
- * Limpia JSON de markdown fences y extrae el objeto JSON
- */
-/**
  * Intenta reparar JSON truncado cerrando llaves y corchetes abiertos.
- * Útil cuando max_tokens corta la respuesta a mitad del JSON.
  */
 function repairTruncatedJSON(text: string): string {
   let openBraces = 0;
@@ -96,18 +81,15 @@ function repairTruncatedJSON(text: string): string {
     else if (ch === ']') openBrackets--;
   }
 
-  if (openBraces === 0 && openBrackets === 0) return text; // JSON ya cerrado
+  if (openBraces === 0 && openBrackets === 0) return text;
 
   let repaired = text.trimEnd();
-  // Quitar coma o dos puntos trailing
   if (repaired.endsWith(',') || repaired.endsWith(':')) {
     repaired = repaired.slice(0, -1);
   }
-  // Si estamos dentro de un string, cerrarlo
   if (inString) {
     repaired += '"';
   }
-  // Cerrar estructuras abiertas (corchetes primero, luego llaves)
   while (openBrackets > 0) { repaired += ']'; openBrackets--; }
   while (openBraces > 0) { repaired += '}'; openBraces--; }
 
@@ -152,7 +134,6 @@ function limpiarYParsearJSON(text: string, wasTruncated: boolean = false): Recor
       try {
         return JSON.parse(jsonMatch[0]);
       } catch {
-        // Si el match tampoco parsea, intentar reparar
         const repaired = repairTruncatedJSON(jsonMatch[0]);
         return JSON.parse(repaired);
       }
@@ -161,12 +142,131 @@ function limpiarYParsearJSON(text: string, wasTruncated: boolean = false): Recor
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CONTEXTO FASE 1 → FASE 2
+// ═══════════════════════════════════════════════════════════════
+
 /**
- * Llama a la API Route de Vercel con streaming SSE
- * El streaming mantiene la conexión viva sin límite de tiempo
+ * Construye un resumen de texto de la Fase 1 para alimentar la Fase 2.
+ * Esto permite que Claude haga "análisis sobre análisis".
+ */
+function buildContextoFase1(analisis: Record<string, unknown>): string {
+  const info = analisis.informacion_general as Record<string, unknown> | undefined;
+  const personajes = analisis.personajes as Array<Record<string, unknown>> | undefined;
+  const localizaciones = analisis.localizaciones as Array<Record<string, unknown>> | undefined;
+  const secuencias = analisis.desglose_secuencias as Array<Record<string, unknown>> | undefined;
+  const resumen = analisis.resumen_produccion as Record<string, unknown> | undefined;
+
+  let ctx = `DATOS DEL GUIÓN (extraídos en Fase 1):\n`;
+  ctx += `- Título: ${info?.titulo || 'Desconocido'}\n`;
+  ctx += `- Género: ${info?.genero || 'Desconocido'}`;
+  if (info?.subgeneros && Array.isArray(info.subgeneros) && info.subgeneros.length > 0) {
+    ctx += ` (${(info.subgeneros as string[]).join(', ')})`;
+  }
+  ctx += `\n`;
+  ctx += `- Tono: ${info?.tono || '?'}\n`;
+  ctx += `- Duración estimada: ${info?.duracion_estimada_minutos || '?'} min\n`;
+  ctx += `- Páginas totales: ${info?.paginas_totales || '?'} (diálogo: ${info?.paginas_dialogo || '?'}, acción: ${info?.paginas_accion || '?'})\n`;
+  ctx += `- Total secuencias: ${secuencias?.length || '?'}\n`;
+  ctx += `- Complejidad general: ${resumen?.complejidad_general || '?'}\n`;
+
+  const diasRodaje = resumen?.dias_rodaje as Record<string, unknown> | undefined;
+  if (diasRodaje) {
+    ctx += `- Días de rodaje estimados: ${diasRodaje.estimacion_minima}-${diasRodaje.estimacion_maxima} (recomendado: ${diasRodaje.estimacion_recomendada})\n`;
+  }
+
+  ctx += `\nPERSONAJES (${personajes?.length || 0}):\n`;
+  if (personajes) {
+    for (const p of personajes) {
+      const escenas = p.escenas_aparicion as number[] | undefined;
+      ctx += `  - ${p.nombre} [${p.categoria}] — ${p.descripcion || 'Sin descripción'}`;
+      if (escenas) ctx += ` (${escenas.length} escenas)`;
+      if (p.arco_dramatico) ctx += ` | Arco: ${p.arco_dramatico}`;
+      ctx += `\n`;
+    }
+  }
+
+  ctx += `\nLOCALIZACIONES (${localizaciones?.length || 0}):\n`;
+  if (localizaciones) {
+    for (const l of localizaciones) {
+      const escenas = l.escenas as number[] | undefined;
+      ctx += `  - ${l.nombre} [${l.tipo}/${l.momento_dia}] — complejidad: ${l.complejidad}`;
+      if (escenas) ctx += ` (${escenas.length} escenas)`;
+      ctx += `\n`;
+    }
+  }
+
+  return ctx;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MERGE FASE 1 + FASE 2
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Combina los resultados de Fase 1 (producción) y Fase 2 (narrativo)
+ * en un único AnalisisGuion completo.
+ */
+function mergeAnalisis(
+  fase1: Record<string, unknown>,
+  fase2: Record<string, unknown> | null
+): AnalisisGuion {
+  // Empezar con Fase 1 como base
+  const merged: Record<string, unknown> = { ...fase1 };
+
+  if (!fase2) {
+    // Si Fase 2 falló, devolver solo Fase 1
+    return merged as unknown as AnalisisGuion;
+  }
+
+  // Añadir campos de Fase 2
+  merged.analisis_narrativo = fase2.analisis_narrativo;
+  merged.analisis_dafo = fase2.analisis_dafo;
+  merged.relaciones_personajes = fase2.relaciones_personajes;
+  merged.perfiles_audiencia_sugeridos = fase2.perfiles_audiencia_sugeridos;
+  merged.potencial_mercado = fase2.potencial_mercado;
+  merged.viabilidad = fase2.viabilidad;
+
+  // Merge profundidad de personajes de Fase 2 en personajes de Fase 1
+  const personajesProfundidad = fase2.personajes_profundidad as Array<Record<string, unknown>> | undefined;
+  const personajes = merged.personajes as Array<Record<string, unknown>> | undefined;
+
+  if (personajesProfundidad && personajes) {
+    for (const profundidad of personajesProfundidad) {
+      const nombreProf = (profundidad.nombre as string || '').toUpperCase().trim();
+      const personaje = personajes.find(
+        p => (p.nombre as string || '').toUpperCase().trim() === nombreProf
+      );
+      if (personaje) {
+        // Sobrescribir/añadir campos de profundidad narrativa
+        if (profundidad.arco_dramatico) personaje.arco_dramatico = profundidad.arco_dramatico;
+        if (profundidad.motivaciones) personaje.motivaciones = profundidad.motivaciones;
+        if (profundidad.conflictos) personaje.conflictos = profundidad.conflictos;
+        if (profundidad.necesidad_dramatica) personaje.necesidad_dramatica = profundidad.necesidad_dramatica;
+        if (profundidad.flaw_principal) personaje.flaw_principal = profundidad.flaw_principal;
+        if (profundidad.funcion_narrativa) personaje.funcion_narrativa = profundidad.funcion_narrativa;
+        if (profundidad.ghost) personaje.ghost = profundidad.ghost;
+        if (profundidad.stakes) personaje.stakes = profundidad.stakes;
+        if (profundidad.transformacion) personaje.transformacion = profundidad.transformacion;
+      }
+    }
+  }
+
+  return merged as unknown as AnalisisGuion;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LLAMADA A LA API CON STREAMING SSE
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Llama a la API Route de Vercel con streaming SSE.
+ * Acepta fase (1 o 2) y contexto de Fase 1 para la Fase 2.
  */
 async function llamarVercelAPI(
   texto: string,
+  fase: 1 | 2,
+  contextoFase1: string | null,
   onStreamProgress?: (chars: number) => void
 ): Promise<AnalisisResponse> {
   const abortController = new AbortController();
@@ -176,7 +276,7 @@ async function llamarVercelAPI(
     const response = await fetch('/api/analizar-guion-claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto }),
+      body: JSON.stringify({ texto, fase, contextoFase1 }),
       signal: abortController.signal,
     });
 
@@ -206,7 +306,7 @@ async function llamarVercelAPI(
       }
 
       throw new AnalisisError(
-        `Error en la API: ${errorMsg}`,
+        `Error en la API (Fase ${fase}): ${errorMsg}`,
         'API_ERROR'
       );
     }
@@ -216,7 +316,6 @@ async function llamarVercelAPI(
 
     if (contentType.includes('text/event-stream')) {
       // === MODO STREAMING ===
-      // Leer el stream SSE y acumular el texto completo del análisis
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let fullText = '';
@@ -229,7 +328,7 @@ async function llamarVercelAPI(
         if (Date.now() - lastActivityTime > STREAM_STALL_TIMEOUT_MS) {
           reader.cancel();
           throw new AnalisisError(
-            'El servidor dejó de enviar datos durante el análisis.',
+            `Fase ${fase}: El servidor dejó de enviar datos durante el análisis.`,
             'TIMEOUT',
             undefined,
             { sugerencia: 'Se reintentará automáticamente.', accion: 'Reintentar' }
@@ -260,11 +359,11 @@ async function llamarVercelAPI(
               streamMetadata = data;
             } else if (data.type === 'error') {
               throw new AnalisisError(
-                data.error || 'Error en el stream de análisis',
+                data.error || `Error en el stream de análisis (Fase ${fase})`,
                 'API_ERROR'
               );
             }
-            // 'done' type = stream completado, continuamos al parseo
+            // 'done' type = stream completado
           } catch (parseErr) {
             if (parseErr instanceof AnalisisError) throw parseErr;
             // Ignorar eventos no parseables
@@ -275,29 +374,29 @@ async function llamarVercelAPI(
       // Stream completado — parsear el texto acumulado como JSON
       if (!fullText || fullText.trim().length === 0) {
         throw new AnalisisError(
-          'El análisis no generó contenido',
+          `Fase ${fase}: El análisis no generó contenido`,
           'API_ERROR'
         );
       }
 
-      console.log(`Stream completado: ${fullText.length} caracteres recibidos`);
+      console.log(`Fase ${fase} stream completado: ${fullText.length} caracteres recibidos`);
 
       // Detectar si fue truncado por max_tokens
       const wasTruncated = streamMetadata &&
         (streamMetadata as Record<string, unknown>).stop_reason === 'max_tokens';
       if (wasTruncated) {
-        console.warn('Respuesta truncada por max_tokens — intentando reparar JSON');
+        console.warn(`Fase ${fase}: Respuesta truncada por max_tokens — intentando reparar JSON`);
       }
 
       let analisis: Record<string, unknown>;
       try {
         analisis = limpiarYParsearJSON(fullText, !!wasTruncated);
       } catch (jsonErr) {
-        console.error('Error parseando JSON del stream:', jsonErr);
+        console.error(`Fase ${fase}: Error parseando JSON del stream:`, jsonErr);
         console.error('Primeros 300 chars:', fullText.substring(0, 300));
         console.error('Últimos 300 chars:', fullText.substring(fullText.length - 300));
         throw new AnalisisError(
-          'La respuesta del análisis no contiene JSON válido',
+          `Fase ${fase}: La respuesta no contiene JSON válido`,
           'JSON_INVALIDO',
           jsonErr,
           {
@@ -309,7 +408,7 @@ async function llamarVercelAPI(
 
       return {
         success: true,
-        analisis: analisis as unknown as AnalisisGuion,
+        analisis,
         metadata: {
           modelo: 'claude-sonnet-4-20250514',
           timestamp: new Date().toISOString(),
@@ -331,7 +430,7 @@ async function llamarVercelAPI(
     // AbortError = timeout del cliente
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new AnalisisError(
-        'El análisis excedió el tiempo máximo (4.5 min). Esto puede ocurrir con guiones muy largos.',
+        `Fase ${fase}: El análisis excedió el tiempo máximo (4.5 min).`,
         'TIMEOUT',
         error,
         { sugerencia: 'Se reintentará automáticamente.', accion: 'Reintentar' }
@@ -349,16 +448,137 @@ async function llamarVercelAPI(
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// EJECUTAR UNA FASE CON REINTENTOS
+// ═══════════════════════════════════════════════════════════════
+
+async function ejecutarFase(
+  texto: string,
+  fase: 1 | 2,
+  contextoFase1: string | null,
+  validar: (data: Record<string, unknown>) => boolean,
+  faseLabel: string,
+  onProgress?: (mensaje: string, intento: number) => void,
+): Promise<Record<string, unknown>> {
+  let lastError: AnalisisError | null = null;
+
+  for (let intento = 1; intento <= MAX_RETRIES; intento++) {
+    try {
+      onProgress?.(
+        intento === 1
+          ? `${faseLabel}: Conectando con Claude...`
+          : `${faseLabel}: Reintentando (${intento}/${MAX_RETRIES})...`,
+        fase
+      );
+
+      const response = await llamarVercelAPI(texto, fase, contextoFase1, (chars) => {
+        const kChars = Math.round(chars / 1000);
+        onProgress?.(
+          `${faseLabel}: Analizando... (${kChars}K caracteres recibidos)`,
+          fase
+        );
+      });
+
+      // Verificar respuesta exitosa
+      if (!response.success) {
+        const errorMsg = response.error || 'Error desconocido en el análisis';
+
+        if (errorMsg.toLowerCase().includes('formato') || errorMsg.toLowerCase().includes('estructura')) {
+          throw new AnalisisError(
+            'No se pudo identificar la estructura del guión',
+            'GUION_MAL_FORMATEADO',
+            undefined,
+            {
+              sugerencia: 'Asegúrate de que el guión siga un formato estándar (INT/EXT, nombre de personajes en mayúsculas, etc.)',
+              accion: 'Revisar formato',
+              accionSecundaria: 'Subir en .txt plano'
+            }
+          );
+        }
+
+        throw new AnalisisError(errorMsg, 'API_ERROR');
+      }
+
+      if (!response.analisis) {
+        throw new AnalisisError(
+          `${faseLabel}: No se recibió análisis en la respuesta`,
+          'VALIDATION'
+        );
+      }
+
+      // Validar estructura según la fase
+      if (!validar(response.analisis)) {
+        if (intento < MAX_RETRIES) {
+          throw new AnalisisError(
+            `${faseLabel}: Respuesta inválida, reintentando...`,
+            'JSON_INVALIDO',
+            undefined,
+            { sugerencia: 'Se reintentará automáticamente.', accion: 'Reintentar' }
+          );
+        }
+        throw new AnalisisError(
+          `${faseLabel}: No se obtuvo una respuesta válida después de ${MAX_RETRIES} intentos`,
+          'VALIDATION'
+        );
+      }
+
+      onProgress?.(`${faseLabel}: Completada con éxito`, fase);
+      return response.analisis;
+
+    } catch (error) {
+      if (error instanceof AnalisisError) {
+        lastError = error;
+
+        // No reintentar en estos casos
+        if (
+          error.code === 'VALIDATION' ||
+          error.code === 'PAYMENT_REQUIRED' ||
+          error.code === 'RATE_LIMIT' ||
+          error.code === 'GUION_MUY_LARGO' ||
+          error.code === 'GUION_MAL_FORMATEADO'
+        ) {
+          throw error;
+        }
+
+        if (intento === MAX_RETRIES) {
+          throw error;
+        }
+
+        onProgress?.(`${faseLabel}: Error: ${error.message}. Reintentando en ${RETRY_DELAY_MS / 1000}s...`, fase);
+        await sleep(RETRY_DELAY_MS);
+      } else {
+        throw new AnalisisError(
+          `${faseLabel}: Error inesperado`,
+          'API_ERROR',
+          error
+        );
+      }
+    }
+  }
+
+  throw lastError || new AnalisisError(
+    `${faseLabel}: Fallaron todos los intentos`,
+    'API_ERROR'
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FUNCIÓN PRINCIPAL — ANÁLISIS EN 2 FASES
+// ═══════════════════════════════════════════════════════════════
+
 /**
- * Analiza un guión cinematográfico usando Claude via Vercel Edge Function
+ * Analiza un guión cinematográfico usando Claude en 2 fases:
  *
- * Usa streaming SSE para mantener la conexión viva sin límite de tiempo.
- * Claude Sonnet analiza el guión completo (hasta 200K tokens) sin truncar.
+ * Fase 1: Extracción de datos de producción (secuencias, personajes, localizaciones)
+ * Fase 2: Análisis narrativo profundo (conflictos, DAFO, mercado, viabilidad)
+ *
+ * Fase 2 recibe el contexto de Fase 1 para hacer "análisis sobre análisis".
+ * Si Fase 2 falla, se devuelven los datos de Fase 1 (producción) como fallback.
  *
  * @param texto - Texto completo del guión
  * @param onProgress - Callback opcional para reportar progreso
- * @returns Análisis estructurado del guión
- * @throws AnalisisError si hay algún problema
+ * @returns Análisis estructurado del guión (Fase 1 + Fase 2 merged)
+ * @throws AnalisisError si Fase 1 falla
  */
 export async function analizarGuion(
   texto: string,
@@ -378,126 +598,69 @@ export async function analizarGuion(
     );
   }
 
-  // Sin límite de páginas - analizar guiones de cualquier tamaño
   const paginasEstimadas = Math.round(texto.length / 600);
-  console.log(`Analizando guión de aproximadamente ${paginasEstimadas} páginas`);
+  console.log(`Analizando guión de ~${paginasEstimadas} páginas en 2 fases`);
 
-  let lastError: AnalisisError | null = null;
+  // ═══════════════════════════════════════════════
+  // FASE 1 — Extracción de Producción
+  // ═══════════════════════════════════════════════
+  const fase1Data = await ejecutarFase(
+    texto,
+    1,
+    null,
+    validarFase1,
+    'Fase 1/2 — Producción',
+    onProgress
+  );
 
-  // Retry logic
-  for (let intento = 1; intento <= MAX_RETRIES; intento++) {
-    try {
-      onProgress?.(
-        intento === 1
-          ? 'Conectando con Claude para analizar el guión...'
-          : `Reintentando análisis (${intento}/${MAX_RETRIES})...`,
-        intento
-      );
+  console.log('Fase 1 completada:', {
+    secuencias: (fase1Data.desglose_secuencias as unknown[])?.length,
+    personajes: (fase1Data.personajes as unknown[])?.length,
+    localizaciones: (fase1Data.localizaciones as unknown[])?.length,
+  });
 
-      const response = await llamarVercelAPI(texto, (chars) => {
-        // Reportar progreso durante el streaming
-        const kChars = Math.round(chars / 1000);
-        onProgress?.(
-          `Analizando... (${kChars}K caracteres recibidos)`,
-          intento
-        );
-      });
+  // ═══════════════════════════════════════════════
+  // Construir contexto para Fase 2
+  // ═══════════════════════════════════════════════
+  const contextoFase1 = buildContextoFase1(fase1Data);
+  console.log(`Contexto Fase 1 generado: ${contextoFase1.length} caracteres`);
 
-      // Validar estructura de respuesta
-      if (!validarAnalisis(response)) {
-        // Si es la primera vez, podría ser JSON inválido
-        if (intento === 1) {
-          throw new AnalisisError(
-            'La respuesta del análisis no es válida. Reintentando...',
-            'JSON_INVALIDO',
-            undefined,
-            {
-              sugerencia: 'Esto puede ocurrir si la IA no generó el formato correcto. Se reintentará automáticamente.',
-              accion: 'Reintentar'
-            }
-          );
-        }
-        throw new AnalisisError(
-          'No se pudo obtener un análisis válido después de varios intentos',
-          'VALIDATION'
-        );
-      }
+  // ═══════════════════════════════════════════════
+  // FASE 2 — Análisis Narrativo Profundo
+  // ═══════════════════════════════════════════════
+  let fase2Data: Record<string, unknown> | null = null;
 
-      // Si la respuesta indica error
-      if (!response.success) {
-        const errorMsg = response.error || 'Error desconocido en el análisis';
+  try {
+    fase2Data = await ejecutarFase(
+      texto,
+      2,
+      contextoFase1,
+      validarFase2,
+      'Fase 2/2 — Narrativo',
+      onProgress
+    );
 
-        // Detectar guión mal formateado
-        if (errorMsg.toLowerCase().includes('formato') || errorMsg.toLowerCase().includes('estructura')) {
-          throw new AnalisisError(
-            'No se pudo identificar la estructura del guión',
-            'GUION_MAL_FORMATEADO',
-            undefined,
-            {
-              sugerencia: 'Asegúrate de que el guión siga un formato estándar (INT/EXT, nombre de personajes en mayúsculas, etc.)',
-              accion: 'Revisar formato',
-              accionSecundaria: 'Subir en .txt plano'
-            }
-          );
-        }
-
-        throw new AnalisisError(
-          errorMsg,
-          'API_ERROR'
-        );
-      }
-
-      // Si no hay análisis en la respuesta
-      if (!response.analisis) {
-        throw new AnalisisError(
-          'No se recibió análisis en la respuesta',
-          'VALIDATION'
-        );
-      }
-
-      onProgress?.('Análisis completado con éxito', intento);
-
-      return response.analisis;
-
-    } catch (error) {
-      if (error instanceof AnalisisError) {
-        lastError = error;
-
-        // No reintentar en estos casos
-        if (
-          error.code === 'VALIDATION' ||
-          error.code === 'PAYMENT_REQUIRED' ||
-          error.code === 'RATE_LIMIT' ||
-          error.code === 'GUION_MUY_LARGO' ||
-          error.code === 'GUION_MAL_FORMATEADO'
-        ) {
-          throw error;
-        }
-
-        // Si es el último intento, lanzar el error
-        if (intento === MAX_RETRIES) {
-          throw error;
-        }
-
-        // Esperar antes del siguiente intento
-        onProgress?.(`Error: ${error.message}. Reintentando en ${RETRY_DELAY_MS / 1000}s...`, intento);
-        await sleep(RETRY_DELAY_MS);
-      } else {
-        // Error inesperado
-        throw new AnalisisError(
-          'Error inesperado durante el análisis',
-          'API_ERROR',
-          error
-        );
-      }
-    }
+    console.log('Fase 2 completada:', {
+      errores_narrativos: ((fase2Data.analisis_narrativo as Record<string, unknown>)?.errores_narrativos as unknown[])?.length,
+      personajes_profundidad: (fase2Data.personajes_profundidad as unknown[])?.length,
+      dafo: fase2Data.analisis_dafo ? 'Sí' : 'No',
+    });
+  } catch (fase2Error) {
+    // Si Fase 2 falla, devolver Fase 1 como fallback
+    console.error('Fase 2 falló, devolviendo solo datos de producción:', fase2Error);
+    onProgress?.(
+      'Fase 2 falló — guardando datos de producción disponibles. El análisis narrativo se puede reintentar.',
+      2
+    );
   }
 
-  // Si llegamos aquí, fallaron todos los intentos
-  throw lastError || new AnalisisError(
-    'Fallaron todos los intentos de análisis',
-    'API_ERROR'
-  );
+  // ═══════════════════════════════════════════════
+  // MERGE — Combinar ambas fases
+  // ═══════════════════════════════════════════════
+  const resultado = mergeAnalisis(fase1Data, fase2Data);
+
+  onProgress?.('Análisis completado con éxito', 2);
+  return resultado;
 }
 
 /**

@@ -217,7 +217,7 @@ export async function createProjectFromAnalysis(
       title: seq.encabezado || `Secuencia ${index + 1}`,
       description: seq.localizacion || '',
       estimated_duration_minutes: Math.ceil(
-        seq.duracion_estimada_minutos || (seq.paginas_octavos ? seq.paginas_octavos / 8 : 1)
+        seq.paginas_octavos ? seq.paginas_octavos / 8 : 1
       ),
       page_eighths: seq.paginas_octavos || null,
       int_ext: seq.set_type || null,

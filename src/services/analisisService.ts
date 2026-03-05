@@ -1,8 +1,10 @@
 import { AnalisisGuion } from '@/types/analisisGuion';
 
-// SIN LÍMITE DE TIEMPO - El análisis tarda lo que necesite (streaming)
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 3000;
+// Timeout de 270s (4.5 min) — cortar antes del límite de Vercel (300s)
+const MAX_RETRIES = 1;
+const RETRY_DELAY_MS = 2000;
+const CLIENT_TIMEOUT_MS = 270_000; // 4.5 minutos
+const STREAM_STALL_TIMEOUT_MS = 60_000; // 60s sin datos = stream muerto
 
 interface AnalisisResponse {
   success: boolean;
@@ -167,11 +169,15 @@ async function llamarVercelAPI(
   texto: string,
   onStreamProgress?: (chars: number) => void
 ): Promise<AnalisisResponse> {
+  const abortController = new AbortController();
+  const clientTimeout = setTimeout(() => abortController.abort(), CLIENT_TIMEOUT_MS);
+
   try {
     const response = await fetch('/api/analizar-guion-claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texto }),
+      signal: abortController.signal,
     });
 
     // Si la respuesta no es OK, puede ser un JSON de error
@@ -216,11 +222,24 @@ async function llamarVercelAPI(
       let fullText = '';
       let streamMetadata: Record<string, unknown> | null = null;
       let buffer = '';
+      let lastActivityTime = Date.now();
 
       while (true) {
+        // Watchdog: si no llegan datos en 60s, el stream está muerto
+        if (Date.now() - lastActivityTime > STREAM_STALL_TIMEOUT_MS) {
+          reader.cancel();
+          throw new AnalisisError(
+            'El servidor dejó de enviar datos durante el análisis.',
+            'TIMEOUT',
+            undefined,
+            { sugerencia: 'Se reintentará automáticamente.', accion: 'Reintentar' }
+          );
+        }
+
         const { done, value } = await reader.read();
         if (done) break;
 
+        lastActivityTime = Date.now();
         buffer += decoder.decode(value, { stream: true });
 
         // Procesar eventos SSE completos (separados por \n\n)
@@ -303,8 +322,20 @@ async function llamarVercelAPI(
     }
 
   } catch (error) {
+    clearTimeout(clientTimeout);
+
     if (error instanceof AnalisisError) {
       throw error;
+    }
+
+    // AbortError = timeout del cliente
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new AnalisisError(
+        'El análisis excedió el tiempo máximo (4.5 min). Esto puede ocurrir con guiones muy largos.',
+        'TIMEOUT',
+        error,
+        { sugerencia: 'Se reintentará automáticamente.', accion: 'Reintentar' }
+      );
     }
 
     // Error de red o conexión
@@ -313,6 +344,8 @@ async function llamarVercelAPI(
       'NETWORK_ERROR',
       error
     );
+  } finally {
+    clearTimeout(clientTimeout);
   }
 }
 

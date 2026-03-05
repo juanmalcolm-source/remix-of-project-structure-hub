@@ -62,6 +62,20 @@ ${textoFinal}
 ║  secciones del JSON.                                                 ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
+╔══════════════════════════════════════════════════════════════════════╗
+║  REGLA #2 — BREVEDAD OBLIGATORIA                                    ║
+║                                                                      ║
+║  - Todas las descripciones: máx 15 palabras.                        ║
+║  - synopsis: 80-100 palabras exactas.                               ║
+║  - arcos, motivaciones, conflictos: 1 frase (máx 20 palabras).     ║
+║  - recomendacion_general: máx 2 frases.                             ║
+║  - sugerencia_correccion: máx 1 frase.                              ║
+║  - Arrays (attrezzo, vestuario, vehiculos, efectos_especiales):     ║
+║    solo items EXPLÍCITOS en el texto, máx 3 por array, nombre corto.║
+║  - Arrays vacíos [] si el item no se menciona en el guión.          ║
+║  - NO generes texto explicativo. Solo datos concretos.              ║
+╚══════════════════════════════════════════════════════════════════════╝
+
 LEY DE OCTAVOS: 1 página = 8 octavos ≈ 1 minuto. Calcula paginas_octavos por escena según el texto real.
 Complejidad: <10 puntos=Baja, 10-25=Media, >25=Alta (factores: personajes, acción, FX, noche, exterior, etc.)
 
@@ -239,7 +253,7 @@ INSTRUCCIONES:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 64000,
+        max_tokens: 16000,
         temperature: 0.3,
         system: systemPrompt,
         messages: [{ role: 'user', content: contextoProduccion }],

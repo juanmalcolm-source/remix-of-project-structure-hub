@@ -1,5 +1,6 @@
 export const config = {
   runtime: 'edge',
+  maxDuration: 300, // 5 minutos — necesario para análisis largo con Claude
 };
 
 const corsHeaders = {

@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/analizar-guion-claude.ts": {
+      "maxDuration": 300
+    }
+  }
+}

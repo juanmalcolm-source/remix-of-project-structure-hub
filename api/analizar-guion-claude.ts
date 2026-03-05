@@ -384,7 +384,7 @@ INSTRUCCIONES CRÍTICAS:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 128000,
+        max_tokens: 64000,
         temperature: 0.3,
         stream: true,
         system: systemPrompt,

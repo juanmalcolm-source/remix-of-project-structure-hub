@@ -134,7 +134,7 @@ async function formatCreativaContext(projectId: string): Promise<string> {
     { data: sequences },
     { data: locations },
   ] = await Promise.all([
-    supabase.from('projects').select('title, genre, logline, synopsis, format, tone, themes, comparable_films').eq('id', projectId).single(),
+    supabase.from('projects').select('title, genero, logline, project_type, tono, subgeneros, referentes_cinematograficos, estilo_visual_sugerido, publico_objetivo_sugerido').eq('id', projectId).single(),
     supabase.from('creative_analysis').select('*').eq('project_id', projectId).single(),
     supabase.from('characters').select('name, category, character_arc, motivation, edad_aproximada').eq('project_id', projectId),
     supabase.from('sequences').select('sequence_number, title, description, time_of_day, page_eighths, scene_complexity').eq('project_id', projectId).order('sequence_number'),
@@ -145,21 +145,32 @@ async function formatCreativaContext(projectId: string): Promise<string> {
 
   if (project) {
     ctx += `PROYECTO: ${project.title || 'Sin titulo'}\n`;
-    ctx += `Genero: ${project.genre || 'No definido'} | Formato: ${project.format || 'No definido'}\n`;
+    ctx += `Genero: ${project.genero || 'No definido'} | Tipo: ${project.project_type || 'No definido'}\n`;
     if (project.logline) ctx += `Logline: ${project.logline}\n`;
-    if (project.synopsis) ctx += `Sinopsis: ${project.synopsis.slice(0, 500)}\n`;
-    if (project.tone) ctx += `Tono: ${project.tone}\n`;
-    if (project.themes) ctx += `Temas: ${Array.isArray(project.themes) ? (project.themes as string[]).join(', ') : project.themes}\n`;
-    if (project.comparable_films) ctx += `Comparables: ${Array.isArray(project.comparable_films) ? (project.comparable_films as string[]).join(', ') : project.comparable_films}\n`;
+    if (project.tono) ctx += `Tono: ${project.tono}\n`;
+    if (project.subgeneros) ctx += `Subgéneros: ${Array.isArray(project.subgeneros) ? (project.subgeneros as string[]).join(', ') : project.subgeneros}\n`;
+    if (project.referentes_cinematograficos) ctx += `Referentes: ${Array.isArray(project.referentes_cinematograficos) ? (project.referentes_cinematograficos as string[]).join(', ') : project.referentes_cinematograficos}\n`;
+    if (project.estilo_visual_sugerido) ctx += `Estilo visual: ${project.estilo_visual_sugerido}\n`;
+    if (project.publico_objetivo_sugerido) ctx += `Público objetivo: ${project.publico_objetivo_sugerido}\n`;
   }
 
   if (analysis) {
     ctx += `\nANALISIS CREATIVO:\n`;
     const a = analysis as Record<string, unknown>;
-    if (a.strengths) ctx += `Fortalezas: ${a.strengths}\n`;
-    if (a.weaknesses) ctx += `Debilidades: ${a.weaknesses}\n`;
-    if (a.narrative_structure) ctx += `Estructura: ${a.narrative_structure}\n`;
-    if (a.viability_score) ctx += `Puntuacion viabilidad: ${a.viability_score}/100\n`;
+    if (a.synopsis) ctx += `Sinopsis: ${String(a.synopsis).slice(0, 500)}\n`;
+    if (a.core_emotional) ctx += `Core emocional: ${a.core_emotional}\n`;
+    if (a.central_theme) ctx += `Tema central: ${a.central_theme}\n`;
+    if (a.strengths) ctx += `Fortalezas: ${JSON.stringify(a.strengths)}\n`;
+    if (a.weaknesses) ctx += `Debilidades: ${JSON.stringify(a.weaknesses)}\n`;
+    if (a.narrative_errors) ctx += `Errores narrativos: ${JSON.stringify(a.narrative_errors)}\n`;
+    if (a.thematic_analysis) ctx += `Temática: ${JSON.stringify(a.thematic_analysis)}\n`;
+    if (a.dafo_analysis) ctx += `Análisis DAFO: ${JSON.stringify(a.dafo_analysis)}\n`;
+    if (a.viability_factors_positive) ctx += `Factores positivos: ${JSON.stringify(a.viability_factors_positive)}\n`;
+    if (a.viability_factors_negative) ctx += `Factores negativos: ${JSON.stringify(a.viability_factors_negative)}\n`;
+    if (a.producibility_score) ctx += `Puntuacion producibilidad: ${a.producibility_score}/100\n`;
+    if (a.score_narrativo) ctx += `Score narrativo: ${a.score_narrativo}/100\n`;
+    if (a.score_comercial) ctx += `Score comercial: ${a.score_comercial}/100\n`;
+    if (a.score_festival) ctx += `Score festival: ${a.score_festival}/100\n`;
   }
 
   if (characters && characters.length > 0) {
@@ -198,7 +209,7 @@ async function formatProduccionContext(projectId: string): Promise<string> {
     { data: budgetLines },
     { data: characters },
   ] = await Promise.all([
-    supabase.from('projects').select('title, genre, format').eq('id', projectId).single(),
+    supabase.from('projects').select('title, genero, project_type').eq('id', projectId).single(),
     supabase.from('sequences').select('sequence_number, title, time_of_day, page_eighths, scene_complexity, characters_in_scene, int_ext, complejidad_factores').eq('project_id', projectId).order('sequence_number'),
     supabase.from('locations').select('name, zone, address, production_notes, special_needs').eq('project_id', projectId),
     supabase.from('shooting_days').select('day_number, location, time_of_day, total_eighths, estimated_hours, scenes_count, characters').eq('project_id', projectId).order('day_number'),
@@ -209,7 +220,7 @@ async function formatProduccionContext(projectId: string): Promise<string> {
   let ctx = '';
 
   if (project) {
-    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genre || ''} | ${project.format || ''}\n`;
+    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genero || ''} | ${project.project_type || ''}\n`;
   }
 
   if (sequences && sequences.length > 0) {
@@ -279,7 +290,7 @@ async function formatFinanciacionContext(projectId: string): Promise<string> {
     { data: financingSources },
     { data: budgetLines },
   ] = await Promise.all([
-    supabase.from('projects').select('title, genre, format').eq('id', projectId).single(),
+    supabase.from('projects').select('title, genero, project_type').eq('id', projectId).single(),
     supabase.from('financing_plan').select('*').eq('project_id', projectId).single(),
     supabase.from('financing_sources').select('*').eq('project_id', projectId).order('amount', { ascending: false }),
     supabase.from('budget_lines').select('chapter, account_number, concept, units, quantity, unit_price').eq('project_id', projectId),
@@ -288,7 +299,7 @@ async function formatFinanciacionContext(projectId: string): Promise<string> {
   let ctx = '';
 
   if (project) {
-    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genre || ''} | ${project.format || ''}\n`;
+    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genero || ''} | ${project.project_type || ''}\n`;
   }
 
   if (budgetLines && budgetLines.length > 0) {
@@ -334,7 +345,7 @@ async function formatAudienciasContext(projectId: string): Promise<string> {
     { data: buyerPersonas },
     { data: audienceDesigns },
   ] = await Promise.all([
-    supabase.from('projects').select('title, genre, format, logline, comparable_films').eq('id', projectId).single(),
+    supabase.from('projects').select('title, genero, project_type, logline, referentes_cinematograficos').eq('id', projectId).single(),
     supabase.from('audiences').select('*').eq('project_id', projectId),
     supabase.from('buyer_personas').select('*').eq('project_id', projectId),
     supabase.from('audience_designs').select('*').eq('project_id', projectId),
@@ -343,9 +354,9 @@ async function formatAudienciasContext(projectId: string): Promise<string> {
   let ctx = '';
 
   if (project) {
-    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genre || ''} | ${project.format || ''}\n`;
+    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genero || ''} | ${project.project_type || ''}\n`;
     if (project.logline) ctx += `Logline: ${project.logline}\n`;
-    if (project.comparable_films) ctx += `Comparables: ${Array.isArray(project.comparable_films) ? (project.comparable_films as string[]).join(', ') : project.comparable_films}\n`;
+    if (project.referentes_cinematograficos) ctx += `Referentes: ${Array.isArray(project.referentes_cinematograficos) ? (project.referentes_cinematograficos as string[]).join(', ') : project.referentes_cinematograficos}\n`;
   }
 
   if (audiences && audiences.length > 0) {
@@ -390,7 +401,7 @@ async function formatConvocatoriasContext(projectId: string): Promise<string> {
     { data: solicitudes },
     { data: tareas },
   ] = await Promise.all([
-    supabase.from('projects').select('title, genre, format').eq('id', projectId).single(),
+    supabase.from('projects').select('title, genero, project_type').eq('id', projectId).single(),
     supabase.from('convocatorias').select('*').eq('project_id', projectId).order('fecha_cierre'),
     supabase.from('solicitudes').select('*').eq('project_id', projectId),
     supabase.from('tareas_solicitud').select('*').eq('project_id', projectId).order('fecha_limite'),
@@ -399,7 +410,7 @@ async function formatConvocatoriasContext(projectId: string): Promise<string> {
   let ctx = '';
 
   if (project) {
-    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genre || ''} | ${project.format || ''}\n`;
+    ctx += `PROYECTO: ${project.title || 'Sin titulo'} | ${project.genero || ''} | ${project.project_type || ''}\n`;
   }
 
   if (convocatorias && convocatorias.length > 0) {

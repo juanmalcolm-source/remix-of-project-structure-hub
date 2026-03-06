@@ -90,7 +90,7 @@ export default function OverviewPage() {
   }
 
   const duracionFromSequences = project.sequences?.reduce((acc, s) => acc + (s.estimated_duration_minutes || 0), 0) || 0;
-  const duracionFromScript = project.script_text ? Math.ceil(project.script_text.length / 600) : 0;
+  const duracionFromScript = project.script_text ? Math.ceil(project.script_text.length / 1500) : 0;
   const duracionEstimada = duracionFromSequences > 0 ? duracionFromSequences : duracionFromScript;
 
   const stats = {

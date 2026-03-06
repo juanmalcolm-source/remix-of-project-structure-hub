@@ -20,17 +20,17 @@ function buildSystemPromptFase1(): string {
 ║  nueva entrada. NO agrupes, NO resumas, NO omitas escenas.          ║
 ║  Un largometraje de ~100 págs tiene 80-130 escenas.                 ║
 ║  Si generas menos de 50 entradas para un largo, HAS FALLADO.        ║
-║  Genera el array desglose_secuencias COMPLETO antes de las demás    ║
-║  secciones del JSON.                                                 ║
+║  Genera las secciones del JSON EN EL ORDEN DEL ESQUEMA.             ║
+║  desglose_secuencias va AL FINAL para que las demás secciones       ║
+║  se generen primero.                                                 ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
 LEY DE OCTAVOS: 1 página = 8 octavos ≈ 1 minuto. Calcula paginas_octavos por escena según el texto real.
 Complejidad: <10 puntos=Baja, 10-25=Media, >25=Alta (factores: personajes, acción, FX, noche, exterior, etc.)
 
 Tu tarea: Extraer TODOS los datos de producción del guión de forma exhaustiva.
-Sé directo y eficiente en las descripciones. Evita repeticiones y relleno.
 
-Devuelve SOLO JSON válido (sin markdown) con esta estructura exacta:
+Devuelve SOLO JSON válido (sin markdown) con esta estructura exacta (RESPETA EL ORDEN):
 
 {
   "informacion_general": {
@@ -47,22 +47,6 @@ Devuelve SOLO JSON válido (sin markdown) con esta estructura exacta:
     "potencial_festival": "Alto|Medio|Bajo",
     "potencial_comercial": "Alto|Medio|Bajo"
   },
-  "desglose_secuencias": [
-    {
-      "numero_secuencia": number,
-      "encabezado": "string (cabecera completa: INT/EXT. LUGAR - MOMENTO)",
-      "localizacion": "string (solo el nombre del lugar)",
-      "set_type": "INT|EXT",
-      "momento_dia": "string",
-      "paginas_octavos": number,
-      "personajes": ["strings"],
-      "attrezzo": ["strings — solo items EXPLÍCITOS en el texto"],
-      "vestuario": ["strings — solo items EXPLÍCITOS en el texto"],
-      "vehiculos": ["strings — solo items EXPLÍCITOS"],
-      "efectos_especiales": ["strings — solo items EXPLÍCITOS"],
-      "complejidad_rodaje": "Baja|Media|Alta"
-    }
-  ],
   "personajes": [
     {
       "nombre": "string (EN MAYÚSCULAS)",
@@ -96,16 +80,33 @@ Devuelve SOLO JSON válido (sin markdown) con esta estructura exacta:
     "total_octavos": number,
     "dias_rodaje": {"estimacion_minima": 0, "estimacion_maxima": 0, "estimacion_recomendada": 0},
     "complejidad_general": "Baja|Media|Alta"
-  }
+  },
+  "desglose_secuencias": [
+    {
+      "numero_secuencia": number,
+      "encabezado": "string (cabecera completa: INT/EXT. LUGAR - MOMENTO)",
+      "localizacion": "string (solo el nombre del lugar)",
+      "set_type": "INT|EXT",
+      "momento_dia": "string",
+      "paginas_octavos": number,
+      "personajes": ["strings"],
+      "attrezzo": ["strings — solo items EXPLÍCITOS en el texto"],
+      "vestuario": ["strings — solo items EXPLÍCITOS en el texto"],
+      "vehiculos": ["strings — solo items EXPLÍCITOS"],
+      "efectos_especiales": ["strings — solo items EXPLÍCITOS"],
+      "complejidad_rodaje": "Baja|Media|Alta"
+    }
+  ]
 }
 
 INSTRUCCIONES:
 1. LOGLINE: UNA FRASE, máx 30 palabras. SYNOPSIS: UN PÁRRAFO, 100-200 palabras.
-2. desglose_secuencias: UNA entrada por CADA INT/EXT del guión. La suma de paginas_octavos ÷ 8 ≈ paginas_totales.
-3. localizaciones: TODAS las localizaciones únicas. nombre debe coincidir con localizacion de desglose_secuencias.
-4. personajes: TODOS con datos de producción.
-5. attrezzo/vestuario/vehiculos/efectos_especiales: Solo items EXPLÍCITOS en el texto. Arrays vacíos [] si no se mencionan.
-6. Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
+2. Genera las secciones EN EL ORDEN del esquema: informacion_general → personajes → localizaciones → resumen_produccion → desglose_secuencias.
+3. desglose_secuencias: UNA entrada por CADA INT/EXT del guión. La suma de paginas_octavos ÷ 8 ≈ paginas_totales.
+4. localizaciones: TODAS las localizaciones únicas. nombre debe coincidir con localizacion de desglose_secuencias.
+5. personajes: TODOS con datos de producción. arco_dramatico es un breve resumen aquí.
+6. attrezzo/vestuario/vehiculos/efectos_especiales: Solo items EXPLÍCITOS en el texto. Arrays vacíos [] si no se mencionan.
+7. Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
 }
 
 function buildSystemPromptFase2(): string {

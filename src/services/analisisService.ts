@@ -1,7 +1,7 @@
 import { AnalisisGuion } from '@/types/analisisGuion';
 
 // Timeout de 270s (4.5 min) por fase — cortar antes del límite de Vercel (300s)
-const MAX_RETRIES = 1;
+const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
 const CLIENT_TIMEOUT_MS = 270_000; // 4.5 minutos por fase
 const STREAM_STALL_TIMEOUT_MS = 60_000; // 60s sin datos = stream muerto
@@ -10,6 +10,7 @@ interface AnalisisResponse {
   success: boolean;
   analisis?: Record<string, unknown>;
   error?: string;
+  truncated?: boolean;
   metadata?: {
     modelo: string;
     timestamp: string;
@@ -40,13 +41,10 @@ export class AnalisisError extends Error {
 // ═══════════════════════════════════════════════════════════════
 
 function validarFase1(data: Record<string, unknown>): boolean {
-  return (
-    data.informacion_general !== undefined &&
-    Array.isArray(data.desglose_secuencias) &&
-    Array.isArray(data.personajes) &&
-    Array.isArray(data.localizaciones) &&
-    data.resumen_produccion !== undefined
-  );
+  // Validación leniente: solo exigir informacion_general (siempre se genera primero).
+  // El resto puede faltar si la respuesta fue truncada por max_tokens.
+  // El UI manejará secciones vacías gracefully.
+  return data.informacion_general !== undefined;
 }
 
 function validarFase2(data: Record<string, unknown>): boolean {
@@ -445,6 +443,7 @@ async function llamarVercelAPI(
       return {
         success: true,
         analisis,
+        truncated: !!wasTruncated,
         metadata: {
           modelo: 'claude-sonnet-4-20250514',
           timestamp: new Date().toISOString(),
@@ -544,18 +543,22 @@ async function ejecutarFase(
 
       // Validar estructura según la fase
       if (!validar(response.analisis)) {
-        if (intento < MAX_RETRIES) {
+        // Si fue truncado y tenemos ALGO, no reintentar (volverá a truncar igual)
+        if (response.truncated && Object.keys(response.analisis).length > 0) {
+          console.warn(`${faseLabel}: Respuesta truncada pero con datos parciales — aceptando`);
+        } else if (intento < MAX_RETRIES) {
           throw new AnalisisError(
             `${faseLabel}: Respuesta inválida, reintentando...`,
             'JSON_INVALIDO',
             undefined,
             { sugerencia: 'Se reintentará automáticamente.', accion: 'Reintentar' }
           );
+        } else {
+          throw new AnalisisError(
+            `${faseLabel}: No se obtuvo una respuesta válida después de ${MAX_RETRIES} intentos`,
+            'VALIDATION'
+          );
         }
-        throw new AnalisisError(
-          `${faseLabel}: No se obtuvo una respuesta válida después de ${MAX_RETRIES} intentos`,
-          'VALIDATION'
-        );
       }
 
       onProgress?.(`${faseLabel}: Completada con éxito`, fase);

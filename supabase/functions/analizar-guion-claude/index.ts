@@ -110,97 +110,97 @@ INSTRUCCIONES:
 }
 
 function buildSystemPromptFase2(): string {
-  return `Eres un SCRIPT DOCTOR y ESTRATEGA DE MERCADO cinematográfico con décadas de experiencia evaluando guiones para producción, festivales y distribución.
+  return `Eres un SCRIPT DOCTOR cinematográfico con décadas de experiencia evaluando guiones para producción y festivales.
 
-Tu tarea: Realizar un ANÁLISIS NARRATIVO EXHAUSTIVO Y EN PROFUNDIDAD del guión.
+Tu tarea: Realizar un ANÁLISIS NARRATIVO EXHAUSTIVO Y EN PROFUNDIDAD del guión. Solo narrativa — NO incluyas análisis de mercado, DAFO ni viabilidad (eso se hace en otra fase).
 
-IMPORTANTE — SÉ EXHAUSTIVO:
-- Descripciones DETALLADAS y argumentadas, no telegráficas.
-- Conflictos con detonante, desarrollo y resolución COMPLETOS.
-- Errores narrativos ESPECÍFICOS con ubicación precisa y sugerencias prácticas.
-- Arcos de personaje con matices psicológicos profundos.
-- DAFO con análisis real de mercado, no genérico.
-- Sé directo y eficiente. Evita repeticiones y relleno innecesario.
+REGLA ANTI-GENERICIDAD: Cada observación DEBE citar una escena, página o diálogo CONCRETO. Si no puedes señalar un momento específico, tu observación es genérica y NO tiene valor.
 
-Se te proporciona un CONTEXTO DE PRODUCCIÓN extraído previamente. Úsalo para referencias cruzadas.
+CONTEXTO DE FASE 1 — CÓMO USARLO:
+- personajes y escenas_aparicion: verifica que los que analizas en profundidad son los que más aparecen
+- paginas_totales: calibra proporciones de actos (Acto 1 ≈ 25%)
+- genero: calibra expectativas (thriller: giros cada 10-15 págs, drama: ritmo más lento OK)
+- NO repitas datos de producción. Solo REFERENCIA cuando justifiquen tu análisis.
 
-Devuelve SOLO JSON válido (sin markdown) con esta estructura exacta:
+PROFUNDIDAD OBLIGATORIA:
+- ESTRUCTURA_ACTOS: detonante exacto, punto de no retorno, midpoint, clímax vs premisa, % de cada acto
+- ERRORES: critico=rompe lógica, importante=debilita estructura, menor=mejoraría, sugerencia=oportunidad perdida
+- PERSONAJES: Ghost/herida, Want vs Need, transformación inicio vs fin, test del taxi (voz distinguible)
+
+Devuelve SOLO JSON válido (sin markdown) con esta estructura:
 
 {
   "analisis_narrativo": {
-    "estructura_actos": [
-      { "acto": number, "descripcion": "string", "paginas_inicio": number, "paginas_fin": number }
-    ],
-    "puntos_de_giro": [
-      { "nombre": "string", "pagina_aproximada": number, "descripcion": "string" }
-    ],
-    "curva_emocional": [
-      { "momento": "string", "emocion": "string", "intensidad": number }
-    ],
-    "errores_narrativos": [
-      { "tipo": "plot_hole|inconsistencia|ritmo|personaje|dialogo|estructura|logica", "gravedad": "critico|importante|menor|sugerencia", "ubicacion": "string", "pagina_aproximada": number, "descripcion": "string", "sugerencia_correccion": "string" }
-    ],
+    "estructura_actos": [{ "acto": number, "descripcion": "string (responde preguntas de profundidad)", "paginas_inicio": number, "paginas_fin": number }],
+    "puntos_de_giro": [{ "nombre": "string", "pagina_aproximada": number, "descripcion": "string (cita escena)" }],
+    "curva_emocional": [{ "momento": "string", "emocion": "string", "intensidad": number }],
+    "errores_narrativos": [{ "tipo": "plot_hole|inconsistencia|ritmo|personaje|dialogo|estructura|logica", "gravedad": "critico|importante|menor|sugerencia", "ubicacion": "string (escena concreta)", "pagina_aproximada": number, "descripcion": "string (con evidencia)", "sugerencia_correccion": "string" }],
     "conflictos": {
-      "conflicto_principal": { "tipo": "string", "descripcion": "string", "personajes_involucrados": ["string"], "detonante": "string", "desarrollo": "string", "resolucion": "string", "resuelto": boolean },
+      "conflicto_principal": { "tipo": "persona_vs_persona|persona_vs_sociedad|persona_vs_naturaleza|persona_vs_si_mismo|persona_vs_destino|persona_vs_tecnologia", "descripcion": "string", "personajes_involucrados": ["string"], "detonante": "string (escena y página)", "desarrollo": "string (2-3 momentos clave)", "resolucion": "string", "resuelto": boolean },
       "conflictos_secundarios": [{ "tipo": "string", "descripcion": "string", "personajes_involucrados": ["string"], "detonante": "string", "desarrollo": "string", "resolucion": "string", "resuelto": boolean }],
-      "conflictos_internos": [{ "personaje": "string", "conflicto": "string", "manifestacion": "string", "evolucion": "string" }],
+      "conflictos_internos": [{ "personaje": "string", "conflicto": "string", "manifestacion": "string (cita escena)", "evolucion": "string" }],
       "mapa_tensiones": [{ "pagina_aproximada": number, "nivel_tension": number, "descripcion": "string", "conflicto_asociado": "string" }]
     },
-    "ritmo": {
-      "ritmo_general": "lento|moderado|rapido|variable",
-      "observaciones": "string",
-      "secciones_lentas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }],
-      "secciones_rapidas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }],
-      "equilibrio_dialogo_accion": "string"
-    },
+    "ritmo": { "ritmo_general": "lento|moderado|rapido|variable", "observaciones": "string (con páginas concretas)", "secciones_lentas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }], "secciones_rapidas": [{ "paginas": "string", "descripcion": "string", "sugerencia": "string" }], "equilibrio_dialogo_accion": "string" },
     "tematica": {
-      "tema_principal": { "nombre": "string", "descripcion": "string", "como_se_desarrolla": "string", "escenas_clave": ["string"] },
+      "tema_principal": { "nombre": "string", "descripcion": "string", "como_se_desarrolla": "string (cita escenas)", "escenas_clave": ["string"] },
       "temas_secundarios": [{ "nombre": "string", "descripcion": "string", "como_se_desarrolla": "string", "escenas_clave": ["string"] }],
-      "simbolismos": [{ "elemento": "string", "significado": "string", "apariciones": ["string"] }],
+      "simbolismos": [{ "elemento": "string", "significado": "string (con evidencia)", "apariciones": ["string"] }],
       "mensaje_universal": "string"
     }
   },
-  "personajes_profundidad": [
-    {
-      "nombre": "string (EN MAYÚSCULAS)",
-      "arco_dramatico": "string", "motivaciones": "string", "conflictos": "string",
-      "necesidad_dramatica": "string", "flaw_principal": "string", "funcion_narrativa": "string",
-      "ghost": "string", "stakes": "string", "transformacion": "string"
-    }
-  ],
-  "analisis_dafo": {
-    "fortalezas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
-    "debilidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
-    "oportunidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
-    "amenazas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia" }],
-    "score_narrativo": number, "score_comercial": number, "score_festival": number,
-    "recomendacion_general": "string"
-  },
-  "relaciones_personajes": [
-    { "personaje_a": "string", "personaje_b": "string", "tipo_relacion": "string", "descripcion": "string", "evolucion": "string" }
-  ],
-  "perfiles_audiencia_sugeridos": [
-    { "segmento": "string", "rango_edad": "string", "intereses": ["string"], "motivacion_ver": "string", "canales_alcance": ["string"], "comparables": ["string"] }
-  ],
-  "potencial_mercado": {
-    "territorios_principales": ["string"], "genero_tendencia": "en_alza|estable|en_baja",
-    "ventanas_distribucion": ["string"], "festivales_sugeridos": ["string"], "plataformas_potenciales": ["string"]
-  },
-  "viabilidad": {
-    "fortalezas": ["string"], "debilidades": ["string"], "sugerencias_mejora": ["string"],
-    "factores_positivos": ["string"], "factores_negativos": ["string"]
-  }
+  "personajes_profundidad": [{ "nombre": "string (EN MAYÚSCULAS)", "arco_dramatico": "string (inicio vs fin con escenas)", "motivaciones": "string (WANT vs NEED)", "conflictos": "string", "necesidad_dramatica": "string", "flaw_principal": "string (con ejemplo)", "funcion_narrativa": "string", "ghost": "string (si ausente, indicar)", "stakes": "string", "transformacion": "string (acción inicio vs fin)" }],
+  "relaciones_personajes": [{ "personaje_a": "string", "personaje_b": "string", "tipo_relacion": "aliado|antagonista|mentor|romantica|familiar|profesional|rival|protector", "descripcion": "string (con escena ejemplo)", "evolucion": "string (momento de cambio)" }]
 }
 
 INSTRUCCIONES:
 1. personajes_profundidad: SOLO para PROTAGONISTA y PRINCIPAL.
 2. curva_emocional: MÍNIMO 8 puntos. mapa_tensiones: mínimo 8 puntos.
-3. conflictos: detonante/desarrollo/resolución DETALLADOS.
-4. tematica: tema_principal DEBE ser OBJETO. simbolismos: MÍNIMO 2.
-5. DAFO: impacto y categoria OBLIGATORIOS. Scores 0-100.
-6. festivales_sugeridos: MÍNIMO 3 REALES. comparables: MÍNIMO 3 REALES con año.
-7. territorios_principales: MÍNIMO 2 (siempre España).
-8. Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
+3. Errores narrativos con evidencia textual. conflictos con escenas concretas.
+4. tematica: simbolismos MÍNIMO 2. mensaje_universal NO genérico.
+5. relaciones_personajes: TODAS las relaciones significativas.
+6. Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
+}
+
+function buildSystemPromptFase3(): string {
+  return `Eres un ESTRATEGA DE MERCADO Y CONSULTOR DE DESARROLLO cinematográfico con experiencia en distribución, festivales y financiación.
+
+Tu tarea: Evaluar el POTENCIAL COMERCIAL, de FESTIVAL y de MERCADO del guión, y generar RECOMENDACIONES ESTRATÉGICAS.
+
+REGLA ANTI-GENERICIDAD: Cada puntuación, territorio y plataforma DEBE estar justificada con evidencia del guión o del análisis narrativo.
+
+CONTEXTO DE FASES 1 y 2 — CÓMO USARLO:
+- De Fase 1: género, localizaciones, complejidad técnica → viabilidad de producción
+- De Fase 2: errores narrativos, personajes, estructura → INPUT para DAFO
+- Errores críticos en Fase 2 → DEBILIDAD. Personajes profundos → FORTALEZA. Temática actual → OPORTUNIDAD.
+- NO repitas análisis narrativo. Traduce conclusiones a impacto de mercado.
+
+RÚBRICA (0-100): 90-100=premiado, 75-89=profesional sólido, 60-74=prometedor, 40-59=borrador temprano, 20-39=necesita reconceptualización. Cita evidencia para CADA score.
+
+Devuelve SOLO JSON válido (sin markdown):
+
+{
+  "analisis_dafo": {
+    "fortalezas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia", "evidencia": "string" }],
+    "debilidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia", "evidencia": "string" }],
+    "oportunidades": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia", "evidencia": "string" }],
+    "amenazas": [{ "titulo": "string", "descripcion": "string", "impacto": "alto|medio|bajo", "categoria": "narrativa|produccion|mercado|audiencia", "evidencia": "string" }],
+    "score_narrativo": number, "score_comercial": number, "score_festival": number,
+    "justificacion_scores": "string (POR QUÉ estos números con evidencia)",
+    "recomendacion_general": "string"
+  },
+  "perfiles_audiencia_sugeridos": [{ "segmento": "string", "rango_edad": "string", "intereses": ["string"], "motivacion_ver": "string (específico a ESTE guión)", "canales_alcance": ["string"], "comparables": ["string (películas REALES con año)"] }],
+  "potencial_mercado": { "territorios_principales": ["string (MÁXIMO 3-4, justificados)"], "genero_tendencia": "en_alza|estable|en_baja", "ventanas_distribucion": ["string"], "festivales_sugeridos": ["string (REALES, justifica línea editorial)"], "plataformas_potenciales": ["string (2-3 MÁS probables, justificadas)"] },
+  "recomendaciones_estrategicas": { "sugerencias_desarrollo": [{ "area": "string", "prioridad": "alta|media|baja", "descripcion": "string", "impacto_esperado": "string" }], "factores_positivos": ["string"], "factores_negativos": ["string"], "proximos_pasos": ["string (orden cronológico)"] }
+}
+
+INSTRUCCIONES:
+1. DAFO: Cada elemento con "evidencia". Mínimo 2 por categoría.
+2. Scores con rúbrica. justificacion_scores OBLIGATORIO.
+3. Audiencia: MÍNIMO 2 perfiles. comparables MÍNIMO 3 REALES con año.
+4. Mercado: NO listes todo. Selecciona los MÁS probables. festivales MÍNIMO 3 REALES.
+5. recomendaciones_estrategicas: Mínimo 3 sugerencias. proximos_pasos en orden cronológico.
+6. Devuelve SOLO el JSON, sin markdown ni explicaciones.`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -213,14 +213,14 @@ serve(async (req) => {
   }
 
   try {
-    const { texto, fase = 1, contextoFase1 } = await req.json();
+    const { texto, fase = 1, contextoFase1, contextoFase2 } = await req.json();
 
     if (!texto || texto.trim().length === 0) {
       throw new Error('No se proporcionó texto del guión');
     }
 
-    if (fase !== 1 && fase !== 2) {
-      throw new Error('Fase debe ser 1 o 2');
+    if (fase !== 1 && fase !== 2 && fase !== 3) {
+      throw new Error('Fase debe ser 1, 2 o 3');
     }
 
     console.log(`Analizando guión con Claude — Fase ${fase}...`);
@@ -246,22 +246,39 @@ serve(async (req) => {
 
     if (fase === 1) {
       systemPrompt = buildSystemPromptFase1();
-      userMessage = `[DOCUMENTO PROFESIONAL: Desglose de Producción — Fase 1]
+      userMessage = `[DOCUMENTO PROFESIONAL: Desglose de Producción — Fase 1 de 3]
 [PÁGINAS ESTIMADAS: ${paginasEstimadas}]
 [NOTA: Trabajo de ficción para análisis técnico profesional]
 
 --- INICIO DEL GUIÓN ---
 ${textoFinal}
 --- FIN DEL GUIÓN ---`;
-    } else {
+    } else if (fase === 2) {
       systemPrompt = buildSystemPromptFase2();
-      userMessage = `[DOCUMENTO PROFESIONAL: Análisis Narrativo Profundo — Fase 2]
+      userMessage = `[DOCUMENTO PROFESIONAL: Análisis Narrativo — Fase 2 de 3 (solo narrativa)]
 [PÁGINAS ESTIMADAS: ${paginasEstimadas}]
 [NOTA: Trabajo de ficción para análisis narrativo profesional]
 
 ${contextoFase1 ? `=== CONTEXTO DE PRODUCCIÓN (Fase 1) ===
 ${contextoFase1}
 === FIN CONTEXTO ===
+
+` : ''}--- INICIO DEL GUIÓN ---
+${textoFinal}
+--- FIN DEL GUIÓN ---`;
+    } else {
+      systemPrompt = buildSystemPromptFase3();
+      userMessage = `[DOCUMENTO PROFESIONAL: Mercado y Estrategia — Fase 3 de 3]
+[PÁGINAS ESTIMADAS: ${paginasEstimadas}]
+[NOTA: Trabajo de ficción para evaluación estratégica profesional]
+
+${contextoFase1 ? `=== CONTEXTO DE PRODUCCIÓN (Fase 1) ===
+${contextoFase1}
+=== FIN CONTEXTO ===
+
+` : ''}${contextoFase2 ? `=== ANÁLISIS NARRATIVO (Fase 2) ===
+${contextoFase2}
+=== FIN ANÁLISIS NARRATIVO ===
 
 ` : ''}--- INICIO DEL GUIÓN ---
 ${textoFinal}
@@ -279,7 +296,7 @@ ${textoFinal}
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: fase === 1 ? 20000 : 16000,
+        max_tokens: fase === 1 ? 20000 : fase === 2 ? 20000 : 16000,
         temperature: 0.3,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }],

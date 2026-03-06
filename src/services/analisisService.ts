@@ -51,6 +51,10 @@ function validarFase2(data: Record<string, unknown>): boolean {
   return data.analisis_narrativo !== undefined;
 }
 
+function validarFase3(data: Record<string, unknown>): boolean {
+  return data.analisis_dafo !== undefined;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // HELPERS JSON
 // ═══════════════════════════════════════════════════════════════
@@ -234,56 +238,149 @@ function buildContextoFase1(analisis: Record<string, unknown>): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MERGE FASE 1 + FASE 2
+// CONTEXTO FASE 2 → FASE 3
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Combina los resultados de Fase 1 (producción) y Fase 2 (narrativo)
+ * Construye un resumen de texto de la Fase 2 para alimentar la Fase 3.
+ * Extrae los hallazgos narrativos clave sin enviar el JSON completo.
+ */
+function buildContextoFase2(analisis: Record<string, unknown>): string {
+  let ctx = 'ANÁLISIS NARRATIVO (extraído en Fase 2):\n';
+
+  const narrativo = analisis.analisis_narrativo as Record<string, unknown> | undefined;
+
+  // Estructura de actos
+  const actos = narrativo?.estructura_actos as Array<Record<string, unknown>> | undefined;
+  if (actos && actos.length > 0) {
+    ctx += `\nESTRUCTURA (${actos.length} actos):\n`;
+    for (const a of actos) {
+      ctx += `  - Acto ${a.acto} (pp. ${a.paginas_inicio}-${a.paginas_fin}): ${(a.descripcion as string || '').substring(0, 150)}\n`;
+    }
+  }
+
+  // Errores narrativos críticos
+  const errores = narrativo?.errores_narrativos as Array<Record<string, unknown>> | undefined;
+  if (errores && errores.length > 0) {
+    const criticos = errores.filter(e => e.gravedad === 'critico' || e.gravedad === 'importante');
+    ctx += `\nERRORES NARRATIVOS: ${errores.length} total (${criticos.length} críticos/importantes)\n`;
+    for (const e of criticos.slice(0, 5)) {
+      ctx += `  - [${e.gravedad}] ${e.tipo}: ${(e.descripcion as string || '').substring(0, 100)}\n`;
+    }
+  }
+
+  // Puntos de giro
+  const giros = narrativo?.puntos_de_giro as Array<Record<string, unknown>> | undefined;
+  if (giros && giros.length > 0) {
+    ctx += `\nPUNTOS DE GIRO: ${giros.length}\n`;
+    for (const g of giros) {
+      ctx += `  - ${g.nombre} (p. ${g.pagina_aproximada})\n`;
+    }
+  }
+
+  // Conflictos resumen
+  const conflictos = narrativo?.conflictos as Record<string, unknown> | undefined;
+  if (conflictos) {
+    const principal = conflictos.conflicto_principal as Record<string, unknown> | undefined;
+    if (principal) {
+      ctx += `\nCONFLICTO PRINCIPAL: ${principal.tipo} — ${(principal.descripcion as string || '').substring(0, 150)}`;
+      ctx += ` — Resuelto: ${principal.resuelto ? 'Sí' : 'No'}\n`;
+    }
+    const secundarios = conflictos.conflictos_secundarios as Array<Record<string, unknown>> | undefined;
+    if (secundarios) {
+      ctx += `  Conflictos secundarios: ${secundarios.length}\n`;
+    }
+  }
+
+  // Temática
+  const tematica = narrativo?.tematica as Record<string, unknown> | undefined;
+  if (tematica) {
+    const principal = tematica.tema_principal as Record<string, unknown> | undefined;
+    if (principal) {
+      ctx += `\nTEMA PRINCIPAL: ${principal.nombre}\n`;
+    }
+    if (tematica.mensaje_universal) {
+      ctx += `  Mensaje universal: ${tematica.mensaje_universal}\n`;
+    }
+  }
+
+  // Ritmo
+  const ritmo = narrativo?.ritmo as Record<string, unknown> | undefined;
+  if (ritmo) {
+    ctx += `\nRITMO: ${ritmo.ritmo_general}\n`;
+    if (ritmo.observaciones) {
+      ctx += `  ${(ritmo.observaciones as string).substring(0, 150)}\n`;
+    }
+  }
+
+  // Personajes profundidad — resumen
+  const profundidad = analisis.personajes_profundidad as Array<Record<string, unknown>> | undefined;
+  if (profundidad && profundidad.length > 0) {
+    ctx += `\nPERSONAJES ANALIZADOS EN PROFUNDIDAD (${profundidad.length}):\n`;
+    for (const p of profundidad) {
+      ctx += `  - ${p.nombre}: arco=${(p.arco_dramatico as string || '').substring(0, 80)}`;
+      if (p.ghost) ctx += ` | ghost=${(p.ghost as string).substring(0, 50)}`;
+      if (p.flaw_principal) ctx += ` | flaw=${(p.flaw_principal as string).substring(0, 50)}`;
+      ctx += `\n`;
+    }
+  }
+
+  return ctx;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MERGE FASES 1 + 2 + 3
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Combina los resultados de Fase 1 (producción), Fase 2 (narrativo) y Fase 3 (mercado)
  * en un único AnalisisGuion completo.
  */
 function mergeAnalisis(
   fase1: Record<string, unknown>,
-  fase2: Record<string, unknown> | null
+  fase2: Record<string, unknown> | null,
+  fase3: Record<string, unknown> | null
 ): AnalisisGuion {
   // Empezar con Fase 1 como base
   const merged: Record<string, unknown> = { ...fase1 };
 
-  if (!fase2) {
-    // Si Fase 2 falló, devolver solo Fase 1
-    return merged as unknown as AnalisisGuion;
-  }
+  if (fase2) {
+    // Añadir campos de Fase 2 (narrativo puro)
+    merged.analisis_narrativo = fase2.analisis_narrativo;
+    merged.relaciones_personajes = fase2.relaciones_personajes;
 
-  // Añadir campos de Fase 2
-  merged.analisis_narrativo = fase2.analisis_narrativo;
-  merged.analisis_dafo = fase2.analisis_dafo;
-  merged.relaciones_personajes = fase2.relaciones_personajes;
-  merged.perfiles_audiencia_sugeridos = fase2.perfiles_audiencia_sugeridos;
-  merged.potencial_mercado = fase2.potencial_mercado;
-  merged.viabilidad = fase2.viabilidad;
+    // Merge profundidad de personajes de Fase 2 en personajes de Fase 1
+    const personajesProfundidad = fase2.personajes_profundidad as Array<Record<string, unknown>> | undefined;
+    const personajes = merged.personajes as Array<Record<string, unknown>> | undefined;
 
-  // Merge profundidad de personajes de Fase 2 en personajes de Fase 1
-  const personajesProfundidad = fase2.personajes_profundidad as Array<Record<string, unknown>> | undefined;
-  const personajes = merged.personajes as Array<Record<string, unknown>> | undefined;
-
-  if (personajesProfundidad && personajes) {
-    for (const profundidad of personajesProfundidad) {
-      const nombreProf = (profundidad.nombre as string || '').toUpperCase().trim();
-      const personaje = personajes.find(
-        p => (p.nombre as string || '').toUpperCase().trim() === nombreProf
-      );
-      if (personaje) {
-        // Sobrescribir/añadir campos de profundidad narrativa
-        if (profundidad.arco_dramatico) personaje.arco_dramatico = profundidad.arco_dramatico;
-        if (profundidad.motivaciones) personaje.motivaciones = profundidad.motivaciones;
-        if (profundidad.conflictos) personaje.conflictos = profundidad.conflictos;
-        if (profundidad.necesidad_dramatica) personaje.necesidad_dramatica = profundidad.necesidad_dramatica;
-        if (profundidad.flaw_principal) personaje.flaw_principal = profundidad.flaw_principal;
-        if (profundidad.funcion_narrativa) personaje.funcion_narrativa = profundidad.funcion_narrativa;
-        if (profundidad.ghost) personaje.ghost = profundidad.ghost;
-        if (profundidad.stakes) personaje.stakes = profundidad.stakes;
-        if (profundidad.transformacion) personaje.transformacion = profundidad.transformacion;
+    if (personajesProfundidad && personajes) {
+      for (const profundidad of personajesProfundidad) {
+        const nombreProf = (profundidad.nombre as string || '').toUpperCase().trim();
+        const personaje = personajes.find(
+          p => (p.nombre as string || '').toUpperCase().trim() === nombreProf
+        );
+        if (personaje) {
+          if (profundidad.arco_dramatico) personaje.arco_dramatico = profundidad.arco_dramatico;
+          if (profundidad.motivaciones) personaje.motivaciones = profundidad.motivaciones;
+          if (profundidad.conflictos) personaje.conflictos = profundidad.conflictos;
+          if (profundidad.necesidad_dramatica) personaje.necesidad_dramatica = profundidad.necesidad_dramatica;
+          if (profundidad.flaw_principal) personaje.flaw_principal = profundidad.flaw_principal;
+          if (profundidad.funcion_narrativa) personaje.funcion_narrativa = profundidad.funcion_narrativa;
+          if (profundidad.ghost) personaje.ghost = profundidad.ghost;
+          if (profundidad.stakes) personaje.stakes = profundidad.stakes;
+          if (profundidad.transformacion) personaje.transformacion = profundidad.transformacion;
+        }
       }
     }
+  }
+
+  if (fase3) {
+    // Añadir campos de Fase 3 (mercado/estrategia)
+    merged.analisis_dafo = fase3.analisis_dafo;
+    merged.perfiles_audiencia_sugeridos = fase3.perfiles_audiencia_sugeridos;
+    merged.potencial_mercado = fase3.potencial_mercado;
+    merged.recomendaciones_estrategicas = fase3.recomendaciones_estrategicas;
+    // NO merged.viabilidad — reemplazado por recomendaciones_estrategicas
   }
 
   return merged as unknown as AnalisisGuion;
@@ -299,8 +396,9 @@ function mergeAnalisis(
  */
 async function llamarVercelAPI(
   texto: string,
-  fase: 1 | 2,
+  fase: 1 | 2 | 3,
   contextoFase1: string | null,
+  contextoFase2: string | null,
   onStreamProgress?: (chars: number) => void
 ): Promise<AnalisisResponse> {
   const abortController = new AbortController();
@@ -310,7 +408,7 @@ async function llamarVercelAPI(
     const response = await fetch('/api/analizar-guion-claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto, fase, contextoFase1 }),
+      body: JSON.stringify({ texto, fase, contextoFase1, ...(contextoFase2 && { contextoFase2 }) }),
       signal: abortController.signal,
     });
 
@@ -489,8 +587,9 @@ async function llamarVercelAPI(
 
 async function ejecutarFase(
   texto: string,
-  fase: 1 | 2,
+  fase: 1 | 2 | 3,
   contextoFase1: string | null,
+  contextoFase2: string | null,
   validar: (data: Record<string, unknown>) => boolean,
   faseLabel: string,
   onProgress?: (mensaje: string, intento: number) => void,
@@ -506,7 +605,7 @@ async function ejecutarFase(
         fase
       );
 
-      const response = await llamarVercelAPI(texto, fase, contextoFase1, (chars) => {
+      const response = await llamarVercelAPI(texto, fase, contextoFase1, contextoFase2, (chars) => {
         const kChars = Math.round(chars / 1000);
         onProgress?.(
           `${faseLabel}: Analizando... (${kChars}K caracteres recibidos)`,
@@ -602,21 +701,23 @@ async function ejecutarFase(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FUNCIÓN PRINCIPAL — ANÁLISIS EN 2 FASES
+// FUNCIÓN PRINCIPAL — ANÁLISIS EN 3 FASES
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Analiza un guión cinematográfico usando Claude en 2 fases:
+ * Analiza un guión cinematográfico usando Claude en 3 fases:
  *
  * Fase 1: Extracción de datos de producción (secuencias, personajes, localizaciones)
- * Fase 2: Análisis narrativo profundo (conflictos, DAFO, mercado, viabilidad)
+ * Fase 2: Análisis narrativo puro (conflictos, estructura, personajes, temática)
+ * Fase 3: Mercado y estrategia (DAFO, audiencias, distribución, recomendaciones)
  *
- * Fase 2 recibe el contexto de Fase 1 para hacer "análisis sobre análisis".
- * Si Fase 2 falla, se devuelven los datos de Fase 1 (producción) como fallback.
+ * Cada fase recibe el contexto resumido de las anteriores.
+ * Si Fase 2 falla → devuelve Fase 1 solamente.
+ * Si Fase 3 falla → devuelve Fase 1 + 2 (sin mercado).
  *
  * @param texto - Texto completo del guión
  * @param onProgress - Callback opcional para reportar progreso
- * @returns Análisis estructurado del guión (Fase 1 + Fase 2 merged)
+ * @returns Análisis estructurado del guión (Fase 1 + 2 + 3 merged)
  * @throws AnalisisError si Fase 1 falla
  */
 export async function analizarGuion(
@@ -638,7 +739,7 @@ export async function analizarGuion(
   }
 
   const paginasEstimadas = Math.round(texto.length / 600);
-  console.log(`Analizando guión de ~${paginasEstimadas} páginas en 2 fases`);
+  console.log(`Analizando guión de ~${paginasEstimadas} páginas en 3 fases`);
 
   // ═══════════════════════════════════════════════
   // FASE 1 — Extracción de Producción
@@ -647,8 +748,9 @@ export async function analizarGuion(
     texto,
     1,
     null,
+    null,
     validarFase1,
-    'Fase 1/2 — Producción',
+    'Fase 1/3 — Producción',
     onProgress
   );
 
@@ -665,7 +767,7 @@ export async function analizarGuion(
   console.log(`Contexto Fase 1 generado: ${contextoFase1.length} caracteres`);
 
   // ═══════════════════════════════════════════════
-  // FASE 2 — Análisis Narrativo Profundo
+  // FASE 2 — Análisis Narrativo Puro
   // ═══════════════════════════════════════════════
   let fase2Data: Record<string, unknown> | null = null;
 
@@ -674,31 +776,65 @@ export async function analizarGuion(
       texto,
       2,
       contextoFase1,
+      null,
       validarFase2,
-      'Fase 2/2 — Narrativo',
+      'Fase 2/3 — Narrativo',
       onProgress
     );
 
     console.log('Fase 2 completada:', {
       errores_narrativos: ((fase2Data.analisis_narrativo as Record<string, unknown>)?.errores_narrativos as unknown[])?.length,
       personajes_profundidad: (fase2Data.personajes_profundidad as unknown[])?.length,
-      dafo: fase2Data.analisis_dafo ? 'Sí' : 'No',
+      relaciones: (fase2Data.relaciones_personajes as unknown[])?.length,
     });
   } catch (fase2Error) {
-    // Si Fase 2 falla, devolver Fase 1 como fallback
     console.error('Fase 2 falló, devolviendo solo datos de producción:', fase2Error);
     onProgress?.(
-      'Fase 2 falló — guardando datos de producción disponibles. El análisis narrativo se puede reintentar.',
+      'Fase 2 falló — guardando datos de producción disponibles.',
       2
     );
   }
 
   // ═══════════════════════════════════════════════
-  // MERGE — Combinar ambas fases
+  // FASE 3 — Mercado y Estrategia (solo si Fase 2 OK)
   // ═══════════════════════════════════════════════
-  const resultado = mergeAnalisis(fase1Data, fase2Data);
+  let fase3Data: Record<string, unknown> | null = null;
 
-  onProgress?.('Análisis completado con éxito', 2);
+  if (fase2Data) {
+    const contextoFase2Str = buildContextoFase2(fase2Data);
+    console.log(`Contexto Fase 2 generado: ${contextoFase2Str.length} caracteres`);
+
+    try {
+      fase3Data = await ejecutarFase(
+        texto,
+        3,
+        contextoFase1,
+        contextoFase2Str,
+        validarFase3,
+        'Fase 3/3 — Mercado',
+        onProgress
+      );
+
+      console.log('Fase 3 completada:', {
+        dafo: fase3Data.analisis_dafo ? 'Sí' : 'No',
+        audiencias: (fase3Data.perfiles_audiencia_sugeridos as unknown[])?.length,
+        recomendaciones: fase3Data.recomendaciones_estrategicas ? 'Sí' : 'No',
+      });
+    } catch (fase3Error) {
+      console.error('Fase 3 falló, devolviendo Fase 1 + 2 sin mercado:', fase3Error);
+      onProgress?.(
+        'Fase 3 falló — guardando análisis narrativo sin datos de mercado.',
+        3
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  // MERGE — Combinar las 3 fases
+  // ═══════════════════════════════════════════════
+  const resultado = mergeAnalisis(fase1Data, fase2Data, fase3Data);
+
+  onProgress?.('Análisis completado con éxito', 3);
   return resultado;
 }
 

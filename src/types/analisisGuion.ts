@@ -142,6 +142,7 @@ export interface AnalisisDAFO {
   score_narrativo: number; // 0-100
   score_comercial: number; // 0-100
   score_festival: number;  // 0-100
+  justificacion_scores?: string; // POR QUÉ estos números
   recomendacion_general: string;
 }
 
@@ -150,11 +151,30 @@ export interface ElementoDAFO {
   descripcion: string;
   impacto: 'alto' | 'medio' | 'bajo';
   categoria: 'narrativa' | 'produccion' | 'mercado' | 'audiencia';
+  evidencia?: string; // cita específica del guión o del análisis narrativo
 }
 
 // ═══════════════════════════════════════════════════════════════
 // MAPA DE RELACIONES ENTRE PERSONAJES
 // ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// RECOMENDACIONES ESTRATÉGICAS (Fase 3 — reemplaza viabilidad)
+// ═══════════════════════════════════════════════════════════════
+
+export interface SugerenciaDesarrollo {
+  area: string;
+  prioridad: 'alta' | 'media' | 'baja';
+  descripcion: string;
+  impacto_esperado: string;
+}
+
+export interface RecomendacionesEstrategicas {
+  sugerencias_desarrollo: SugerenciaDesarrollo[];
+  factores_positivos: string[];
+  factores_negativos: string[];
+  proximos_pasos: string[];
+}
 
 export interface RelacionPersonaje {
   personaje_a: string;
@@ -320,6 +340,8 @@ export interface AnalisisGuion {
   relaciones_personajes?: RelacionPersonaje[];
   perfiles_audiencia_sugeridos?: PerfilAudienciaSugerido[];
   potencial_mercado?: PotencialMercado;
+  // NUEVO — Fase 3: recomendaciones estratégicas (reemplaza viabilidad)
+  recomendaciones_estrategicas?: RecomendacionesEstrategicas;
 }
 
 // Función helper para calcular score de complejidad

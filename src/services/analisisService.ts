@@ -62,38 +62,79 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Intenta reparar JSON truncado cerrando llaves y corchetes abiertos.
+ * Repara JSON truncado usando un STACK para cerrar contenedores en orden correcto.
+ * Usa truncamiento progresivo: recorta caracteres del final hasta encontrar
+ * un punto de corte que produce JSON válido al cerrar los contenedores.
  */
 function repairTruncatedJSON(text: string): string {
-  let openBraces = 0;
-  let openBrackets = 0;
-  let inString = false;
-  let escape = false;
+  // Si ya es válido, devolver tal cual
+  try { JSON.parse(text); return text; } catch {}
 
-  for (const ch of text) {
-    if (escape) { escape = false; continue; }
-    if (ch === '\\' && inString) { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '{') openBraces++;
-    else if (ch === '}') openBraces--;
-    else if (ch === '[') openBrackets++;
-    else if (ch === ']') openBrackets--;
+  // Truncamiento progresivo — probar cortando 0..maxCut caracteres del final
+  const maxCut = Math.min(500, Math.floor(text.length * 0.02));
+
+  for (let cut = 0; cut <= maxCut; cut++) {
+    let attempt = cut === 0 ? text : text.substring(0, text.length - cut);
+    attempt = attempt.trimEnd();
+
+    // Eliminar tokens parciales al final (coma, dos puntos, barra invertida)
+    while (attempt.endsWith(',') || attempt.endsWith(':') || attempt.endsWith('\\')) {
+      attempt = attempt.slice(0, -1).trimEnd();
+    }
+
+    // Rastrear strings y contenedores con STACK (orden correcto de cierre)
+    let inStr = false;
+    let esc = false;
+    const stack: string[] = [];
+
+    for (const ch of attempt) {
+      if (esc) { esc = false; continue; }
+      if (ch === '\\' && inStr) { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === '{') stack.push('}');
+      else if (ch === '[') stack.push(']');
+      else if (ch === '}' || ch === ']') {
+        if (stack.length > 0 && stack[stack.length - 1] === ch) {
+          stack.pop();
+        }
+      }
+    }
+
+    // Cerrar string abierto
+    if (inStr) {
+      if (attempt.endsWith('\\')) attempt = attempt.slice(0, -1);
+      attempt += '"';
+    }
+
+    // Limpiar coma final después de cerrar string
+    const afterStr = attempt.trimEnd();
+    if (afterStr.endsWith(',')) {
+      attempt = afterStr.slice(0, -1);
+    }
+
+    // Cerrar contenedores en orden LIFO (el stack ya tiene el orden correcto)
+    let closed = attempt;
+    const stackCopy = [...stack];
+    while (stackCopy.length > 0) {
+      closed += stackCopy.pop();
+    }
+
+    try {
+      JSON.parse(closed);
+      return closed;
+    } catch {
+      // Continuar con más truncamiento
+    }
   }
 
-  if (openBraces === 0 && openBrackets === 0) return text;
-
-  let repaired = text.trimEnd();
-  if (repaired.endsWith(',') || repaired.endsWith(':')) {
-    repaired = repaired.slice(0, -1);
+  // Último recurso: extraer el mayor bloque JSON con regex
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try { JSON.parse(jsonMatch[0]); return jsonMatch[0]; } catch {}
   }
-  if (inString) {
-    repaired += '"';
-  }
-  while (openBrackets > 0) { repaired += ']'; openBrackets--; }
-  while (openBraces > 0) { repaired += '}'; openBraces--; }
 
-  return repaired;
+  return text;
 }
 
 function limpiarYParsearJSON(text: string, wasTruncated: boolean = false): Record<string, unknown> {
@@ -110,36 +151,31 @@ function limpiarYParsearJSON(text: string, wasTruncated: boolean = false): Recor
   }
   jsonStr = jsonStr.trim();
 
-  // Si fue truncado, intentar reparar antes de parsear
-  if (wasTruncated) {
-    console.warn('Intentando reparar JSON truncado por max_tokens');
-    jsonStr = repairTruncatedJSON(jsonStr);
-  }
-
+  // Intento 1: parsear directamente
   try {
     return JSON.parse(jsonStr);
-  } catch {
-    // Si no fue truncado antes, intentar reparar ahora como fallback
-    if (!wasTruncated) {
-      try {
-        const repaired = repairTruncatedJSON(jsonStr);
-        return JSON.parse(repaired);
-      } catch {
-        // continuar al siguiente fallback
-      }
-    }
-    // Fallback: buscar JSON con regex
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch {
-        const repaired = repairTruncatedJSON(jsonMatch[0]);
-        return JSON.parse(repaired);
-      }
-    }
-    throw new Error('No se encontró JSON válido en la respuesta');
+  } catch {}
+
+  // Intento 2: reparar y parsear (siempre, no solo cuando truncado)
+  try {
+    const repaired = repairTruncatedJSON(jsonStr);
+    console.log(`JSON reparado: ${jsonStr.length} → ${repaired.length} chars (${wasTruncated ? 'truncado por max_tokens' : 'formato irregular'})`);
+    return JSON.parse(repaired);
+  } catch {}
+
+  // Intento 3: extraer bloque JSON con regex, luego reparar
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {}
+    try {
+      const repaired = repairTruncatedJSON(jsonMatch[0]);
+      return JSON.parse(repaired);
+    } catch {}
   }
+
+  throw new Error('No se encontró JSON válido en la respuesta');
 }
 
 // ═══════════════════════════════════════════════════════════════

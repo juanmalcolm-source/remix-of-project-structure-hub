@@ -31,6 +31,7 @@ LEY DE OCTAVOS: 1 página = 8 octavos ≈ 1 minuto. Calcula paginas_octavos por 
 Complejidad: <10 puntos=Baja, 10-25=Media, >25=Alta (factores: personajes, acción, FX, noche, exterior, etc.)
 
 Tu tarea: Extraer TODOS los datos de producción del guión de forma exhaustiva.
+Sé directo y eficiente en las descripciones. Evita repeticiones y relleno.
 
 Devuelve SOLO JSON válido (sin markdown) con esta estructura exacta:
 
@@ -125,6 +126,7 @@ IMPORTANTE — SÉ EXHAUSTIVO:
 - Arcos de personaje con matices psicológicos profundos.
 - DAFO con análisis real de mercado basado en el panorama actual, no genérico.
 - Cada campo debe aportar valor real al guionista/productor.
+- Sé directo y eficiente. Evita repeticiones y relleno innecesario.
 
 Se te proporciona un CONTEXTO DE PRODUCCIÓN extraído previamente. Úsalo para hacer referencias cruzadas y enriquecer tu análisis.
 
@@ -321,7 +323,7 @@ ${textoFinal}
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 32000,
+          max_tokens: fase === 1 ? 20000 : 16000,
           temperature: 0.3,
           stream: true,
           system: systemPrompt,
